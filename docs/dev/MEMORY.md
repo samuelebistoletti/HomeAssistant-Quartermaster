@@ -11,6 +11,7 @@ Shared state between development sessions and machines. Keep it short and factua
 - Done: 0.d skeleton of both repos (local: tests, ruff, mypy, hassfest green; config flow verified on the dev instance).
 - Done: CI green on GitHub for both repos (no tags or releases).
 - Done: 0.e practical-checks kit (docs/phase0/CHECKLIST.md, examples/phase0/, scripts/phase0/); Alexa HA-side behaviour verified by simulation.
+- Done (2026-11-08): strategy shows in the New dashboard dialog and renders in it/en at phone and desktop width (dev, headless Chrome). WARP on the author's PC was the TLS inspection; disconnected, outbound HTTPS from the dev container works.
 - Next: run the practical checks with the author (Telegram, Alexa and iOS through a quick tunnel on the second machine; camera on the real instance; Marketplace and Cloudflare on a network without TLS inspection).
 
 ## Decisions from the author (2026-11-07)
@@ -32,4 +33,4 @@ Shared state between development sessions and machines. Keep it short and factua
 
 ## Open questions for the author
 
-- None.
+- Marketplace check needs the author's GitHub device sign-in on the dev instance; and if the Marketplace requires a release, whether a test pre-release is allowed.

@@ -106,7 +106,8 @@ Prerequisites: a long-lived token of the real instance, in the environment only.
 
 ## 5. Marketplace (dev instance, network without TLS inspection)
 
-1. Settings → Marketplace → custom repositories: add `samuelebistoletti/HomeAssistant-Quartermaster-Dashboard` as **Dashboard**.
+0. Done on the dev instance (2026-11-08) through `extra_module_url`: the strategy is listed in the dialog and renders in Italian and English (TECHNICAL_NOTES).
+1. Link GitHub with the device sign-in (author). Then Settings → Marketplace → Add from link: `samuelebistoletti/HomeAssistant-Quartermaster-Dashboard`. First note whether a repository without releases is offered at all.
 2. Install it.
    - [ ] The resource `/local/community/HomeAssistant-Quartermaster-Dashboard/quartermaster-dashboard.js?v=...` is listed in Resources.
 3. Settings → Dashboards → Add dashboard.

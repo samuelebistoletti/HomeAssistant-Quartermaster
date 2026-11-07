@@ -138,3 +138,18 @@ Procedure and probes: `docs/phase0/CHECKLIST.md`. Results are recorded here as t
   - Security: tokens are redacted in diagnostics, there is no dynamic code, only Cloudflare hosts are contacted, and TLS verification is on. On a JSON parse failure the full model response is logged at ERROR level.
 - **Consequence:** the author's planned provider route does not work on 2026.11 without a patch.
 - **Author decision (2026-11-08):** wait for the upstream fix. Open PRs #4 and #5 add `voluptuous-openapi` to the requirements instead of switching to `probatio.to_openapi`. After the merge, re-check that tool and `structure` schemas (probatio objects) convert correctly, then run checklist section 6.
+
+### Dashboard strategy in the "New dashboard" dialog (dev instance, 2026-11-08)
+
+The bundle was loaded with `frontend.extra_module_url` (dev setup) and checked in headless Chrome:
+- `window.customStrategies` holds the Quartermaster entry, and `ll-strategy-dashboard-quartermaster` is defined.
+- The "Add dashboard" dialog lists **Quartermaster** under "Plance della comunità" (community dashboards) with the Italian description.
+- A dashboard with `strategy: {type: custom:quartermaster}` renders the placeholder view in the user language: Italian, and English after switching the UI language. The sections view works at phone width (390 px) and desktop width.
+- After choosing the strategy, the dialog asks for a title and URL that are not prefilled. The dashboard header shows the strategy's `title`.
+- The "integration missing" message depends on `hass.config.components`, which lists loaded integrations, so it appears only after a restart once the integration is removed.
+
+### Marketplace (not yet run)
+
+Two documented requirements block the Marketplace part of checklist section 5. It waits for the author:
+- Adding a custom repository needs a GitHub account linked with the device sign-in method.
+- "By default, the Marketplace offers stable releases only". The repositories have no releases by design, and the docs do not say what happens with a repository without releases. Check this first once signed in. If a release is required, the author decides whether a test pre-release is allowed.
