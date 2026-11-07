@@ -6,8 +6,8 @@ Shared state between development sessions and machines. Keep it short and factua
 
 - Phase: 0 (checks and skeleton), in progress.
 - Done: spec read; OctopusEnergyIT conventions reviewed; spec sanitized (Appendix A moved to `docs/ENVIRONMENT.local.md`, gitignored, local to the author's main machine only).
-- In progress: 0.a official-docs review against spec sections 12/Phase 0.1 and 17; 0.b domain availability (done: conflict found, domain kept).
-- Next: 0.c minimum HA version; 0.d skeleton of both repos; 0.e practical-checks kit.
+- Done: 0.a docs review and 0.b domain check (results in TECHNICAL_NOTES.md, Phase 0 section).
+- Next: author decisions on TECHNICAL_NOTES rows marked R (min HA 2026.11.0, button notifications, legacy HACS section); then 0.d skeleton of both repos; 0.e practical-checks kit.
 
 ## Decisions from the author (2026-11-07)
 
