@@ -7,7 +7,8 @@ Shared state between development sessions and machines. Keep it short and factua
 - Phase: 0 (checks and skeleton), in progress.
 - Done: spec read; OctopusEnergyIT conventions reviewed; spec sanitized (Appendix A moved to `docs/ENVIRONMENT.local.md`, gitignored, local to the author's main machine only).
 - Done: 0.a docs review and 0.b domain check (results in TECHNICAL_NOTES.md, Phase 0 section).
-- Next: author decisions on TECHNICAL_NOTES rows marked R (min HA 2026.11.0, button notifications, legacy HACS section); then 0.d skeleton of both repos; 0.e practical-checks kit.
+- Done: 0.c (2026.11.0).
+- Next: 0.d skeleton of both repos; 0.e practical-checks kit.
 
 ## Decisions from the author (2026-11-07)
 
@@ -18,6 +19,9 @@ Shared state between development sessions and machines. Keep it short and factua
 - Branching: work directly on `main` for now (overrides the dedicated-branch/PR rule until the author says otherwise). Still no version bump, no tags, no releases.
 - Domain stays `quartermaster` (confirmed 2026-11-07) despite `quartermaster-app/ha-quartermaster` using the same domain (released 2026-10-08, not in hacs/default or brands at that date). Document the conflict in the README and TECHNICAL_NOTES.
 - Pushing to `main` is allowed.
+- Minimum HA 2026.11.0 (Python >= 3.14.2); no legacy-HACS install section.
+- Action buttons only on Telegram and in the dashboard; other notify entities get plain text.
+- Everything user-facing is multilingual, Alexa included (models and intent_script per language).
 - Release tags use the `v` prefix (`v1.0.0`), as in OctopusEnergyIT.
 - Work may continue from two different machines: keep this file and `TECHNICAL_NOTES.md` up to date and pushed.
 
