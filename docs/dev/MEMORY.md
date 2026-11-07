@@ -26,9 +26,10 @@ Shared state between development sessions and machines. Keep it short and factua
 - Action buttons only on Telegram and in the dashboard; other notify entities get plain text.
 - Everything user-facing is multilingual, Alexa included (models and intent_script per language).
 - Cloudflare AI Gateway community integration: wait for the upstream fix (open PRs michaeldwan/ha-cloudflare-ai-gateway#4 and #5 add voluptuous-openapi as a requirement; whether it handles probatio schemas must be re-checked after the merge). Cloudflare checks wait for it.
+- Alexa multilingual: one multi-locale skill, one query intent per locale passing `language`, launch reply in the HA language (Amazon best practice; HA drops the locale).
 - Release tags use the `v` prefix (`v1.0.0`), as in OctopusEnergyIT.
 - Work may continue from two different machines: keep this file and `TECHNICAL_NOTES.md` up to date and pushed.
 
 ## Open questions for the author
 
-- Alexa launch language: HA drops the request locale; one fixed launch language per skill, or one skill per language?
+- None.

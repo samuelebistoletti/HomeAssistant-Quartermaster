@@ -119,7 +119,12 @@ Procedure and probes: `docs/phase0/CHECKLIST.md`. Results are recorded here as t
 
 `homeassistant/components/alexa/intent.py` (2026.11.0) passes only slot values to `intent.async_handle`: the request `locale` is dropped, so intent_script cannot know the user's language. Probe and proposed design:
 - One intent per locale (`QuartermasterQueryIT`, `QuartermasterQueryEN`), each `intent_script` passing `language` to `quartermaster.ask`.
-- The LaunchRequest is keyed by the skill ID only, so a multi-locale skill answers the launch in one fixed language. Either accept that, or use one skill per language. **Decision pending (author).**
+- The LaunchRequest is keyed by the skill ID only, so a multi-locale skill answers the launch in one fixed language.
+- **Author decision (2026-11-08), following Amazon's "Develop skills in multiple languages":**
+  - One skill with several locales and one backend.
+  - One query intent per locale, passing `language` to `quartermaster.ask`.
+  - The launch reply ("Dimmi" / "Tell me") follows the Home Assistant language. The next utterance arrives through the intent of the device language.
+  - Not one skill per language.
 
 ### Cloudflare AI Gateway community integration (code review, v2026.04.0)
 
