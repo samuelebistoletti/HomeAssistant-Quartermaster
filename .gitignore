@@ -1,5 +1,32 @@
-# macOS
+# artifacts
+__pycache__
+.pytest*
+*.egg-info
+*/build/*
+*/dist/*
+*.zip
+
+# CI generated files
+bandit-report.json
+release_body.md
+
+# misc
+.coverage
+coverage.xml
+.mypy_cache
+.ruff_cache
+.vscode
+.venv
+.env
 .DS_Store
+
+# Home Assistant development configuration (config/.dev holds the dev token)
+config/*
+!config/configuration.yaml
 
 # Local, personal environment notes (never commit)
 *.local.md
+
+# Claude Code local files (shared instructions live in CLAUDE.md)
+.claude/
+CLAUDE.local.md

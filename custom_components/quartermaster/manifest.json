@@ -1,0 +1,19 @@
+{
+  "domain": "quartermaster",
+  "name": "Quartermaster",
+  "categories": [
+    "productivity_information.shopping_groceries",
+    "ai_voice"
+  ],
+  "codeowners": [
+    "@samuelebistoletti"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/samuelebistoletti/HomeAssistant-Quartermaster",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/samuelebistoletti/HomeAssistant-Quartermaster/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.0.0"
+}

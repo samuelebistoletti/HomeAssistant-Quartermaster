@@ -1,0 +1,66 @@
+name: Bug report
+description: Report a problem with Quartermaster
+labels: [bug]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before opening an issue, update to the latest release and search the [existing issues](https://github.com/samuelebistoletti/HomeAssistant-Quartermaster/issues?q=is%3Aissue).
+
+        **Remove personal data** (names, chat IDs, addresses, photos of your home) from logs and screenshots.
+
+  - type: textarea
+    validations:
+      required: true
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of the problem.
+
+  - type: textarea
+    validations:
+      required: true
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+
+  - type: dropdown
+    validations:
+      required: true
+    attributes:
+      label: Channel
+      description: Where did it happen?
+      multiple: true
+      options:
+        - Assist
+        - Alexa
+        - Telegram
+        - Dashboard
+        - Camera
+        - Actions / automations
+        - Other
+
+  - type: input
+    validations:
+      required: true
+    attributes:
+      label: AI provider and models
+      description: For example "OpenAI gpt-x for images, Ollama for the agent".
+
+  - type: textarea
+    validations:
+      required: true
+    attributes:
+      label: Logs
+      render: text
+      description: Relevant log lines with `custom_components.quartermaster` at debug level.
+
+  - type: input
+    validations:
+      required: true
+    attributes:
+      label: Versions
+      description: Quartermaster, Quartermaster Dashboard and Home Assistant versions.

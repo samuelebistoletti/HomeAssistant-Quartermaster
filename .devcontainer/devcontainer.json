@@ -1,0 +1,48 @@
+{
+    "name": "Quartermaster (HA dev)",
+    "dockerComposeFile": [
+        "../docker-compose.yml",
+        "compose.dev.yml"
+    ],
+    "service": "dev",
+    "runServices": [
+        "dev",
+        "homeassistant",
+        "ha-mcp"
+    ],
+    "workspaceFolder": "/workspaces/HomeAssistant-Quartermaster",
+    "shutdownAction": "stopCompose",
+    "postCreateCommand": "scripts/setup",
+    "postStartCommand": "scripts/dev-bootstrap",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "charliermarsh.ruff",
+                "github.vscode-pull-request-github",
+                "ms-python.mypy-type-checker",
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ryanluker.vscode-coverage-gutters"
+            ],
+            "settings": {
+                "files.eol": "\n",
+                "editor.tabSize": 4,
+                "editor.formatOnPaste": true,
+                "editor.formatOnSave": true,
+                "editor.formatOnType": false,
+                "files.trimTrailingWhitespace": true,
+                "python.analysis.typeCheckingMode": "basic",
+                "python.analysis.autoImportCompletions": true,
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.testing.pytestEnabled": true,
+                "python.testing.pytestArgs": [
+                    "tests"
+                ],
+                "[python]": {
+                    "editor.defaultFormatter": "charliermarsh.ruff"
+                }
+            }
+        }
+    },
+    "remoteUser": "vscode"
+}

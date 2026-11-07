@@ -1,0 +1,10 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Quartermaster",
+        "description": "Quartermaster keeps track of your pantry, fridge, freezer and shelves and builds your shopping list. Submit to add it."
+      }
+    }
+  }
+}

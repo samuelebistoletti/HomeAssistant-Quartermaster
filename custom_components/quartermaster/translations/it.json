@@ -1,0 +1,10 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configura Quartermaster",
+        "description": "Quartermaster tiene traccia di dispensa, frigorifero, freezer e scaffali e compila la tua lista della spesa. Conferma per aggiungerlo."
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+# Development configuration for the local Home Assistant container.
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# Dashboard bundle from ../HomeAssistant-Quartermaster-Dashboard/dist
+# (mounted by docker-compose.yml). The Marketplace registers it as a
+# dashboard resource in production; here it is loaded as an extra module.
+frontend:
+  extra_module_url:
+    - /local/quartermaster-dashboard/quartermaster-dashboard.js
+
+logger:
+  default: warning
+  logs:
+    custom_components.quartermaster: debug

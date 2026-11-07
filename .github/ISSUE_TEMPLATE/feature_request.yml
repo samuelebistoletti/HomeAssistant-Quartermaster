@@ -1,0 +1,16 @@
+name: Feature request
+description: Suggest an idea for Quartermaster
+labels: [enhancement]
+
+body:
+  - type: textarea
+    validations:
+      required: true
+    attributes:
+      label: What problem would it solve?
+
+  - type: textarea
+    validations:
+      required: true
+    attributes:
+      label: Proposed solution

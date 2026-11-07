@@ -1,0 +1,61 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Install ruff
+        run: pip install "$(grep '^ruff==' requirements.txt)"
+
+      - name: Check formatting
+        run: ruff format --check .
+
+      - name: Lint
+        run: ruff check .
+
+  test:
+    name: test (${{ matrix.homeassistant }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        # stable: the pytest-homeassistant release pinned in requirements_test.txt
+        # beta: the newest pre-release, which pins the matching Home Assistant beta
+        homeassistant: [stable, beta]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Install test dependencies
+        run: pip install -r requirements_test.txt
+
+      - name: Upgrade to the Home Assistant beta
+        if: matrix.homeassistant == 'beta'
+        run: pip install --pre --upgrade pytest-homeassistant
+
+      - name: Type check
+        run: mypy
+
+      - name: Run tests
+        run: python -m pytest -v

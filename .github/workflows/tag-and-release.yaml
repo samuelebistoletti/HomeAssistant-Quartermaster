@@ -1,0 +1,164 @@
+name: Tag and Release on manifest.json version change
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'custom_components/quartermaster/manifest.json'
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      release: ${{ steps.version.outputs.release }}
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Compare the manifest version with the previous commit
+        id: version
+        run: |
+          MANIFEST=custom_components/quartermaster/manifest.json
+          VERSION=$(jq -r '.version' "$MANIFEST")
+          PREVIOUS=$(git show "${{ github.event.before }}:$MANIFEST" 2>/dev/null | jq -r '.version' || true)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # Release only when the version actually changed. 0.0.0 is the
+          # pre-release placeholder and is never published.
+          if [[ "$VERSION" != "$PREVIOUS" && "$VERSION" != "0.0.0" ]]; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  test:
+    needs: check-version
+    if: needs.check-version.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Install test dependencies
+        run: pip install -r requirements_test.txt
+
+      - name: Lint and type check
+        run: |
+          ruff format --check .
+          ruff check .
+          mypy
+
+      - name: Run tests
+        run: python -m pytest -v
+
+  security:
+    needs: check-version
+    if: needs.check-version.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Install security tools
+        run: pip install bandit pip-audit
+
+      - name: SAST (bandit)
+        run: |
+          bandit -r custom_components/quartermaster/ \
+            --severity-level medium \
+            --confidence-level medium
+
+      - name: Dependency audit (pip-audit)
+        run: |
+          pip-audit -r requirements.txt --format=columns
+          pip-audit -r requirements_test.txt --format=columns
+
+  tag-and-release:
+    runs-on: ubuntu-latest
+    needs: [check-version, test, security]
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.check-version.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Detect pre-release
+        run: |
+          # 1.1.0b1, 1.1.0rc1 (PEP 440 pre-releases) are published as GitHub
+          # pre-releases: the Marketplace offers them only to users who enable betas.
+          if [[ "$VERSION" =~ (a|b|rc)[0-9]+$ ]]; then
+            echo "PRERELEASE=true" >> $GITHUB_ENV
+          else
+            echo "PRERELEASE=false" >> $GITHUB_ENV
+          fi
+
+      - name: Check if tag exists
+        run: |
+          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+            echo "EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "EXISTS=false" >> $GITHUB_ENV
+          fi
+
+      - name: Create tag and push
+        if: env.EXISTS == 'false'
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git tag "v${VERSION}"
+          git push origin "v${VERSION}"
+
+      - name: Prepare release notes from changelog
+        if: env.EXISTS == 'false'
+        run: |
+          python <<'PY'
+          import os
+          import pathlib
+          import re
+          import sys
+
+          version = os.environ["VERSION"]
+          text = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          pattern = rf"^## \[{re.escape(version)}\].*?(?=^## \[|\Z)"
+          match = re.search(pattern, text, flags=re.MULTILINE | re.DOTALL)
+          if not match:
+              sys.exit(f"Release notes for version {version} not found in CHANGELOG.md")
+          pathlib.Path("release_body.md").write_text(match.group(0).strip(), encoding="utf-8")
+          PY
+
+      - name: Build release ZIP
+        if: env.EXISTS == 'false'
+        run: |
+          cd "${{ github.workspace }}/custom_components/quartermaster"
+          zip quartermaster.zip -r ./ -x '__pycache__/*' '*/__pycache__/*'
+
+      - name: Create GitHub Release
+        if: env.EXISTS == 'false'
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3  # v3.0.4
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: v${{ env.VERSION }}
+          body_path: release_body.md
+          prerelease: ${{ env.PRERELEASE }}
+          make_latest: ${{ env.PRERELEASE == 'true' && 'false' || 'true' }}
+          files: ${{ github.workspace }}/custom_components/quartermaster/quartermaster.zip

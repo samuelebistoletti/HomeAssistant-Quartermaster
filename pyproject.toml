@@ -1,0 +1,25 @@
+# Tool configuration only: the integration is not a Python package.
+# Ruff is configured in .ruff.toml.
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+# Let Home Assistant install its httpx alias before respx is imported.
+addopts = "-p no:respx --cov=custom_components.quartermaster --cov-report=term-missing"
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+# The spec requires 90 % on core/ and storage/; until they exist the gate
+# applies to the whole integration.
+fail_under = 90
+skip_empty = true
+
+[tool.mypy]
+python_version = "3.14"
+files = ["custom_components/quartermaster"]
+strict = true
+warn_unreachable = true

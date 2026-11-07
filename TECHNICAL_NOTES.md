@@ -78,3 +78,21 @@ Everything user-facing is multilingual, Alexa included: translations for the int
 - `quartermaster` is absent from the hacs/default catalog (integration and plugin lists, HACS data by domain), from home-assistant/brands and from core.
 - The custom integration `quartermaster-app/ha-quartermaster` (a shopping-list app, releases v0.2.0 and v0.2.1 on 2026-10-08) already uses the domain `quartermaster`. Both cannot be installed together, and the Marketplace rule "Two repositories can not install the same domain" may matter at catalog inclusion.
 - The author kept the domain (2026-11-07). Mention the conflict in the README.
+
+## Phase 0 — skeleton decisions
+
+| Topic | Decision | Source / reason |
+| --- | --- | --- |
+| `manifest.json` `version` | `0.0.0` is the unreleased placeholder; `tag-and-release.yaml` never publishes it and releases only when the version differs from the previous commit | Author rule: no release until asked |
+| `iot_class` | `calculated`: the integration talks to no device or service itself; models, cameras and chats are reached through other HA entities | Manifest docs: `calculated` = "Does not talk to anything" |
+| `categories` | `productivity_information.shopping_groceries` (primary), `ai_voice` | contributors.home-assistant.io/core/integrations/categories/; the HACS action fails on unknown values |
+| `single_config_entry` | `true`: one household per HA instance (Bronze `unique-config-entry`) | Manifest docs |
+| `__init__.py` | `async_setup_entry` / `async_unload_entry` return `None`; unload uses `async_unload_platforms_or_raise` | Developer blog 2026-10-23 "Config entry functions now return None" |
+| Abort `single_instance_allowed` | No local translation: on the dev instance (2026.11.0) the `single_config_entry` abort carries `translation_domain: homeassistant`, so the central string is used | Developer blog 2026-09-28; verified on the dev instance |
+| Tests | pytest-homeassistant 2026.11.0 configured in `pyproject.toml` as its PyPI page shows; `custom_components/__init__.py` makes the integration importable; custom integrations are enabled by the `hass` fixture | pypi.org/project/pytest-homeassistant |
+| Beta CI | `pip install --pre --upgrade pytest-homeassistant` on top of the pinned stable; when no beta newer than stable exists, the job runs against stable | The package pins `homeassistant==<same version>` |
+| Coverage gate | 90 % on the whole integration until `core/` and `storage/` exist, then restricted to them as the spec says | Spec §11 |
+| Type checking | mypy strict on `custom_components/quartermaster` | Spec §9.3 |
+| Dev dashboard loading | The dev instance mounts `../HomeAssistant-Quartermaster-Dashboard/dist` at `/local/quartermaster-dashboard/` and loads it with `frontend.extra_module_url`, avoiding the undocumented resource API | home-assistant.io/integrations/frontend/ |
+| Brand images | Generated placeholders: `icon.png` 256², `icon@2x.png` 512², `logo.png` / `logo@2x.png` and `dark_` variants with height 256 / 512 | contributors.home-assistant.io/core/integrations/brands/ |
+| Dev tooling deps | `scripts/dev-bootstrap` uses aiohttp through `uv run --with aiohttp`; it is a development tool, not an integration requirement | Same convention as OctopusEnergyIT |

@@ -8,7 +8,8 @@ Shared state between development sessions and machines. Keep it short and factua
 - Done: spec read; OctopusEnergyIT conventions reviewed; spec sanitized (Appendix A moved to `docs/ENVIRONMENT.local.md`, gitignored, local to the author's main machine only).
 - Done: 0.a docs review and 0.b domain check (results in TECHNICAL_NOTES.md, Phase 0 section).
 - Done: 0.c (2026.11.0).
-- Next: 0.d skeleton of both repos; 0.e practical-checks kit.
+- Done: 0.d skeleton of both repos (local: tests, ruff, mypy, hassfest green; config flow verified on the dev instance).
+- Next: CI green on GitHub; 0.e practical-checks kit.
 
 ## Decisions from the author (2026-11-07)
 
