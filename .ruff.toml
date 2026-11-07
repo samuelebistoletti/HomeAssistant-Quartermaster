@@ -205,6 +205,8 @@ split-on-trailing-comma = false
 "custom_components/**" = ["PTH", "D102", "D107"]  # entity properties/inits: docstrings would only restate the name
 "tests/**" = ["S101", "SLF001", "PLR2004", "D", "PTH", "PLC0415", "E402", "C901", "BLE001"]
 "scripts/*" = ["T201", "INP001"]
+"scripts/phase0/*" = ["T201", "INP001", "D1"]  # one-off Phase 0 probes
+"examples/**" = ["INP001"]
 "scripts/dev-bootstrap" = ["T201", "INP001", "EXE001"]
 
 [lint.mccabe]

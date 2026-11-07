@@ -1,0 +1,11 @@
+{
+  "domain": "quartermaster_probe",
+  "name": "Quartermaster Phase 0 probe",
+  "codeowners": ["@samuelebistoletti"],
+  "dependencies": ["llm"],
+  "documentation": "https://github.com/samuelebistoletti/HomeAssistant-Quartermaster/blob/main/docs/phase0/CHECKLIST.md",
+  "integration_type": "service",
+  "iot_class": "calculated",
+  "requirements": [],
+  "version": "0.0.0"
+}

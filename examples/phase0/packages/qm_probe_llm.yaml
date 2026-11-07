@@ -1,0 +1,4 @@
+# Phase 0 probe (dev instance only): loads the quartermaster_probe component,
+# which offers the fake tool quartermaster_probe__get_stock to the Assist API.
+# Copy examples/phase0/quartermaster_probe/ to config/custom_components/ first.
+quartermaster_probe:

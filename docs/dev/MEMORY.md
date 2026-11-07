@@ -9,7 +9,9 @@ Shared state between development sessions and machines. Keep it short and factua
 - Done: 0.a docs review and 0.b domain check (results in TECHNICAL_NOTES.md, Phase 0 section).
 - Done: 0.c (2026.11.0).
 - Done: 0.d skeleton of both repos (local: tests, ruff, mypy, hassfest green; config flow verified on the dev instance).
-- Next: CI green on GitHub; 0.e practical-checks kit.
+- Done: CI green on GitHub for both repos (no tags or releases).
+- Done: 0.e practical-checks kit (docs/phase0/CHECKLIST.md, examples/phase0/, scripts/phase0/); Alexa HA-side behaviour verified by simulation.
+- Next: run the practical checks with the author (Telegram, Alexa and iOS through a quick tunnel on the second machine; camera on the real instance; Marketplace and Cloudflare on a network without TLS inspection).
 
 ## Decisions from the author (2026-11-07)
 
@@ -28,4 +30,5 @@ Shared state between development sessions and machines. Keep it short and factua
 
 ## Open questions for the author
 
-- None.
+- Alexa launch language: HA drops the request locale; one fixed launch language per skill, or one skill per language?
+- Cloudflare AI Gateway community integration v2026.04.0 does not load on HA 2026.11 (voluptuous_openapi): patch locally, wait for upstream, or use another route?

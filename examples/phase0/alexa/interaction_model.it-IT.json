@@ -1,0 +1,49 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "dispensa",
+      "intents": [
+        {
+          "name": "QuartermasterQueryIT",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "se {query}",
+            "di {query}",
+            "che {query}",
+            "ho {query}",
+            "cosa {query}",
+            "quanto {query}",
+            "quanti {query}",
+            "aggiungi {query}",
+            "segna {query}",
+            "metti {query}",
+            "controlla {query}",
+            "togli {query}"
+          ]
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        }
+      ],
+      "types": []
+    }
+  }
+}

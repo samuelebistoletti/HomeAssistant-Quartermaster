@@ -1,0 +1,63 @@
+# Phase 0 probe (dev instance only): what the Telegram bot integration delivers
+# for texts, commands, button presses and photos, and what download_file returns.
+# Replace event.REPLACE_ME_update_event with the event entity of the test bot.
+automation:
+  - id: qm_phase0_telegram_entity
+    alias: "QM phase 0 - Telegram event entity"
+    mode: queued
+    triggers:
+      - trigger: state
+        entity_id: event.REPLACE_ME_update_event
+    actions:
+      - action: system_log.write
+        data:
+          level: warning
+          logger: quartermaster_phase0.telegram
+          message: >-
+            entity {{ trigger.to_state.attributes.event_type }}:
+            {{ trigger.to_state.attributes | tojson }}
+      - if: "{{ trigger.to_state.attributes.event_type == 'telegram_attachment' }}"
+        then:
+          - action: telegram_bot.download_file
+            data:
+              file_id: "{{ trigger.to_state.attributes.file_id }}"
+            response_variable: downloaded
+          - action: system_log.write
+            data:
+              level: warning
+              logger: quartermaster_phase0.telegram
+              message: "download_file: {{ downloaded | tojson }}"
+      - if: "{{ trigger.to_state.attributes.event_type == 'telegram_text' }}"
+        then:
+          - action: telegram_bot.send_message
+            data:
+              chat_id: "{{ trigger.to_state.attributes.chat_id }}"
+              message: "Probe: tap a button"
+              inline_keyboard:
+                - "Confirm:/qm_confirm, Undo:/qm_undo"
+
+  # Undocumented path, compared with the entity: core also fires bus events.
+  - id: qm_phase0_telegram_bus
+    alias: "QM phase 0 - Telegram bus events"
+    mode: queued
+    triggers:
+      - trigger: event
+        event_type: telegram_text
+      - trigger: event
+        event_type: telegram_command
+      - trigger: event
+        event_type: telegram_callback
+      - trigger: event
+        event_type: telegram_attachment
+    actions:
+      - action: system_log.write
+        data:
+          level: warning
+          logger: quartermaster_phase0.telegram
+          message: "bus {{ trigger.event.event_type }}: {{ trigger.event.data | tojson }}"
+      - if: "{{ trigger.event.event_type == 'telegram_callback' }}"
+        then:
+          - action: telegram_bot.answer_callback_query
+            data:
+              callback_query_id: "{{ trigger.event.data.id }}"
+              message: "{{ trigger.event.data.data }}"

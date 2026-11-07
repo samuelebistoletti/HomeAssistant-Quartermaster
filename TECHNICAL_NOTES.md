@@ -96,3 +96,39 @@ Everything user-facing is multilingual, Alexa included: translations for the int
 | Dev dashboard loading | The dev instance mounts `../HomeAssistant-Quartermaster-Dashboard/dist` at `/local/quartermaster-dashboard/` and loads it with `frontend.extra_module_url`, avoiding the undocumented resource API | home-assistant.io/integrations/frontend/ |
 | Brand images | Generated placeholders: `icon.png` 256², `icon@2x.png` 512², `logo.png` / `logo@2x.png` and `dark_` variants with height 256 / 512 | contributors.home-assistant.io/core/integrations/brands/ |
 | Dev tooling deps | `scripts/dev-bootstrap` uses aiohttp through `uv run --with aiohttp`; it is a development tool, not an integration requirement | Same convention as OctopusEnergyIT |
+
+## Phase 0 — practical checks
+
+Procedure and probes: `docs/phase0/CHECKLIST.md`. Results are recorded here as they come in.
+
+### Alexa on the Home Assistant side (simulated on the dev instance, 2026-11-07)
+
+`POST /api/alexa` with hand-built requests against the `examples/phase0/packages/qm_probe_alexa.yaml` probe (HA 2026.11.0):
+
+| Request | Result |
+| --- | --- |
+| LaunchRequest (intent_script keyed by skill ID) | "Dimmi", reprompt set, `shouldEndSession: false` |
+| Intent with slot, stub returns an empty reprompt | `shouldEndSession: true`, no reprompt |
+| Intent with slot, stub asks a question | Reprompt set, `shouldEndSession: false` |
+| Intent without the slot | Handled with `query | default('')` |
+| `AMAZON.CancelIntent` | Handled |
+| `<skill-id>.SessionEndedRequest` | Handled, `reason` available |
+| Stub delay 6 s / 9 s | Response after 6 s / 9 s; the Echo behaviour past 8 s is still to be checked |
+
+### Alexa language (source code, not documentation)
+
+`homeassistant/components/alexa/intent.py` (2026.11.0) passes only slot values to `intent.async_handle`: the request `locale` is dropped, so intent_script cannot know the user's language. Probe and proposed design:
+- One intent per locale (`QuartermasterQueryIT`, `QuartermasterQueryEN`), each `intent_script` passing `language` to `quartermaster.ask`.
+- The LaunchRequest is keyed by the skill ID only, so a multi-locale skill answers the launch in one fixed language. Either accept that, or use one skill per language. **Decision pending (author).**
+
+### Cloudflare AI Gateway community integration (code review, v2026.04.0)
+
+- **Blocker on HA 2026.11.** `entity.py` imports `voluptuous_openapi`, which HA no longer ships since 2026.9 (probatio). The conversation agent and AI Task entities fail to import. The fix is to use `probatio.to_openapi` in two places, as HA's `openai_conversation` does.
+- **Other findings:**
+  - It reads the deprecated `tool_result`, which logs a warning on every tool call; dict tool results break in 2027.11.
+  - Streamed tool calls are kept only when `finish_reason == "tool_calls"`.
+  - `structure` is sent as `json_schema` with `strict: true` while streaming.
+  - Images are sent as base64 data URLs; multiple images are supported.
+  - Chat calls `/compat` with only `Authorization: Bearer`, without `cf-aig-authorization`.
+  - Security: tokens are redacted in diagnostics, there is no dynamic code, only Cloudflare hosts are contacted, and TLS verification is on. On a JSON parse failure the full model response is logged at ERROR level.
+- **Consequence:** the author's planned provider route does not work on 2026.11 without a patch. **Decision pending (author).**

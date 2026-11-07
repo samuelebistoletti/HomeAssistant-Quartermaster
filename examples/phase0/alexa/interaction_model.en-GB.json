@@ -1,0 +1,49 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "pantry",
+      "intents": [
+        {
+          "name": "QuartermasterQueryEN",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "if {query}",
+            "to {query}",
+            "that {query}",
+            "i {query}",
+            "what {query}",
+            "how much {query}",
+            "how many {query}",
+            "add {query}",
+            "mark {query}",
+            "put {query}",
+            "check {query}",
+            "remove {query}"
+          ]
+        },
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        }
+      ],
+      "types": []
+    }
+  }
+}

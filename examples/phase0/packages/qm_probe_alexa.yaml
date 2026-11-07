@@ -1,0 +1,106 @@
+# Phase 0 probe (dev instance only): Alexa custom skill through intent_script,
+# with a stub in place of quartermaster.ask.
+#
+# Replace REPLACE_WITH_SKILL_ID with the skill ID (amzn1.ask.skill.<...>).
+# Home Assistant does not pass the request locale to intent_script, so each
+# locale of the interaction model uses its own intent name (...IT / ...EN).
+#
+# Words in the request change the stub's behavior:
+#   "domanda" / "question"  -> asks a question: reprompt set, microphone stays open
+#   "medio"/"media" / "medium" -> answers after 6 s
+#   "lento"/"lenta" / "slow"   -> answers after 9 s (beyond Alexa's 8 s limit)
+alexa:
+
+script:
+  quartermaster_ask_stub:
+    alias: "QM phase 0 - quartermaster.ask stub"
+    mode: parallel
+    fields:
+      text:
+        selector:
+          text:
+      language:
+        selector:
+          text:
+    sequence:
+      - variables:
+          t: "{{ text | default('') | lower }}"
+          it: "{{ language == 'it' }}"
+          wait: >-
+            {{ 9 if ('lent' in t or 'slow' in t)
+               else 6 if ('medi' in t or 'medium' in t) else 0 }}
+          ask: "{{ 'domanda' in t or 'question' in t }}"
+      - action: system_log.write
+        data:
+          level: warning
+          logger: quartermaster_phase0.alexa
+          message: "stub received language={{ language }} text={{ text | default('') | tojson }}"
+      - delay:
+          seconds: "{{ wait }}"
+      - variables:
+          result:
+            speech: >-
+              {% if it %}Ho ricevuto: {{ text }}.{% if ask %} Vuoi continuare?{% endif %}
+              {% else %}I received: {{ text }}.{% if ask %} Do you want to go on?{% endif %}{% endif %}
+            continue_conversation: "{{ ask }}"
+            reprompt: "{{ ('Vuoi continuare?' if it else 'Do you want to go on?') if ask else '' }}"
+      - stop: ""
+        response_variable: result
+
+intent_script:
+  # "Alexa, <invocation name>": LaunchRequest, keyed by the skill ID.
+  REPLACE_WITH_SKILL_ID:
+    speech:
+      text: "Dimmi"
+    reprompt:
+      text: "Cosa devo fare?"
+
+  REPLACE_WITH_SKILL_ID.SessionEndedRequest:
+    action:
+      - action: system_log.write
+        data:
+          level: warning
+          logger: quartermaster_phase0.alexa
+          message: "session ended: reason={{ reason }} error={{ error }}"
+
+  QuartermasterQueryIT:
+    action:
+      - action: script.quartermaster_ask_stub
+        data:
+          text: "{{ query | default('') }}"
+          language: it
+        response_variable: qm
+      - stop: ""
+        response_variable: qm
+    speech:
+      text: "{{ action_response.speech }}"
+    reprompt:
+      text: "{{ action_response.reprompt if action_response.continue_conversation else '' }}"
+
+  QuartermasterQueryEN:
+    action:
+      - action: script.quartermaster_ask_stub
+        data:
+          text: "{{ query | default('') }}"
+          language: en
+        response_variable: qm
+      - stop: ""
+        response_variable: qm
+    speech:
+      text: "{{ action_response.speech }}"
+    reprompt:
+      text: "{{ action_response.reprompt if action_response.continue_conversation else '' }}"
+
+  AMAZON.StopIntent:
+    speech:
+      text: "Ok"
+
+  AMAZON.CancelIntent:
+    speech:
+      text: "Ok"
+
+  AMAZON.HelpIntent:
+    speech:
+      text: "Prova: chiedi a dispensa se ho ancora il latte. Try: ask pantry if I still have milk."
+    reprompt:
+      text: "Cosa devo fare? What should I do?"

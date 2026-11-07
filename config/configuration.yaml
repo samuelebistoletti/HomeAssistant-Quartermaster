@@ -2,6 +2,11 @@
 # Loads default set of integrations. Do not remove.
 default_config:
 
+# Local-only packages (config/packages is gitignored), e.g. the Phase 0 probes
+# from examples/phase0/packages/.
+homeassistant:
+  packages: !include_dir_named packages
+
 # Dashboard bundle from ../HomeAssistant-Quartermaster-Dashboard/dist
 # (mounted by docker-compose.yml). The Marketplace registers it as a
 # dashboard resource in production; here it is loaded as an extra module.

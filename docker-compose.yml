@@ -24,6 +24,7 @@ services:
       - ./config:/config
       - ./custom_components/quartermaster:/config/custom_components/quartermaster:ro
       - ../HomeAssistant-Quartermaster-Dashboard/dist:/config/www/quartermaster-dashboard:ro
+      - ./config/media:/media
     environment:
       - TZ=Europe/Rome
     healthcheck:
