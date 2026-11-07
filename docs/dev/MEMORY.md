@@ -18,6 +18,7 @@ Shared state between development sessions and machines. Keep it short and factua
 - Branching: work directly on `main` for now (overrides the dedicated-branch/PR rule until the author says otherwise). Still no version bump, no tags, no releases.
 - Domain stays `quartermaster` (confirmed 2026-11-07) despite `quartermaster-app/ha-quartermaster` using the same domain (released 2026-10-08, not in hacs/default or brands at that date). Document the conflict in the README and TECHNICAL_NOTES.
 - Pushing to `main` is allowed.
+- Release tags use the `v` prefix (`v1.0.0`), as in OctopusEnergyIT.
 - Work may continue from two different machines: keep this file and `TECHNICAL_NOTES.md` up to date and pushed.
 
 ## Open questions for the author
