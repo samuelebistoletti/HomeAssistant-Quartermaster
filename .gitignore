@@ -1,0 +1,5 @@
+# macOS
+.DS_Store
+
+# Local, personal environment notes (never commit)
+*.local.md
