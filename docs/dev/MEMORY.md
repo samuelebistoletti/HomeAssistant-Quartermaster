@@ -6,7 +6,7 @@ Shared state between development sessions and machines. Keep it short and factua
 
 - Phase: 0 (checks and skeleton), in progress.
 - Done: spec read; OctopusEnergyIT conventions reviewed; spec sanitized (Appendix A moved to `docs/ENVIRONMENT.local.md`, gitignored, local to the author's main machine only).
-- In progress: 0.a official-docs review against spec sections 12/Phase 0.1 and 17; 0.b domain availability.
+- In progress: 0.a official-docs review against spec sections 12/Phase 0.1 and 17; 0.b domain availability (done: conflict found, domain kept).
 - Next: 0.c minimum HA version; 0.d skeleton of both repos; 0.e practical-checks kit.
 
 ## Decisions from the author (2026-11-07)
@@ -16,9 +16,10 @@ Shared state between development sessions and machines. Keep it short and factua
 - Ring camera checks (freshness and `camera.record`): run on the author's real instance, only when the author says so.
 - Dashboard development: the integration's docker-compose mounts `../HomeAssistant-Quartermaster-Dashboard/dist` into the dev instance (single dev instance for both repos).
 - Branching: work directly on `main` for now (overrides the dedicated-branch/PR rule until the author says otherwise). Still no version bump, no tags, no releases.
+- Domain stays `quartermaster` (confirmed 2026-11-07) despite `quartermaster-app/ha-quartermaster` using the same domain (released 2026-10-08, not in hacs/default or brands at that date). Document the conflict in the README and TECHNICAL_NOTES.
+- Pushing to `main` is allowed.
 - Work may continue from two different machines: keep this file and `TECHNICAL_NOTES.md` up to date and pushed.
 
 ## Open questions for the author
 
-- Domain `quartermaster` is already used by another custom integration (`quartermaster-app/ha-quartermaster`, released 2026-10-08, not yet in the HACS default catalog or in home-assistant/brands). Decide whether to keep the domain or rename.
-- `gh` CLI is not authenticated on the main machine; needed before any GitHub operation.
+- None.
