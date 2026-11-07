@@ -25,10 +25,10 @@ Shared state between development sessions and machines. Keep it short and factua
 - Minimum HA 2026.11.0 (Python >= 3.14.2); no legacy-HACS install section.
 - Action buttons only on Telegram and in the dashboard; other notify entities get plain text.
 - Everything user-facing is multilingual, Alexa included (models and intent_script per language).
+- Cloudflare AI Gateway community integration: wait for the upstream fix (open PRs michaeldwan/ha-cloudflare-ai-gateway#4 and #5 add voluptuous-openapi as a requirement; whether it handles probatio schemas must be re-checked after the merge). Cloudflare checks wait for it.
 - Release tags use the `v` prefix (`v1.0.0`), as in OctopusEnergyIT.
 - Work may continue from two different machines: keep this file and `TECHNICAL_NOTES.md` up to date and pushed.
 
 ## Open questions for the author
 
 - Alexa launch language: HA drops the request locale; one fixed launch language per skill, or one skill per language?
-- Cloudflare AI Gateway community integration v2026.04.0 does not load on HA 2026.11 (voluptuous_openapi): patch locally, wait for upstream, or use another route?

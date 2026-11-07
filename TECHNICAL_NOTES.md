@@ -131,4 +131,5 @@ Procedure and probes: `docs/phase0/CHECKLIST.md`. Results are recorded here as t
   - Images are sent as base64 data URLs; multiple images are supported.
   - Chat calls `/compat` with only `Authorization: Bearer`, without `cf-aig-authorization`.
   - Security: tokens are redacted in diagnostics, there is no dynamic code, only Cloudflare hosts are contacted, and TLS verification is on. On a JSON parse failure the full model response is logged at ERROR level.
-- **Consequence:** the author's planned provider route does not work on 2026.11 without a patch. **Decision pending (author).**
+- **Consequence:** the author's planned provider route does not work on 2026.11 without a patch.
+- **Author decision (2026-11-08):** wait for the upstream fix. Open PRs #4 and #5 add `voluptuous-openapi` to the requirements instead of switching to `probatio.to_openapi`. After the merge, re-check that tool and `structure` schemas (probatio objects) convert correctly, then run checklist section 6.
