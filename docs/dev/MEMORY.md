@@ -32,6 +32,7 @@ Shared state between development sessions and machines. Keep it short and factua
 - Everything user-facing is multilingual, Alexa included (models and intent_script per language).
 - Cloudflare AI Gateway community integration: wait for the upstream fix (open PRs michaeldwan/ha-cloudflare-ai-gateway#4 and #5 add voluptuous-openapi as a requirement; whether it handles probatio schemas must be re-checked after the merge). Cloudflare checks wait for it.
 - Alexa multilingual: one multi-locale skill, one query intent per locale passing `language`, launch reply in the HA language (Amazon best practice; HA drops the locale).
+- Cameras as observation points (2026-11-08): off by default; zone cameras + passage cameras; positive-only corroboration; passage cameras only propose; no double counting; window default 5 min (TECHNICAL_NOTES "Planned extensions").
 - Python-side translated phrases via async_get_translations (documented deviation, 2026-11-08).
 - Action `config_entry_id` is optional (single entry used when omitted), a documented deviation from `action-setup` (2026-11-08).
 - Phase 2 (2026-11-08): a deleted automatic shopping item comes back while the essential is below minimum; new action add_to_shopping_list; recording the purchase when checking an item outside shopping mode is off by default.
@@ -40,7 +41,6 @@ Shared state between development sessions and machines. Keep it short and factua
 
 ## Open questions for the author
 
-- Phase 5: corroborating camera for camera_show (author request 2026-11-08, plan in TECHNICAL_NOTES "Planned extensions"); ask about privacy default, time window, thresholds before coding.
 
 
 - Marketplace check needs the author's GitHub device sign-in on the dev instance; and if the Marketplace requires a release, whether a test pre-release is allowed.

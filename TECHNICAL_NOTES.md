@@ -283,16 +283,16 @@ CSV import (2 zones, 2 products), consumption by alias, finish, undo, unknown-pr
 
 ## Planned extensions (author requests)
 
-### Corroborating camera for camera_show (requested 2026-11-08, Phase 5)
+### Cameras as observation points (requested 2026-11-08, Phase 5; author answers the same day)
 
-A zone's `camera_show` detection can be uncertain. Another camera on the way into or out of the house (for example a yard or entrance that every trip passes through) can confirm or reject it:
+Cameras, when activated, track product movements as much as possible and raise each other's confidence:
 
-- a `camera_show` source may list one or more corroborating cameras, each with its own motion trigger and region of interest;
-- after a detection in the zone, frames from the corroborating cameras within a time window are analyzed for the same product;
-- agreement raises the confidence (automatic mode can apply it); disagreement or no sighting keeps it as a proposal to confirm;
-- the same camera may also hint at purchases (someone carrying shopping in), always as a proposal, never as an automatic write.
-
-To decide with the author before coding, because the spec has no rule for them:
-- privacy: these frames show people, so only the crop goes to the provider and nothing is stored. Is the source off by default, as `camera_show` is?
-- time window and thresholds;
-- whether to count battery-camera limits per source.
+- **Off by default.** A camera takes part only when configured on a zone, with the notice that frames show people. Only the crop goes to the provider, and frames are never stored.
+- **Zone cameras** (`camera_show`): taking a product from, or returning it to, the zone they watch.
+- **Passage cameras**, a new source type for places every trip may cross, such as a yard or an entrance:
+  - they observe products carried in (possible purchase) or out (possible consumption);
+  - on their own they **only propose**, never write.
+- **Corroboration is positive only.** Observations of the same product by different cameras within a time window combine their confidence (1 − Π(1 − cᵢ)). A missing sighting never lowers confidence, because a product can leave without passing a camera (taken from the garage straight into a car, or carried out another way).
+- **No double counting.** A passage observation that matches a recent zone observation (same product, within the window) only confirms it. It can turn a held proposal into a recorded consumption when the combined confidence reaches the threshold and the zone allows automatic writes. Otherwise it becomes its own proposal.
+- **Window:** configurable, default 5 minutes. It only decides what can be matched; it is not a requirement to see the product twice.
+- **Future cameras** (for example a living room) are zone cameras for their zone. The passage camera then confirms only what actually goes out.
