@@ -811,6 +811,91 @@ class CreateProductTool(QuartermasterTool):
         )
 
 
+class ConfirmPendingTool(QuartermasterTool):
+    """List, confirm or reject proposals recognized from photos."""
+
+    name = f"{DOMAIN}__confirm_pending"
+    description = (
+        "Without proposal_id, list pending proposals of changes recognized from "
+        "photos. With proposal_id, confirm (optionally only some item keys, "
+        "with corrections) or reject it. Confirm only after the user agrees."
+    )
+    parameters = probatio.Schema(
+        {
+            probatio.Optional("proposal_id"): int,
+            probatio.Optional("decision"): probatio.In(["confirm", "reject"]),
+            probatio.Optional("items", description="Item keys to confirm"): [int],
+            probatio.Optional("corrections"): [
+                {
+                    probatio.Required("key"): int,
+                    probatio.Optional("product"): str,
+                    probatio.Optional("quantity"): QUANTITY,
+                }
+            ],
+        }
+    )
+    annotations = WRITES
+    writes = True
+
+    async def _async_run(
+        self,
+        runtime: QuartermasterRuntimeData,
+        args: dict[str, Any],
+        channel: Channel,
+        user_id: str | None,
+        llm_context: llm.LLMContext,
+    ) -> llm.ToolResult:
+        proposals = runtime.proposals
+        if args.get("proposal_id") is None:
+            zones = runtime.coordinator.data.zones
+            return _result(
+                {
+                    "pending": [
+                        {
+                            "proposal_id": proposal.id,
+                            "zone": zones[proposal.zone_id].name
+                            if proposal.zone_id in zones
+                            else None,
+                            "items": [
+                                {
+                                    k: row[k]
+                                    for k in (
+                                        "key",
+                                        "product",
+                                        "seen_as",
+                                        "current",
+                                        "proposed",
+                                        "unit",
+                                    )
+                                }
+                                for row in proposal.payload["items"]
+                            ],
+                        }
+                        for proposal in await proposals.async_pending()
+                    ]
+                }
+            )
+        if args.get("decision") == "reject":
+            await proposals.async_reject(args["proposal_id"])
+            return _result({"status": "rejected"})
+        applied = await proposals.async_confirm(
+            args["proposal_id"],
+            keys=args.get("items"),
+            corrections={c["key"]: c for c in args.get("corrections", [])},
+            channel=channel,
+            user_id=user_id,
+        )
+        return _result(
+            {
+                "status": "confirmed",
+                "applied": [
+                    {"product_id": row["product_id"], "quantity": row["proposed"]}
+                    for row in applied
+                ],
+            }
+        )
+
+
 TOOLS: tuple[type[QuartermasterTool], ...] = (
     ListZonesTool,
     GetStockTool,
@@ -824,6 +909,7 @@ TOOLS: tuple[type[QuartermasterTool], ...] = (
     UndoLastTool,
     SetEssentialTool,
     CreateProductTool,
+    ConfirmPendingTool,
 )
 
 

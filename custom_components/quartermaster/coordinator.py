@@ -26,6 +26,7 @@ from custom_components.quartermaster.const import (
     DEFAULT_STALE_ZONE_DAYS,
     DOMAIN,
 )
+from custom_components.quartermaster.core.confirmations import ProposalService
 from custom_components.quartermaster.core.inventory import InventoryService
 from custom_components.quartermaster.core.shopping import ShoppingService
 from custom_components.quartermaster.core.suggestions import (
@@ -36,6 +37,7 @@ from custom_components.quartermaster.core.suggestions import (
 )
 from custom_components.quartermaster.storage.models import (
     Product,
+    Proposal,
     ShoppingItem,
     ShoppingStatus,
     StockLevel,
@@ -44,6 +46,7 @@ from custom_components.quartermaster.storage.models import (
 
 if TYPE_CHECKING:
     from custom_components.quartermaster import QuartermasterConfigEntry
+    from custom_components.quartermaster.vision.analyze import VisionService
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -63,6 +66,8 @@ class QuartermasterData:
     shopping_items: list[ShoppingItem]
     shopping_until: datetime | None = None
     zone_updates: dict[str, datetime] = field(default_factory=dict)
+    proposals: list[Proposal] = field(default_factory=list)
+    analyses_today: int = 0
 
     @property
     def shopping_mode(self) -> bool:
@@ -99,6 +104,8 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
         self.inventory = inventory
         self.shopping = shopping
         self.shopping_until: datetime | None = None
+        self.proposals: ProposalService | None = None
+        self.vision: VisionService | None = None
 
     @callback
     def async_inventory_changed(self) -> None:
@@ -159,4 +166,8 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
             shopping_items=await self.shopping.async_items(),
             shopping_until=self.shopping_until,
             zone_updates=updates,
+            proposals=await self.proposals.async_pending() if self.proposals else [],
+            analyses_today=await self.vision.async_analyses_today()
+            if self.vision
+            else 0,
         )

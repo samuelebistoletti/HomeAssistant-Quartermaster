@@ -16,19 +16,26 @@ from homeassistant.helpers.typing import ConfigType
 
 from .const import (
     CONF_AGENT_ID,
+    CONF_AI_TASK_IMAGE,
     CONF_ASK_SESSION_SECONDS,
+    CONF_DAILY_ANALYSIS_LIMIT,
     CONF_EXTERNAL_TODO,
+    CONF_STRUCTURE_MODE,
     DATABASE_FILE,
     DEFAULT_ASK_SESSION_SECONDS,
+    DEFAULT_DAILY_ANALYSIS_LIMIT,
+    DEFAULT_STRUCTURE_MODE,
     DOMAIN,
 )
 from .coordinator import QuartermasterCoordinator
-from .core.confirmations import ToolConfirmations
+from .core.confirmations import ProposalService, ToolConfirmations
 from .core.inventory import InventoryService
 from .core.shopping import ShoppingService
 from .core.voice import VoiceSessions
 from .services import async_setup_services
 from .storage.sqlite import SchemaTooNewError, SQLiteBackend
+from .vision.analyze import VisionService
+from .vision.schema import StructureMode
 
 PLATFORMS: list[Platform] = [
     Platform.BUTTON,
@@ -50,6 +57,8 @@ class QuartermasterRuntimeData:
     coordinator: QuartermasterCoordinator
     voice: VoiceSessions
     confirmations: ToolConfirmations
+    vision: VisionService
+    proposals: ProposalService
 
 
 type QuartermasterConfigEntry = ConfigEntry[QuartermasterRuntimeData]
@@ -85,6 +94,17 @@ async def async_setup_entry(
     shopping = ShoppingService(hass, backend, inventory)
     shopping.external_entity_id = entry.options.get(CONF_EXTERNAL_TODO)
     coordinator = QuartermasterCoordinator(hass, entry, inventory, shopping)
+    proposals = ProposalService(inventory)
+    vision = VisionService(hass, inventory)
+    vision.ai_task_entity = entry.options.get(CONF_AI_TASK_IMAGE)
+    vision.structure_mode = StructureMode(
+        entry.options.get(CONF_STRUCTURE_MODE, DEFAULT_STRUCTURE_MODE)
+    )
+    vision.daily_limit = int(
+        entry.options.get(CONF_DAILY_ANALYSIS_LIMIT, DEFAULT_DAILY_ANALYSIS_LIMIT)
+    )
+    coordinator.proposals = proposals
+    coordinator.vision = vision
     await coordinator.async_config_entry_first_refresh()
     entry.async_on_unload(
         inventory.async_add_listener(coordinator.async_inventory_changed)
@@ -105,6 +125,8 @@ async def async_setup_entry(
         coordinator=coordinator,
         voice=voice,
         confirmations=ToolConfirmations(),
+        vision=vision,
+        proposals=proposals,
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

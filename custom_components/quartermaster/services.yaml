@@ -238,3 +238,56 @@ ask:
       example: "kitchen-echo"
       selector:
         text:
+
+analyze_image:
+  fields:
+    config_entry_id: *config_entry
+    zone:
+      required: true
+      example: "Fridge"
+      selector:
+        text:
+    file:
+      example: "/media/fridge.jpg"
+      selector:
+        text:
+    camera_entity_id:
+      selector:
+        entity:
+          domain: camera
+    channel:
+      default: service
+      selector:
+        select:
+          translation_key: ask_channel
+          options:
+            - alexa
+            - assist
+            - voice
+            - telegram
+            - dashboard
+            - service
+
+confirm_pending:
+  fields:
+    config_entry_id: *config_entry
+    proposal_id:
+      required: true
+      selector:
+        number:
+          min: 1
+          mode: box
+    decision:
+      default: confirm
+      selector:
+        select:
+          translation_key: decision
+          options:
+            - confirm
+            - reject
+    items:
+      selector:
+        object:
+    corrections:
+      selector:
+        object:

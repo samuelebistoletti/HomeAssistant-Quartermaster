@@ -80,6 +80,30 @@
     },
     "todo_unreadable": {
       "message": "Impossibile leggere le voci di {entity}."
+    },
+    "image_rejected": {
+      "message": "L'immagine non si può analizzare: {issue}."
+    },
+    "ai_task_missing": {
+      "message": "Scegli un'entità AI Task per le immagini nelle opzioni di Quartermaster."
+    },
+    "daily_limit": {
+      "message": "È stato raggiunto il limite giornaliero di {limit} analisi di immagini."
+    },
+    "media_dir_missing": {
+      "message": "Home Assistant non ha una cartella media locale per passare l'immagine ad AI Task."
+    },
+    "analysis_failed": {
+      "message": "L'analisi dell'immagine non è riuscita: {error}"
+    },
+    "proposal_not_found": {
+      "message": "Nessuna proposta in attesa {proposal}."
+    },
+    "path_not_allowed": {
+      "message": "{path} non è in una cartella che Home Assistant può leggere (allowlist_external_dirs)."
+    },
+    "camera_unavailable": {
+      "message": "Impossibile leggere l'immagine della telecamera: {error}"
     }
   },
   "selector": {
@@ -111,6 +135,18 @@
         "telegram": "Telegram",
         "dashboard": "Dashboard",
         "service": "Automazione o script"
+      }
+    },
+    "structure_mode": {
+      "options": {
+        "nested": "Elenco strutturato",
+        "text": "JSON in un campo di testo (ripiego)"
+      }
+    },
+    "decision": {
+      "options": {
+        "confirm": "Conferma",
+        "reject": "Rifiuta"
       }
     }
   },
@@ -432,6 +468,58 @@
           "description": "Tiene separati i fili, per esempio uno per ogni Echo. Predefinita l'utente."
         }
       }
+    },
+    "analyze_image": {
+      "name": "Analizza immagine",
+      "description": "Analizza una foto o un fotogramma di una zona con l'entità AI Task per le immagini e propone le variazioni (o le applica in modalità automatica sopra la soglia di affidabilità).",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
+        },
+        "zone": {
+          "name": "Zona",
+          "description": "Zona mostrata nell'immagine."
+        },
+        "file": {
+          "name": "File",
+          "description": "Percorso di un'immagine in una cartella che Home Assistant può leggere. In alternativa alla telecamera."
+        },
+        "camera_entity_id": {
+          "name": "Telecamera",
+          "description": "Telecamera da cui prendere il fotogramma. In alternativa al file."
+        },
+        "channel": {
+          "name": "Canale",
+          "description": "Da dove arriva la richiesta; registrato nello storico."
+        }
+      }
+    },
+    "confirm_pending": {
+      "name": "Conferma proposta",
+      "description": "Conferma o rifiuta una proposta di variazioni riconosciute da un'immagine.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
+        },
+        "proposal_id": {
+          "name": "Proposta",
+          "description": "ID della proposta in attesa."
+        },
+        "decision": {
+          "name": "Decisione",
+          "description": "Conferma o rifiuta."
+        },
+        "items": {
+          "name": "Voci",
+          "description": "Chiavi delle voci da confermare; tutte se manca."
+        },
+        "corrections": {
+          "name": "Correzioni",
+          "description": "Elenco delle voci da correggere, ognuna con key, product e quantity; il nome usato dal modello viene imparato come alias."
+        }
+      }
     }
   },
   "entity": {
@@ -449,6 +537,12 @@
       },
       "expiring": {
         "name": "Prodotti in scadenza"
+      },
+      "pending_proposals": {
+        "name": "Proposte in attesa"
+      },
+      "analyses_today": {
+        "name": "Analisi del giorno"
       }
     },
     "button": {
@@ -486,7 +580,11 @@
           "record_purchase_on_check": "Registra l'acquisto quando si spunta una voce",
           "shopping_mode_minutes": "Durata della modalità spesa",
           "stale_zone_days": "Suggerisci di controllare le zone non aggiornate da",
-          "expiring_days": "Soglia dei prodotti in scadenza"
+          "expiring_days": "Soglia dei prodotti in scadenza",
+          "ai_task_image": "AI Task per le immagini",
+          "structure_mode": "Come chiedere l'elenco dei prodotti",
+          "confidence_threshold": "Soglia di affidabilità della modalità automatica",
+          "daily_analysis_limit": "Analisi di immagini al giorno"
         },
         "data_description": {
           "agent_id": "Agente usato da quartermaster.ask (Alexa, Telegram, dashboard). Collegagli l'API Assist perché possa usare gli strumenti di Quartermaster.",
@@ -496,7 +594,11 @@
           "record_purchase_on_check": "In modalità spesa la spunta registra sempre l'acquisto; questa opzione vale fuori dalla modalità spesa.",
           "shopping_mode_minutes": "Per quanto resta attiva la modalità spesa dopo Vado a fare la spesa.",
           "stale_zone_days": "Un essenziale in una zona non aggiornata da più giorni di questi viene suggerito.",
-          "expiring_days": "I prodotti con scadenza entro questi giorni compaiono tra quelli in scadenza."
+          "expiring_days": "I prodotti con scadenza entro questi giorni compaiono tra quelli in scadenza.",
+          "ai_task_image": "Entità AI Task con un modello con visione che analizza foto delle zone e fotogrammi delle telecamere.",
+          "structure_mode": "Usa il ripiego se il provider gestisce male le strutture annidate.",
+          "confidence_threshold": "In modalità automatica le variazioni riconosciute con affidabilità pari o superiore vengono applicate; le altre proposte. Una zona può avere la sua soglia.",
+          "daily_analysis_limit": "Oltre questo numero le chiamate al modello per le immagini si fermano fino al giorno dopo."
         }
       }
     }

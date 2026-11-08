@@ -80,6 +80,30 @@
     },
     "todo_unreadable": {
       "message": "The items of {entity} cannot be read."
+    },
+    "image_rejected": {
+      "message": "The image cannot be analyzed: {issue}."
+    },
+    "ai_task_missing": {
+      "message": "Choose an AI Task entity for images in the Quartermaster options."
+    },
+    "daily_limit": {
+      "message": "The daily limit of {limit} image analyses is reached."
+    },
+    "media_dir_missing": {
+      "message": "Home Assistant has no local media folder to pass the image to AI Task."
+    },
+    "analysis_failed": {
+      "message": "The image analysis failed: {error}"
+    },
+    "proposal_not_found": {
+      "message": "No pending proposal {proposal}."
+    },
+    "path_not_allowed": {
+      "message": "{path} is not in a folder Home Assistant may read (allowlist_external_dirs)."
+    },
+    "camera_unavailable": {
+      "message": "The camera image cannot be read: {error}"
     }
   },
   "selector": {
@@ -111,6 +135,18 @@
         "telegram": "Telegram",
         "dashboard": "Dashboard",
         "service": "Automation or script"
+      }
+    },
+    "structure_mode": {
+      "options": {
+        "nested": "Structured list",
+        "text": "JSON in a text field (fallback)"
+      }
+    },
+    "decision": {
+      "options": {
+        "confirm": "Confirm",
+        "reject": "Reject"
       }
     }
   },
@@ -432,6 +468,58 @@
           "description": "Keeps separate threads, for example one per Echo device. Defaults to the user."
         }
       }
+    },
+    "analyze_image": {
+      "name": "Analyze image",
+      "description": "Analyzes a photo or a camera frame of a zone with the AI Task entity for images and proposes the changes (or applies them in automatic mode above the confidence threshold).",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
+        },
+        "zone": {
+          "name": "Zone",
+          "description": "Zone shown in the image."
+        },
+        "file": {
+          "name": "File",
+          "description": "Path of an image in a folder Home Assistant may read. Use this or a camera."
+        },
+        "camera_entity_id": {
+          "name": "Camera",
+          "description": "Camera to take the frame from. Use this or a file."
+        },
+        "channel": {
+          "name": "Channel",
+          "description": "Where the request comes from; recorded in the journal."
+        }
+      }
+    },
+    "confirm_pending": {
+      "name": "Confirm proposal",
+      "description": "Confirms or rejects a proposal of changes recognized from an image.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
+        },
+        "proposal_id": {
+          "name": "Proposal",
+          "description": "ID of the pending proposal."
+        },
+        "decision": {
+          "name": "Decision",
+          "description": "Confirm or reject."
+        },
+        "items": {
+          "name": "Items",
+          "description": "Keys of the items to confirm; all when omitted."
+        },
+        "corrections": {
+          "name": "Corrections",
+          "description": "List of items to fix, each with key, product and quantity; the name the model used is learned as an alias."
+        }
+      }
     }
   },
   "entity": {
@@ -449,6 +537,12 @@
       },
       "expiring": {
         "name": "Expiring products"
+      },
+      "pending_proposals": {
+        "name": "Pending proposals"
+      },
+      "analyses_today": {
+        "name": "Analyses today"
       }
     },
     "button": {
@@ -486,7 +580,11 @@
           "record_purchase_on_check": "Record the purchase when an item is checked off",
           "shopping_mode_minutes": "Shopping mode duration",
           "stale_zone_days": "Suggest checking zones not updated for",
-          "expiring_days": "Expiring products threshold"
+          "expiring_days": "Expiring products threshold",
+          "ai_task_image": "AI Task for images",
+          "structure_mode": "How to ask for the item list",
+          "confidence_threshold": "Confidence threshold for automatic mode",
+          "daily_analysis_limit": "Image analyses per day"
         },
         "data_description": {
           "agent_id": "Agent used by quartermaster.ask (Alexa, Telegram, dashboard). Attach the Assist API to it so it can use the Quartermaster tools.",
@@ -496,7 +594,11 @@
           "record_purchase_on_check": "In shopping mode a checked item always records the purchase; this applies outside it.",
           "shopping_mode_minutes": "How long shopping mode stays on after Go shopping.",
           "stale_zone_days": "An essential kept in a zone not updated for more days than this is suggested.",
-          "expiring_days": "Products with a best-before date within this many days are listed as expiring."
+          "expiring_days": "Products with a best-before date within this many days are listed as expiring.",
+          "ai_task_image": "AI Task entity with a vision model that analyzes zone photos and camera frames.",
+          "structure_mode": "Use the fallback if your provider handles nested structures badly.",
+          "confidence_threshold": "In automatic mode, recognized changes at or above this confidence are applied; the others are proposed. A zone can override it.",
+          "daily_analysis_limit": "Model calls for images stop for the day after this many."
         }
       }
     }

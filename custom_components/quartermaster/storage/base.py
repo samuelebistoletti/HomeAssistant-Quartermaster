@@ -16,10 +16,13 @@ from .models import (
     Channel,
     JournalEntry,
     Product,
+    Proposal,
+    ProposalStatus,
     ShoppingItem,
     StockChange,
     StockLevel,
     Zone,
+    ZoneSnapshot,
 )
 
 
@@ -123,6 +126,28 @@ class StorageBackend(ABC):
     @abstractmethod
     async def async_reorder_shopping_items(self, item_ids: list[int]) -> None:
         """Store this display order (every item id, first to last)."""
+
+    @abstractmethod
+    async def async_add_proposal(self, proposal: Proposal) -> Proposal:
+        """Store a proposal and return it with its id."""
+
+    @abstractmethod
+    async def async_list_proposals(
+        self, *, status: ProposalStatus | None = None
+    ) -> list[Proposal]:
+        """Return proposals, newest first."""
+
+    @abstractmethod
+    async def async_update_proposal(self, proposal: Proposal) -> None:
+        """Store the new status and payload of a proposal."""
+
+    @abstractmethod
+    async def async_get_snapshot(self, zone_id: str) -> ZoneSnapshot | None:
+        """Return the last analysis of a zone."""
+
+    @abstractmethod
+    async def async_save_snapshot(self, snapshot: ZoneSnapshot) -> None:
+        """Replace the last analysis of a zone."""
 
     @abstractmethod
     async def async_get_setting(self, key: str) -> str | None:

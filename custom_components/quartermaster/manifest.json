@@ -1,6 +1,9 @@
 {
   "domain": "quartermaster",
   "name": "Quartermaster",
+  "after_dependencies": [
+    "ai_task"
+  ],
   "categories": [
     "productivity_information.shopping_groceries",
     "ai_voice"

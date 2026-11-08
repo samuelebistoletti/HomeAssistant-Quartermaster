@@ -44,6 +44,12 @@
     },
     "ask": {
       "service": "mdi:chat-question-outline"
+    },
+    "analyze_image": {
+      "service": "mdi:image-search-outline"
+    },
+    "confirm_pending": {
+      "service": "mdi:check-all"
     }
   },
   "entity": {
@@ -61,6 +67,12 @@
       },
       "expiring": {
         "default": "mdi:calendar-alert"
+      },
+      "pending_proposals": {
+        "default": "mdi:clipboard-check-outline"
+      },
+      "analyses_today": {
+        "default": "mdi:robot-outline"
       }
     },
     "button": {

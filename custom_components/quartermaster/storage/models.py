@@ -144,3 +144,36 @@ class ShoppingItem:
     position: int = 0
     completed_at: datetime | None = None
     external_uid: str | None = None
+
+
+class ProposalStatus(StrEnum):
+    """State of a proposal of changes."""
+
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    REJECTED = "rejected"
+    EXPIRED = "expired"
+
+
+@dataclass(slots=True, kw_only=True)
+class Proposal:
+    """Changes recognized from an image, waiting for confirmation."""
+
+    id: int
+    created: datetime
+    channel: Channel
+    zone_id: str | None
+    payload: dict[str, Any]
+    expires_at: datetime
+    status: ProposalStatus = ProposalStatus.PENDING
+
+
+@dataclass(slots=True, kw_only=True)
+class ZoneSnapshot:
+    """Last analysis of a zone, to skip unchanged images."""
+
+    zone_id: str
+    ts: datetime
+    perceptual_hash: str | None
+    overall_confidence: float | None
+    result: dict[str, Any]

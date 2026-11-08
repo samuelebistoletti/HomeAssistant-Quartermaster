@@ -507,6 +507,61 @@ class InventoryService:
 
         return [movement(e) for e in originals], [movement(e) for e in undos]
 
+    async def async_apply_counts(
+        self,
+        counts: list[tuple[int, str, float, float | None]],
+        *,
+        channel: Channel,
+        user_id: str | None = None,
+    ) -> list[Movement]:
+        """Set counted quantities (product id, zone id, quantity, confidence).
+
+        All counts form one operation, undone together.
+        """
+        for _, _, quantity, _ in counts:
+            _check_quantity(quantity)
+        async with self._writing():
+            products = {
+                p.id: p
+                for p in await self.backend.async_list_products(include_archived=True)
+            }
+            zones = {zone.id: zone for zone in await self.backend.async_list_zones()}
+            entries = await self.backend.async_apply_changes(
+                [
+                    StockChange(
+                        product_id=product_id,
+                        zone_id=zone_id,
+                        kind=MovementKind.INVENTORY,
+                        set_quantity=quantity,
+                        channel=channel,
+                        user_id=user_id,
+                        confidence=confidence,
+                    )
+                    for product_id, zone_id, quantity, confidence in counts
+                ]
+            )
+        return [
+            Movement(entry, products[entry.product_id], zones[entry.zone_id])
+            for entry in entries
+        ]
+
+    async def async_add_alias(self, product_id: int, alias: str) -> bool:
+        """Learn another name for a product; False when it is already known."""
+        alias = " ".join(alias.split())
+        async with self._writing():
+            product = await self.async_find_product(product_id)
+            products = await self.backend.async_list_products(include_archived=False)
+            taken = {
+                normalize(name)
+                for other in products
+                for name in (other.name, *other.aliases)
+            }
+            if not alias or normalize(alias) in taken:
+                return False
+            product.aliases.append(alias)
+            await self.backend.async_update_product(product)
+        return True
+
     async def async_list_journal(
         self, *, limit: int = 50, product_id: int | None = None
     ) -> list[JournalEntry]:

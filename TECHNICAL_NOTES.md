@@ -256,6 +256,31 @@ CSV import (2 zones, 2 products), consumption by alias, finish, undo, unknown-pr
 - Operations needing confirmation do not write without it: tested.
 - Dev instance: `quartermaster.ask` answers in Italian; with the default agent (no LLM) it returns the spoken apology.
 
+## Phase 4 — vision and photos (2026-11-08)
+
+### Decisions
+
+| Topic | Decision | Source or reason |
+| --- | --- | --- |
+| Image checks (Pillow, executor) | EXIF rotation applied, crop to the region of interest, refuse if the short side is under 640 px, mean luminance under 40/255 or Laplacian variance (at 640 px) under 25; resize to 1280 px long side, JPEG quality 80, re-encoded without any metadata | Spec §5, §7, §8. The darkness and blur thresholds are first guesses, to tune on real photos |
+| Unchanged images | 64-bit dHash; at most 4 differing bits reuses the zone's last result (`zone_snapshots`) without calling the model | Spec §5 |
+| AI Task call | Documented `ai_task.generate_data` action with response; the crop is written to `<media>/quartermaster/tmp/` only for the call, attached as `media-source://media_source/local/...` and deleted in `finally`; instructions list the zone's expected products with ids, aliases, unit and visual hints, ask for names in the HA language, and treat image text as data | Spec §5, §8, §17.2 |
+| AI Task permissions | Calls from the integration carry no user, and AI Task checks permissions only for a user context (2026.11 source). Phase 0 question closed | `ai_task/permissions.py` |
+| Structure | `nested` (object selector, `multiple`, `fields`) or the `text` fallback (JSON in a text field), chosen in the options; the result is validated: invalid items dropped, scores clamped to 0–1, quantities bounded, `matched_product_id` kept only if it was offered | Spec §4.2 |
+| Matching | Offered id, else a unique name/alias/stem/category match; otherwise the item is "new" and needs a correction naming a product | Spec §5 |
+| Proposals | `pending_changes` rows with the items (current and proposed quantity, confidence, name the model used), not-seen and unknown lists; expire after 24 h. Unchanged quantities are left out | Spec §4, §5 |
+| Automatic mode | Applies items at or above the zone threshold (option, default 0.75) as one operation; the rest is proposed. When more than one product would change by over 50 %, nothing is applied automatically | Spec S12, §8 |
+| Confirmation | `confirm_pending` action and LLM tool: all or chosen items, corrections (product, quantity), one operation; a correction to another product teaches the model's name as an alias | Spec §5 |
+| Camera frames | `analyze_image` with a camera uses the documented `camera.snapshot` action into the temporary media folder, then reads and deletes the file; importing the camera component would pull in stream and numpy | home-assistant.io camera.snapshot |
+| Files | `analyze_image` reads only paths allowed by `allowlist_external_dirs` | Spec §8 |
+| Limits | Daily analysis limit (option, default 50), counted in the database, shown by a diagnostic sensor | Spec §7 |
+| Insufficient result | For zone checks the "next source" rule belongs to the zone manager (Phase 5); a user photo always produces a proposal | Spec §5 |
+
+### Acceptance criteria
+
+- No write without confirmation in confirm mode: tested.
+- At least 85 % of products recognized on 30 real labeled photos with a cloud provider: **not run**. It needs an AI Task entity with a vision model on the dev instance and the author's photos. `scripts/phase0/ai_task_probe.py` measures recall per photo.
+
 ## Planned extensions (author requests)
 
 ### Corroborating camera for camera_show (requested 2026-11-08, Phase 5)

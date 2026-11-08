@@ -22,12 +22,15 @@ from .models import (
     JournalEntry,
     MovementKind,
     Product,
+    Proposal,
+    ProposalStatus,
     ShoppingItem,
     ShoppingOrigin,
     ShoppingStatus,
     StockChange,
     StockLevel,
     Zone,
+    ZoneSnapshot,
 )
 
 SCHEMA_VERSION_KEY = "schema_version"
@@ -153,6 +156,22 @@ def _shopping_item(row: sqlite3.Row) -> ShoppingItem:
         position=row["position"],
         completed_at=_datetime(row["completed_at"]),
         external_uid=row["external_uid"],
+    )
+
+
+def _proposal(row: sqlite3.Row) -> Proposal:
+    created = _datetime(row["created"])
+    expires = _datetime(row["expires_at"])
+    assert created is not None
+    assert expires is not None
+    return Proposal(
+        id=row["id"],
+        created=created,
+        channel=Channel(row["channel"]),
+        zone_id=row["zone_id"],
+        payload=json.loads(row["payload"]),
+        expires_at=expires,
+        status=ProposalStatus(row["status"]),
     )
 
 
@@ -623,6 +642,103 @@ class SQLiteBackend(StorageBackend):
             conn.executemany(
                 "UPDATE shopping_items SET position = ? WHERE id = ?",
                 [(position, item_id) for position, item_id in enumerate(item_ids, 1)],
+            )
+
+    # Proposals and zone snapshots
+
+    async def async_add_proposal(self, proposal: Proposal) -> Proposal:
+        """Store a proposal and return it with its id."""
+        return await self._run(self._add_proposal, proposal)
+
+    def _add_proposal(self, proposal: Proposal) -> Proposal:
+        with self._transaction() as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO pending_changes (created, channel, zone_id, payload,
+                    expires_at, status)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    proposal.created.isoformat(),
+                    proposal.channel.value,
+                    proposal.zone_id,
+                    json.dumps(proposal.payload),
+                    proposal.expires_at.isoformat(),
+                    proposal.status.value,
+                ),
+            )
+        assert cursor.lastrowid is not None
+        proposal.id = cursor.lastrowid
+        return proposal
+
+    async def async_list_proposals(
+        self, *, status: ProposalStatus | None = None
+    ) -> list[Proposal]:
+        """Return proposals, newest first."""
+        return await self._run(self._list_proposals, status)
+
+    def _list_proposals(self, status: ProposalStatus | None) -> list[Proposal]:
+        if status is None:
+            rows = self._db.execute(
+                "SELECT * FROM pending_changes ORDER BY id DESC"
+            ).fetchall()
+        else:
+            rows = self._db.execute(
+                "SELECT * FROM pending_changes WHERE status = ? ORDER BY id DESC",
+                (status.value,),
+            ).fetchall()
+        return [_proposal(row) for row in rows]
+
+    async def async_update_proposal(self, proposal: Proposal) -> None:
+        """Store the new status and payload of a proposal."""
+        await self._run(self._update_proposal, proposal)
+
+    def _update_proposal(self, proposal: Proposal) -> None:
+        with self._transaction() as conn:
+            conn.execute(
+                "UPDATE pending_changes SET status = ?, payload = ? WHERE id = ?",
+                (proposal.status.value, json.dumps(proposal.payload), proposal.id),
+            )
+
+    async def async_get_snapshot(self, zone_id: str) -> ZoneSnapshot | None:
+        """Return the last analysis of a zone."""
+        return await self._run(self._get_snapshot, zone_id)
+
+    def _get_snapshot(self, zone_id: str) -> ZoneSnapshot | None:
+        row = self._db.execute(
+            "SELECT * FROM zone_snapshots WHERE zone_id = ?", (zone_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        ts = _datetime(row["ts"])
+        assert ts is not None
+        return ZoneSnapshot(
+            zone_id=row["zone_id"],
+            ts=ts,
+            perceptual_hash=row["perceptual_hash"],
+            overall_confidence=row["overall_confidence"],
+            result=json.loads(row["result"] or "{}"),
+        )
+
+    async def async_save_snapshot(self, snapshot: ZoneSnapshot) -> None:
+        """Replace the last analysis of a zone."""
+        await self._run(self._save_snapshot, snapshot)
+
+    def _save_snapshot(self, snapshot: ZoneSnapshot) -> None:
+        with self._transaction() as conn:
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO zone_snapshots (zone_id, ts, perceptual_hash,
+                    overall_confidence, result)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    snapshot.zone_id,
+                    snapshot.ts.isoformat(),
+                    snapshot.perceptual_hash,
+                    snapshot.overall_confidence,
+                    json.dumps(snapshot.result),
+                ),
             )
 
     # Settings

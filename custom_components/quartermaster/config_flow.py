@@ -16,19 +16,26 @@ import probatio
 
 from .const import (
     CONF_AGENT_ID,
+    CONF_AI_TASK_IMAGE,
     CONF_ALEXA_READ_ONLY,
     CONF_ASK_SESSION_SECONDS,
+    CONF_CONFIDENCE_THRESHOLD,
+    CONF_DAILY_ANALYSIS_LIMIT,
     CONF_EXPIRING_DAYS,
     CONF_EXTERNAL_TODO,
     CONF_RECORD_PURCHASE_ON_CHECK,
     CONF_SHOPPING_MODE_MINUTES,
     CONF_STALE_ZONE_DAYS,
+    CONF_STRUCTURE_MODE,
     DEFAULT_ALEXA_READ_ONLY,
     DEFAULT_ASK_SESSION_SECONDS,
+    DEFAULT_CONFIDENCE_THRESHOLD,
+    DEFAULT_DAILY_ANALYSIS_LIMIT,
     DEFAULT_EXPIRING_DAYS,
     DEFAULT_RECORD_PURCHASE_ON_CHECK,
     DEFAULT_SHOPPING_MODE_MINUTES,
     DEFAULT_STALE_ZONE_DAYS,
+    DEFAULT_STRUCTURE_MODE,
     DOMAIN,
 )
 
@@ -62,6 +69,30 @@ OPTIONS_SCHEMA = probatio.Schema(
         probatio.Required(
             CONF_ALEXA_READ_ONLY, default=DEFAULT_ALEXA_READ_ONLY
         ): selector.BooleanSelector(),
+        probatio.Optional(CONF_AI_TASK_IMAGE): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="ai_task")
+        ),
+        probatio.Required(
+            CONF_STRUCTURE_MODE, default=DEFAULT_STRUCTURE_MODE
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=["nested", "text"], translation_key="structure_mode"
+            )
+        ),
+        probatio.Required(
+            CONF_CONFIDENCE_THRESHOLD, default=DEFAULT_CONFIDENCE_THRESHOLD
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=0.5, max=1, step=0.05, mode=selector.NumberSelectorMode.SLIDER
+            )
+        ),
+        probatio.Required(
+            CONF_DAILY_ANALYSIS_LIMIT, default=DEFAULT_DAILY_ANALYSIS_LIMIT
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=1, max=1000, step=1, mode=selector.NumberSelectorMode.BOX
+            )
+        ),
         probatio.Optional(CONF_EXTERNAL_TODO): selector.EntitySelector(
             selector.EntitySelectorConfig(domain="todo")
         ),

@@ -6,7 +6,12 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.components.sensor import (
+    SensorEntity,
+    SensorEntityDescription,
+    SensorStateClass,
+)
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -70,10 +75,26 @@ def _expiring(data: QuartermasterData) -> list[dict[str, Any]]:
     ]
 
 
+def _proposals(data: QuartermasterData) -> list[dict[str, Any]]:
+    return [
+        {
+            "proposal_id": proposal.id,
+            "zone": data.zones[proposal.zone_id].name
+            if proposal.zone_id in data.zones
+            else None,
+            "channel": proposal.channel.value,
+            "created": proposal.created.isoformat(),
+            "items": proposal.payload["items"],
+        }
+        for proposal in data.proposals
+    ]
+
+
 SENSORS: tuple[QuartermasterSensorDescription, ...] = (
     QuartermasterSensorDescription(key="to_buy", entries=_to_buy),
     QuartermasterSensorDescription(key="suggestions", entries=_suggestions),
     QuartermasterSensorDescription(key="expiring", entries=_expiring),
+    QuartermasterSensorDescription(key="pending_proposals", entries=_proposals),
 )
 
 
@@ -85,7 +106,10 @@ async def async_setup_entry(
     """Add the sensors."""
     coordinator = entry.runtime_data.coordinator
     async_add_entities(
-        QuartermasterListSensor(coordinator, description) for description in SENSORS
+        [
+            *(QuartermasterListSensor(coordinator, d) for d in SENSORS),
+            AnalysesTodaySensor(coordinator),
+        ]
     )
 
 
@@ -112,3 +136,25 @@ class QuartermasterListSensor(QuartermasterEntity, SensorEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return the entries."""
         return {"items": self.entity_description.entries(self.coordinator.data)}
+
+
+class AnalysesTodaySensor(QuartermasterEntity, SensorEntity):
+    """Model calls made today, against the daily limit."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: QuartermasterCoordinator) -> None:
+        """Set up the sensor."""
+        super().__init__(coordinator, "analyses_today")
+
+    @property
+    def native_value(self) -> int:
+        """Return today's count."""
+        return self.coordinator.data.analyses_today
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the limit."""
+        vision = self.coordinator.vision
+        return {"limit": vision.daily_limit if vision else None}

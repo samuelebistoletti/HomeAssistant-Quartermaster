@@ -14,7 +14,8 @@ Shared state between development sessions and machines. Keep it short and factua
 - Done (2026-11-08): strategy shows in the New dashboard dialog and renders in it/en at phone and desktop width (dev, headless Chrome). WARP on the author's PC was the TLS inspection; disconnected, outbound HTTPS from the dev container works.
 - Done (2026-11-08): Phase 1 code — SQLite backend with migrations, inventory service, actions add_zone, remove_zone, adjust_stock, undo_last, set_stock, add_product, set_essential, export_data, import_data; 56 tests, 100 % coverage; checked on the dev instance. Author decisions applied (optional config_entry_id, zone actions, operation id). Author approved Phase 2 and asked to keep going through the phases autonomously (2026-11-08), asking only on important doubts.
 - Done (2026-11-08): Phase 2 — coordinator, todo shopping list, sensors, calendar, buttons, select, options flow, Phase 2 actions; 78 tests, 99 % coverage; checked on the dev instance. 
-- Done (2026-11-08): Phase 3 — llm.py tools, quartermaster.ask with sessions, options; 101 tests, 98 % coverage. Real-provider dialogs pending (needs an LLM agent on dev). Next: Phase 4 (vision).
+- Done (2026-11-08): Phase 3 — llm.py tools, quartermaster.ask with sessions, options; 101 tests, 98 % coverage. Real-provider dialogs pending (needs an LLM agent on dev). 
+- Done (2026-11-08): Phase 4 — vision pipeline, proposals, analyze_image, confirm_pending; 120 tests, 98 % coverage. Recall on 30 real photos pending (needs a vision AI Task and the author's photos). Next: Phase 5 (zones and cameras).
 - Next: run the practical checks with the author (Telegram, Alexa and iOS through a quick tunnel on the second machine; camera on the real instance; Marketplace and Cloudflare on a network without TLS inspection).
 
 ## Decisions from the author (2026-11-07)

@@ -30,3 +30,14 @@ CONF_ALEXA_READ_ONLY: Final = "alexa_read_only"
 
 DEFAULT_ASK_SESSION_SECONDS: Final = 120
 DEFAULT_ALEXA_READ_ONLY: Final = False
+CONF_AI_TASK_IMAGE: Final = "ai_task_image"
+CONF_STRUCTURE_MODE: Final = "structure_mode"
+CONF_DAILY_ANALYSIS_LIMIT: Final = "daily_analysis_limit"
+CONF_CONFIDENCE_THRESHOLD: Final = "confidence_threshold"
+
+DEFAULT_STRUCTURE_MODE: Final = "nested"
+DEFAULT_DAILY_ANALYSIS_LIMIT: Final = 50
+DEFAULT_CONFIDENCE_THRESHOLD: Final = 0.75
+
+SETTING_ANALYSES_DAY: Final = "analyses_day"
+SETTING_ANALYSES_COUNT: Final = "analyses_count"

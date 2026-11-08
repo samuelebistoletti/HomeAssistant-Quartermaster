@@ -111,6 +111,7 @@ async def test_tools_are_offered(
             "undo_last",
             "set_essential",
             "create_product",
+            "confirm_pending",
         )
     }
     assert all(

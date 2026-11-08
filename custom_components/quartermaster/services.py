@@ -38,6 +38,7 @@ from .core.transfer import (
     resolve_transfer_file,
 )
 from .storage.models import Channel, Product, ShoppingOrigin, ShoppingStatus, Zone
+from .vision.analyze import async_camera_frame, async_photo_pipeline
 
 SERVICE_ADJUST_STOCK = "adjust_stock"
 SERVICE_ADD_ZONE = "add_zone"
@@ -54,6 +55,8 @@ SERVICE_START_SHOPPING = "start_shopping"
 SERVICE_ADD_TO_SHOPPING_LIST = "add_to_shopping_list"
 SERVICE_IMPORT_FROM_TODO = "import_from_todo"
 SERVICE_ASK = "ask"
+SERVICE_ANALYZE_IMAGE = "analyze_image"
+SERVICE_CONFIRM_PENDING = "confirm_pending"
 
 ATTR_PRODUCT = "product"
 ATTR_OPERATION = "operation"
@@ -81,6 +84,13 @@ ATTR_APPLY = "apply"
 ATTR_CHANNEL = "channel"
 ATTR_LANGUAGE = "language"
 ATTR_SESSION_KEY = "session_key"
+ATTR_FILE = "file"
+ATTR_CAMERA = "camera_entity_id"
+ATTR_PROPOSAL_ID = "proposal_id"
+ATTR_DECISION = "decision"
+ATTR_ITEMS = "items"
+ATTR_CORRECTIONS = "corrections"
+ATTR_KEY = "key"
 
 ASK_CHANNELS = {
     "alexa": Channel.ALEXA,
@@ -198,6 +208,37 @@ ASK_SCHEMA = probatio.Schema(
         ),
         probatio.Optional(ATTR_LANGUAGE): cv.string,
         probatio.Optional(ATTR_SESSION_KEY): cv.string,
+    }
+)
+ANALYZE_IMAGE_SCHEMA = probatio.All(
+    probatio.Schema(
+        {
+            **ENTRY,
+            probatio.Required(ATTR_ZONE): cv.string,
+            probatio.Exclusive(ATTR_FILE, "image"): cv.string,
+            probatio.Exclusive(ATTR_CAMERA, "image"): cv.entity_domain("camera"),
+            probatio.Optional(ATTR_CHANNEL, default="service"): probatio.In(
+                list(ASK_CHANNELS)
+            ),
+        }
+    ),
+    cv.has_at_least_one_key(ATTR_FILE, ATTR_CAMERA),
+)
+CONFIRM_PENDING_SCHEMA = probatio.Schema(
+    {
+        **ENTRY,
+        probatio.Required(ATTR_PROPOSAL_ID): cv.positive_int,
+        probatio.Optional(ATTR_DECISION, default="confirm"): probatio.In(
+            ["confirm", "reject"]
+        ),
+        probatio.Optional(ATTR_ITEMS): [cv.positive_int],
+        probatio.Optional(ATTR_CORRECTIONS, default=list): [
+            {
+                probatio.Required(ATTR_KEY): cv.positive_int,
+                probatio.Optional(ATTR_PRODUCT): cv.string,
+                probatio.Optional(ATTR_QUANTITY): QUANTITY,
+            }
+        ],
     }
 )
 IMPORT_DATA_SCHEMA = probatio.Schema(
@@ -487,6 +528,48 @@ async def _async_ask(call: ServiceCall) -> ServiceResponse:
     return reply.as_dict() if call.return_response else None
 
 
+async def _async_analyze_image(call: ServiceCall) -> ServiceResponse:
+    runtime = _runtime(call)
+    if path_text := call.data.get(ATTR_FILE):
+        path = Path(path_text)
+        if not call.hass.config.is_allowed_path(str(path)):
+            raise InventoryError("path_not_allowed", path=str(path))
+        try:
+            data = await call.hass.async_add_executor_job(path.read_bytes)
+        except OSError as err:
+            raise InventoryError("import_unreadable", filename=path.name) from err
+    else:
+        data = await async_camera_frame(call.hass, call.data[ATTR_CAMERA])
+    response = await async_photo_pipeline(
+        runtime,
+        data,
+        call.data[ATTR_ZONE],
+        channel=ASK_CHANNELS[call.data[ATTR_CHANNEL]],
+        user_id=call.context.user_id,
+    )
+    return response if call.return_response else None
+
+
+async def _async_confirm_pending(call: ServiceCall) -> ServiceResponse:
+    runtime = _runtime(call)
+    proposal_id = call.data[ATTR_PROPOSAL_ID]
+    if call.data[ATTR_DECISION] == "reject":
+        await runtime.proposals.async_reject(proposal_id)
+        applied: list[dict[str, Any]] = []
+    else:
+        applied = await runtime.proposals.async_confirm(
+            proposal_id,
+            keys=call.data.get(ATTR_ITEMS),
+            corrections={c[ATTR_KEY]: c for c in call.data[ATTR_CORRECTIONS]},
+            channel=Channel.SERVICE,
+            user_id=call.context.user_id,
+        )
+    await runtime.coordinator.async_refresh()
+    if not call.return_response:
+        return None
+    return {"decision": call.data[ATTR_DECISION], "applied": applied}
+
+
 @callback
 def async_setup_services(hass: HomeAssistant) -> None:
     """Register the integration actions."""
@@ -511,6 +594,8 @@ def async_setup_services(hass: HomeAssistant) -> None:
         ),
         (SERVICE_IMPORT_FROM_TODO, _async_import_from_todo, IMPORT_FROM_TODO_SCHEMA),
         (SERVICE_ASK, _async_ask, ASK_SCHEMA),
+        (SERVICE_ANALYZE_IMAGE, _async_analyze_image, ANALYZE_IMAGE_SCHEMA),
+        (SERVICE_CONFIRM_PENDING, _async_confirm_pending, CONFIRM_PENDING_SCHEMA),
     ):
         hass.services.async_register(
             DOMAIN,
