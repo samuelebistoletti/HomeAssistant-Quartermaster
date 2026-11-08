@@ -64,6 +64,9 @@ remove_zone:
 undo_last:
   fields:
     config_entry_id: *config_entry
+    operation_id:
+      selector:
+        text:
 
 set_stock:
   fields:

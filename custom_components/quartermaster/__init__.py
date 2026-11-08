@@ -14,6 +14,7 @@ from homeassistant.exceptions import ConfigEntryError
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
+from .channels.websocket import async_setup_websocket
 from .const import (
     CONF_AGENT_ID,
     CONF_AI_TASK_IMAGE,
@@ -67,6 +68,7 @@ type QuartermasterConfigEntry = ConfigEntry[QuartermasterRuntimeData]
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register the integration actions."""
     async_setup_services(hass)
+    async_setup_websocket(hass)
     return True
 
 

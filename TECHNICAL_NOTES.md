@@ -281,6 +281,10 @@ CSV import (2 zones, 2 products), consumption by alias, finish, undo, unknown-pr
 - No write without confirmation in confirm mode: tested.
 - At least 85 % of products recognized on 30 real labeled photos with a cloud provider: **not run**. It needs an AI Task entity with a vision model on the dev instance and the author's photos. `scripts/phase0/ai_task_probe.py` measures recall per photo.
 
+## Phase 7.1 — websocket commands (2026-11-08, ahead of Phase 5–6 so the dashboard can be built in parallel)
+
+Contract in `docs/dashboard-api.md`. Reading for every authenticated user, writing for administrators (or everyone with the `non_admin_writes` option), checked in the websocket commands and in the write actions when the call carries a user; calls without a user (automations, the integration itself) are allowed. Entity ids are resolved from the entity registry by unique id, because they follow the user's language. Upload limit 2 MB after browser-side resizing (spec §17.2).
+
 ## Planned extensions (author requests)
 
 ### Cameras as observation points (requested 2026-11-08, Phase 5; author answers the same day)

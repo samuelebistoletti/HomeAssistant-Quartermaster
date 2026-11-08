@@ -13,6 +13,7 @@ from homeassistant.core import (
     SupportsResponse,
     callback,
 )
+from homeassistant.exceptions import Unauthorized
 from homeassistant.helpers import config_validation as cv, service
 from homeassistant.util.json import JsonValueType
 
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
     from . import QuartermasterRuntimeData
 import probatio
 
+from .channels.websocket import can_write
 from .const import DOMAIN, TRANSFER_DIR
 from .core.inventory import (
     MAX_QUANTITY,
@@ -77,6 +79,7 @@ ATTR_SHELF_LIFE_DAYS = "shelf_life_days"
 ATTR_FORMAT = "format"
 ATTR_FILENAME = "filename"
 ATTR_ZONE_ID = "zone_id"
+ATTR_OPERATION_ID = "operation_id"
 ATTR_TEXT = "text"
 ATTR_FROM_SUGGESTION = "from_suggestion"
 ATTR_TARGET = "target"
@@ -121,7 +124,9 @@ ADJUST_STOCK_SCHEMA = probatio.Schema(
         probatio.Optional(ATTR_BEST_BEFORE): cv.date,
     }
 )
-UNDO_LAST_SCHEMA = probatio.Schema(ENTRY)
+UNDO_LAST_SCHEMA = probatio.Schema(
+    {**ENTRY, probatio.Optional(ATTR_OPERATION_ID): cv.string}
+)
 ADD_ZONE_SCHEMA = probatio.Schema(
     {
         **ENTRY,
@@ -258,6 +263,15 @@ def _inventory(call: ServiceCall) -> InventoryService:
     return _runtime(call).inventory
 
 
+async def _async_check_writer(call: ServiceCall) -> None:
+    """Refuse writes from users that may not change the inventory."""
+    if call.context.user_id is None:
+        return
+    user = await call.hass.auth.async_get_user(call.context.user_id)
+    if not can_write(_runtime(call), user):
+        raise Unauthorized(context=call.context)
+
+
 def _movement(movement: Movement) -> dict[str, Any]:
     entry = movement.entry
     return {
@@ -305,6 +319,7 @@ def _read_file(path: Path) -> str:
 
 
 async def _async_adjust_stock(call: ServiceCall) -> ServiceResponse:
+    await _async_check_writer(call)
     movement = await _inventory(call).async_adjust_stock(
         call.data[ATTR_PRODUCT],
         call.data[ATTR_OPERATION],
@@ -318,8 +333,11 @@ async def _async_adjust_stock(call: ServiceCall) -> ServiceResponse:
 
 
 async def _async_undo_last(call: ServiceCall) -> ServiceResponse:
+    await _async_check_writer(call)
     originals, undos = await _inventory(call).async_undo_last(
-        channel=Channel.SERVICE, user_id=call.context.user_id
+        channel=Channel.SERVICE,
+        user_id=call.context.user_id,
+        operation_id=call.data.get(ATTR_OPERATION_ID),
     )
     if not call.return_response:
         return None
@@ -330,6 +348,7 @@ async def _async_undo_last(call: ServiceCall) -> ServiceResponse:
 
 
 async def _async_set_stock(call: ServiceCall) -> ServiceResponse:
+    await _async_check_writer(call)
     movement = await _inventory(call).async_set_stock(
         call.data[ATTR_PRODUCT],
         call.data[ATTR_QUANTITY],
@@ -342,6 +361,7 @@ async def _async_set_stock(call: ServiceCall) -> ServiceResponse:
 
 
 async def _async_add_zone(call: ServiceCall) -> ServiceResponse:
+    await _async_check_writer(call)
     zone = await _inventory(call).async_add_zone(
         call.data[ATTR_NAME],
         aliases=call.data[ATTR_ALIASES],
@@ -351,11 +371,13 @@ async def _async_add_zone(call: ServiceCall) -> ServiceResponse:
 
 
 async def _async_remove_zone(call: ServiceCall) -> ServiceResponse:
+    await _async_check_writer(call)
     zone = await _inventory(call).async_remove_zone(call.data[ATTR_ZONE])
     return _zone(zone) if call.return_response else None
 
 
 async def _async_add_product(call: ServiceCall) -> ServiceResponse:
+    await _async_check_writer(call)
     product = await _inventory(call).async_add_product(
         call.data[ATTR_NAME],
         aliases=call.data[ATTR_ALIASES],
@@ -373,6 +395,7 @@ async def _async_add_product(call: ServiceCall) -> ServiceResponse:
 
 
 async def _async_set_essential(call: ServiceCall) -> ServiceResponse:
+    await _async_check_writer(call)
     product = await _inventory(call).async_set_essential(
         call.data[ATTR_PRODUCT],
         essential=call.data[ATTR_ESSENTIAL],
@@ -469,6 +492,7 @@ async def _async_start_shopping(call: ServiceCall) -> ServiceResponse:
 
 
 async def _async_add_to_shopping_list(call: ServiceCall) -> ServiceResponse:
+    await _async_check_writer(call)
     runtime = _runtime(call)
     item = await runtime.shopping.async_add(
         text=call.data.get(ATTR_TEXT),
@@ -491,6 +515,7 @@ async def _async_add_to_shopping_list(call: ServiceCall) -> ServiceResponse:
 
 
 async def _async_import_from_todo(call: ServiceCall) -> ServiceResponse:
+    await _async_check_writer(call)
     runtime = _runtime(call)
     steps = await runtime.shopping.async_import_from_todo(
         call.data[ATTR_ENTITY_ID],
@@ -529,6 +554,7 @@ async def _async_ask(call: ServiceCall) -> ServiceResponse:
 
 
 async def _async_analyze_image(call: ServiceCall) -> ServiceResponse:
+    await _async_check_writer(call)
     runtime = _runtime(call)
     if path_text := call.data.get(ATTR_FILE):
         path = Path(path_text)
@@ -551,6 +577,7 @@ async def _async_analyze_image(call: ServiceCall) -> ServiceResponse:
 
 
 async def _async_confirm_pending(call: ServiceCall) -> ServiceResponse:
+    await _async_check_writer(call)
     runtime = _runtime(call)
     proposal_id = call.data[ATTR_PROPOSAL_ID]
     if call.data[ATTR_DECISION] == "reject":

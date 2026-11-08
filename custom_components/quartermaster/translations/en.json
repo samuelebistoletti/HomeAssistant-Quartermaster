@@ -224,6 +224,10 @@
         "config_entry_id": {
           "name": "Quartermaster entry",
           "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
+        },
+        "operation_id": {
+          "name": "Operation",
+          "description": "ID of the operation to undo (from the journal); the newest one when omitted."
         }
       }
     },
@@ -584,7 +588,8 @@
           "ai_task_image": "AI Task for images",
           "structure_mode": "How to ask for the item list",
           "confidence_threshold": "Confidence threshold for automatic mode",
-          "daily_analysis_limit": "Image analyses per day"
+          "daily_analysis_limit": "Image analyses per day",
+          "non_admin_writes": "Non-admin users can change the inventory"
         },
         "data_description": {
           "agent_id": "Agent used by quartermaster.ask (Alexa, Telegram, dashboard). Attach the Assist API to it so it can use the Quartermaster tools.",
@@ -598,7 +603,8 @@
           "ai_task_image": "AI Task entity with a vision model that analyzes zone photos and camera frames.",
           "structure_mode": "Use the fallback if your provider handles nested structures badly.",
           "confidence_threshold": "In automatic mode, recognized changes at or above this confidence are applied; the others are proposed. A zone can override it.",
-          "daily_analysis_limit": "Model calls for images stop for the day after this many."
+          "daily_analysis_limit": "Model calls for images stop for the day after this many.",
+          "non_admin_writes": "Otherwise only administrators change data from the dashboard and actions; reading stays open to every user."
         }
       }
     }

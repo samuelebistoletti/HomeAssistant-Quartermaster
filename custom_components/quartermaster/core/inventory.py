@@ -461,21 +461,26 @@ class InventoryService:
         only_channel: bool = False,
         user_id: str | None = None,
         within: timedelta | None = None,
+        operation_id: str | None = None,
     ) -> tuple[list[Movement], list[Movement]]:
         """Revert the newest operation that is not undone yet, as a whole.
 
-        With `only_channel` the search is limited to that channel and user;
+        With `operation_id` that operation is reverted instead. With
+        `only_channel` the search is limited to that channel and user;
         otherwise any movement qualifies. The undo is one operation journaled
         with `channel` and `user_id`. Returns the original movements and the
         undo movements.
         """
         since = dt_util.utcnow() - within if within is not None else None
         async with self._writing():
-            originals = await self.backend.async_last_undoable(
-                channel=channel if only_channel else None,
-                user_id=user_id if only_channel else None,
-                since=since,
-            )
+            if operation_id is not None:
+                originals = await self.backend.async_operation_entries(operation_id)
+            else:
+                originals = await self.backend.async_last_undoable(
+                    channel=channel if only_channel else None,
+                    user_id=user_id if only_channel else None,
+                    since=since,
+                )
             if not originals:
                 raise InventoryError("nothing_to_undo")
             zones = {zone.id: zone for zone in await self.backend.async_list_zones()}

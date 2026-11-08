@@ -14,7 +14,8 @@
   "config_flow": true,
   "dependencies": [
     "conversation",
-    "llm"
+    "llm",
+    "websocket_api"
   ],
   "documentation": "https://github.com/samuelebistoletti/HomeAssistant-Quartermaster",
   "integration_type": "service",

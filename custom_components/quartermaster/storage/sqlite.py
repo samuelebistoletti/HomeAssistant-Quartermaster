@@ -764,6 +764,22 @@ class SQLiteBackend(StorageBackend):
                 (key, value),
             )
 
+    async def async_operation_entries(self, operation_id: str) -> list[JournalEntry]:
+        """Return the movements of an operation that are not undone."""
+        return await self._run(self._operation_entries, operation_id)
+
+    def _operation_entries(self, operation_id: str) -> list[JournalEntry]:
+        rows = self._db.execute(
+            """
+            SELECT j.* FROM journal j
+            WHERE j.operation_id = ? AND j.kind != ?
+                AND NOT EXISTS (SELECT 1 FROM journal u WHERE u.undoes_id = j.id)
+            ORDER BY j.id
+            """,
+            (operation_id, MovementKind.UNDO.value),
+        ).fetchall()
+        return [_journal(row) for row in rows]
+
     # Export and import
 
     async def async_dump(self) -> dict[str, list[dict[str, Any]]]:

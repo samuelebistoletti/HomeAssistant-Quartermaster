@@ -224,6 +224,10 @@
         "config_entry_id": {
           "name": "Voce di Quartermaster",
           "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
+        },
+        "operation_id": {
+          "name": "Operazione",
+          "description": "ID dell'operazione da annullare (dallo storico); la più recente se manca."
         }
       }
     },
@@ -584,7 +588,8 @@
           "ai_task_image": "AI Task per le immagini",
           "structure_mode": "Come chiedere l'elenco dei prodotti",
           "confidence_threshold": "Soglia di affidabilità della modalità automatica",
-          "daily_analysis_limit": "Analisi di immagini al giorno"
+          "daily_analysis_limit": "Analisi di immagini al giorno",
+          "non_admin_writes": "Gli utenti non amministratori possono modificare l'inventario"
         },
         "data_description": {
           "agent_id": "Agente usato da quartermaster.ask (Alexa, Telegram, dashboard). Collegagli l'API Assist perché possa usare gli strumenti di Quartermaster.",
@@ -598,7 +603,8 @@
           "ai_task_image": "Entità AI Task con un modello con visione che analizza foto delle zone e fotogrammi delle telecamere.",
           "structure_mode": "Usa il ripiego se il provider gestisce male le strutture annidate.",
           "confidence_threshold": "In modalità automatica le variazioni riconosciute con affidabilità pari o superiore vengono applicate; le altre proposte. Una zona può avere la sua soglia.",
-          "daily_analysis_limit": "Oltre questo numero le chiamate al modello per le immagini si fermano fino al giorno dopo."
+          "daily_analysis_limit": "Oltre questo numero le chiamate al modello per le immagini si fermano fino al giorno dopo.",
+          "non_admin_writes": "Altrimenti solo gli amministratori modificano i dati dalla dashboard e dalle azioni; la lettura resta aperta a tutti."
         }
       }
     }

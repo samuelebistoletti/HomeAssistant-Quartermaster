@@ -23,6 +23,7 @@ from .const import (
     CONF_DAILY_ANALYSIS_LIMIT,
     CONF_EXPIRING_DAYS,
     CONF_EXTERNAL_TODO,
+    CONF_NON_ADMIN_WRITES,
     CONF_RECORD_PURCHASE_ON_CHECK,
     CONF_SHOPPING_MODE_MINUTES,
     CONF_STALE_ZONE_DAYS,
@@ -32,6 +33,7 @@ from .const import (
     DEFAULT_CONFIDENCE_THRESHOLD,
     DEFAULT_DAILY_ANALYSIS_LIMIT,
     DEFAULT_EXPIRING_DAYS,
+    DEFAULT_NON_ADMIN_WRITES,
     DEFAULT_RECORD_PURCHASE_ON_CHECK,
     DEFAULT_SHOPPING_MODE_MINUTES,
     DEFAULT_STALE_ZONE_DAYS,
@@ -93,6 +95,9 @@ OPTIONS_SCHEMA = probatio.Schema(
                 min=1, max=1000, step=1, mode=selector.NumberSelectorMode.BOX
             )
         ),
+        probatio.Required(
+            CONF_NON_ADMIN_WRITES, default=DEFAULT_NON_ADMIN_WRITES
+        ): selector.BooleanSelector(),
         probatio.Optional(CONF_EXTERNAL_TODO): selector.EntitySelector(
             selector.EntitySelectorConfig(domain="todo")
         ),

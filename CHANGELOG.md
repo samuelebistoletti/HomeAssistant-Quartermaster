@@ -13,3 +13,4 @@
 - Action `ask` for Alexa and other channels: sessions per channel with clarifications, reply or acknowledgement within 5 seconds, reprompt; options for the agent, session length and read-only Alexa.
 - Image analysis of zones with any AI Task entity: quality checks, crop, resize and metadata removal with Pillow, skip of unchanged images, structured or text output, validation.
 - Proposals of changes with confirmation, corrections and alias learning; automatic mode above a confidence threshold; actions `analyze_image` and `confirm_pending`, LLM tool to confirm; sensors for pending proposals and daily analyses.
+- Websocket commands for the dashboard (snapshot, live updates, journal, photo upload) and a write permission rule for non-admin users; undo of a given operation.

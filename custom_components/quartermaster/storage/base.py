@@ -158,6 +158,10 @@ class StorageBackend(ABC):
         """Store an internal setting."""
 
     @abstractmethod
+    async def async_operation_entries(self, operation_id: str) -> list[JournalEntry]:
+        """Return the movements of an operation that are not undone."""
+
+    @abstractmethod
     async def async_dump(self) -> dict[str, list[dict[str, Any]]]:
         """Return the whole inventory as JSON-serializable tables."""
 

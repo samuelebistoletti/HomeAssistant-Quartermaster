@@ -41,3 +41,5 @@ DEFAULT_CONFIDENCE_THRESHOLD: Final = 0.75
 
 SETTING_ANALYSES_DAY: Final = "analyses_day"
 SETTING_ANALYSES_COUNT: Final = "analyses_count"
+CONF_NON_ADMIN_WRITES: Final = "non_admin_writes"
+DEFAULT_NON_ADMIN_WRITES: Final = False
