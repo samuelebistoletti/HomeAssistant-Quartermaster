@@ -29,6 +29,7 @@ class Channel(StrEnum):
     CAMERA = "camera"
     SERVICE = "service"
     SCHEDULER = "scheduler"
+    EMAIL = "email"
 
 
 @dataclass(slots=True)

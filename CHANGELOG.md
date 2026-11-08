@@ -25,4 +25,10 @@
 - Language option for the messages sent by Quartermaster.
 - Options grouped in a menu (general, voice and Alexa, shopping list, Telegram, notifications, permissions).
 - Diagnostics with personal data redacted (only counts and settings).
+- Receipts: `analyze_receipt` action, Telegram caption or button, dashboard upload; purchases from order emails through the IMAP integration. Both become purchase proposals.
+- Consumption forecast: suggestion reason "running out" and essentials on the list before they run low.
+- Interior cameras checked when their door closes; shelf life sets the best-before date of purchases.
+- Kept crops for proposals and zones, served to the dashboard; zone settings in the snapshot for zone editing.
+- AI Task for text, hourly analysis limit, per-minute limit for `ask`, 15 s camera timeout, tool argument validation, "counted" quantities by voice, photo requests that say what to frame, per-zone announcements, failed checks announced.
+- Automation examples.
 - README and user guide.

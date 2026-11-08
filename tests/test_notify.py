@@ -120,11 +120,14 @@ async def test_fallback_and_events(hass: HomeAssistant, notified: Any) -> None:
         f"{DOMAIN}_zone_checked", {"zone_id": "fridge", "status": "failed"}
     )
     await _settle(hass)
-    texts = [text for _, text in notify.messages[-2:]]
-    assert texts == [
-        "Fatto, latte finito.",
-        "Controllo di Fridge fatto: 2 variazioni applicate, proposta in attesa: 1.",
-    ]
+    texts = [text for _, text in notify.messages[-3:]]
+    assert texts[0] == "Fatto, latte finito."
+    assert sorted(texts[1:]) == sorted(
+        [
+            "Controllo di Fridge fatto: 2 variazioni applicate, proposta in attesa: 1.",
+            "Non sono riuscito a controllare Fridge: " + "l'analisi non è riuscita.",
+        ]
+    )
 
 
 async def test_essential_running_out(hass: HomeAssistant, notified: Any) -> None:

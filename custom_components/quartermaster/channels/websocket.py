@@ -93,6 +93,11 @@ def snapshot(runtime: QuartermasterRuntimeData) -> dict[str, Any]:
                 "name": zone.name,
                 "aliases": zone.aliases,
                 "sources": [source.get("type") for source in zone.sources],
+                "source_details": zone.sources,
+                "check_schedule": zone.check_schedule,
+                "reminder_days": zone.reminder_days,
+                "confidence_threshold": zone.confidence_threshold,
+                "has_image": zone.id in data.zone_crops,
                 "updated": data.zone_updates[zone.id].isoformat()
                 if zone.id in data.zone_updates
                 else None,
@@ -180,7 +185,9 @@ def snapshot(runtime: QuartermasterRuntimeData) -> dict[str, Any]:
         "proposals": [
             {
                 "proposal_id": proposal.id,
+                "kind": proposal.payload.get("kind", "count"),
                 "zone_id": proposal.zone_id,
+                "has_image": str(proposal.id) in data.proposal_crops,
                 "channel": proposal.channel.value,
                 "created": proposal.created.isoformat(),
                 "items": proposal.payload["items"],
@@ -192,6 +199,7 @@ def snapshot(runtime: QuartermasterRuntimeData) -> dict[str, Any]:
         if data.shopping_mode and data.shopping_until
         else None,
         "analyses_today": data.analyses_today,
+        "daily_analysis_limit": runtime.vision.daily_limit,
     }
 
 
@@ -202,6 +210,7 @@ def async_setup_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_subscribe)
     websocket_api.async_register_command(hass, ws_journal)
     websocket_api.async_register_command(hass, ws_upload_photo)
+    websocket_api.async_register_command(hass, ws_image)
 
 
 def _loaded(
@@ -307,8 +316,9 @@ async def ws_journal(
 @websocket_api.websocket_command(
     {
         probatio.Required("type"): f"{DOMAIN}/upload_photo",
-        probatio.Required("zone"): str,
+        probatio.Optional("zone"): str,
         probatio.Required("image"): str,
+        probatio.Optional("kind", default="zone"): probatio.In(["zone", "receipt"]),
     }
 )
 @websocket_api.async_response
@@ -328,14 +338,19 @@ async def ws_upload_photo(
     if len(data) > MAX_UPLOAD_BYTES:
         connection.send_error(msg["id"], "too_large", "Images are limited to 2 MB")
         return
+    user_id = connection.user.id if connection.user else None
+    if msg["kind"] == "zone" and not msg.get("zone"):
+        connection.send_error(msg["id"], "zone_required", "A zone is required")
+        return
     try:
-        result = await async_photo_pipeline(
-            runtime,
-            data,
-            msg["zone"],
-            channel=Channel.DASHBOARD,
-            user_id=connection.user.id if connection.user else None,
-        )
+        if msg["kind"] == "receipt":
+            result = await runtime.purchases.async_from_receipt(
+                data, channel=Channel.DASHBOARD, user_id=user_id
+            )
+        else:
+            result = await async_photo_pipeline(
+                runtime, data, msg["zone"], channel=Channel.DASHBOARD, user_id=user_id
+            )
     except InventoryError as err:
         connection.send_error(
             msg["id"],
@@ -347,3 +362,32 @@ async def ws_upload_photo(
         )
         return
     connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        probatio.Required("type"): f"{DOMAIN}/image",
+        probatio.Exclusive("proposal_id", "target"): int,
+        probatio.Exclusive("zone_id", "target"): str,
+    }
+)
+@websocket_api.async_response
+async def ws_image(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Return the kept crop of a proposal or of a zone's last analysis."""
+    if (runtime := _loaded(hass, connection, msg["id"])) is None:
+        return
+    crops = runtime.vision.crops
+    jpeg: bytes | None = None
+    if crops is not None and "proposal_id" in msg:
+        jpeg = await crops.async_read("proposal", msg["proposal_id"])
+    elif crops is not None and "zone_id" in msg:
+        jpeg = await crops.async_read("zone", msg["zone_id"])
+    if jpeg is None:
+        connection.send_error(msg["id"], "not_found", "No image")
+        return
+    connection.send_result(
+        msg["id"],
+        {"content_type": "image/jpeg", "data": base64.b64encode(jpeg).decode()},
+    )

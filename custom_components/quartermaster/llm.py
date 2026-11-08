@@ -33,6 +33,7 @@ from custom_components.quartermaster.core.inventory import (
 from custom_components.quartermaster.core.voice import PendingClarification
 from custom_components.quartermaster.storage.models import (
     Channel,
+    MovementKind,
     ShoppingOrigin,
     ShoppingStatus,
 )
@@ -69,7 +70,9 @@ PROMPT = """You manage the household inventory with the quartermaster__ tools.
   it again with the confirmation_id only after an explicit yes.
 - When a product is not found, ask whether to put it on the shopping list and,
   if wanted, whether to create it as a product.
-- "Undo" or a correction right after a change uses quartermaster__undo_last."""
+- "Undo" or a correction right after a change uses quartermaster__undo_last.
+- When the user says how many there are ("I have 3 yogurts left"), use
+  quartermaster__adjust_stock with action counted and that quantity."""
 
 
 def _runtime(hass: HomeAssistant) -> QuartermasterRuntimeData:
@@ -122,10 +125,14 @@ class QuartermasterTool(llm.Tool):
         ):
             return _error("read_only")
         user_id = llm_context.context.user_id if llm_context.context else None
+        # Home Assistant does not validate tool arguments before calling the
+        # tool (spec §8: arguments validated, quantities plausible).
         try:
-            result = await self._async_run(
-                runtime, dict(tool_input.tool_args), channel, user_id, llm_context
-            )
+            args = dict(self.parameters(dict(tool_input.tool_args)))
+        except probatio.Invalid as err:
+            return _error("invalid_arguments", detail=str(err))
+        try:
+            result = await self._async_run(runtime, args, channel, user_id, llm_context)
         except InventoryError as err:
             return _error(
                 err.translation_key or "invalid",
@@ -494,14 +501,15 @@ class AdjustStockTool(QuartermasterTool):
     name = f"{DOMAIN}__adjust_stock"
     description = (
         "Record that a product was finished, consumed (used, taken), bought or "
-        "opened, optionally in a zone. With several matching products it writes "
-        "nothing and returns candidates to ask about."
+        "opened, or how many there are now (counted), optionally in a zone. "
+        "With several matching products it writes nothing and returns "
+        "candidates to ask about."
     )
     parameters = probatio.Schema(
         {
             probatio.Required("product", description="Product, alias or category"): str,
             probatio.Optional("action"): probatio.In(
-                ["finished", "consumed", "bought", "opened"]
+                ["finished", "consumed", "bought", "opened", "counted"]
             ),
             probatio.Optional("quantity", description="Defaults to 1"): QUANTITY,
             probatio.Optional("zone"): str,
@@ -534,13 +542,16 @@ class AdjustStockTool(QuartermasterTool):
                 args.setdefault("quantity", pending.quantity)
         if not args.get("action"):
             return _error("action_required")
+        if args["action"] == "counted" and args.get("quantity") is None:
+            return _error("quantity_required")
 
         inventory = runtime.inventory
         zone = (
             await inventory.async_find_zone(args["zone"]) if args.get("zone") else None
         )
         zone_id = zone.id if zone else args.get("zone_id")
-        buying = args["action"] == "bought"
+        # A count may concern a product not in stock right now.
+        buying = args["action"] in ("bought", "counted")
         candidates = await inventory.async_search(
             args["product"], zone_id=None if buying else zone_id, in_stock=not buying
         )
@@ -571,7 +582,7 @@ class AdjustStockTool(QuartermasterTool):
             "quantity": args.get("quantity"),
             "zone_id": zone_id,
         }
-        if not buying and zone_id is None:
+        if args["action"] != "bought" and zone_id is None:
             held = [
                 level.zone_id for level in candidates[0].levels if level.quantity > 0
             ]
@@ -618,14 +629,29 @@ class AdjustStockTool(QuartermasterTool):
                     "opened": True,
                 }
             )
-        movement = await inventory.async_adjust_stock(
-            product_id,
-            ACTIONS[resolved["action"]],
-            quantity=resolved.get("quantity"),
-            zone_ref=resolved.get("zone_id"),
-            channel=channel,
-            user_id=user_id,
-        )
+        if resolved["action"] == "counted":
+            if resolved.get("zone_id") is None:
+                levels = await inventory.async_get_stock(product_id=product_id)
+                held = [level.zone_id for level in levels if level.quantity > 0]
+                if len(held) == 1:
+                    resolved = {**resolved, "zone_id": held[0]}
+            movement = await inventory.async_set_stock(
+                product_id,
+                float(resolved["quantity"]),
+                zone_ref=resolved.get("zone_id"),
+                channel=channel,
+                user_id=user_id,
+                kind=MovementKind.CORRECTION,
+            )
+        else:
+            movement = await inventory.async_adjust_stock(
+                product_id,
+                ACTIONS[resolved["action"]],
+                quantity=resolved.get("quantity"),
+                zone_ref=resolved.get("zone_id"),
+                channel=channel,
+                user_id=user_id,
+            )
         product = movement.product
         levels = await inventory.async_get_stock(product_id=product.id)
         total = round(sum(level.quantity for level in levels), 3)

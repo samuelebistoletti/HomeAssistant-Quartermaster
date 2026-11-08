@@ -59,6 +59,9 @@
     },
     "arm_show_mode": {
       "service": "mdi:hand-front-right-outline"
+    },
+    "analyze_receipt": {
+      "service": "mdi:receipt-text-outline"
     }
   },
   "entity": {

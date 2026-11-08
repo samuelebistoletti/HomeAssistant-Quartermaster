@@ -1,0 +1,17 @@
+# Show photo requests on a wall tablet as a persistent notification, besides
+# the notify entities chosen in the options.
+alias: Quartermaster - photo requests on the tablet
+triggers:
+  - trigger: event
+    event_type: quartermaster_photo_request
+actions:
+  - action: persistent_notification.create
+    data:
+      notification_id: "quartermaster_photo_{{ trigger.event.data.zone_id }}"
+      title: Quartermaster
+      message: >-
+        Please send a photo of {{ trigger.event.data.zone }}
+        {%- if trigger.event.data.products %}
+        (it should show {{ trigger.event.data.products | join(', ') }})
+        {%- endif %}.
+mode: queued

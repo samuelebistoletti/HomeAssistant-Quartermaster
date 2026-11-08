@@ -61,6 +61,13 @@ class Movement:
     zone: Zone
 
 
+def shelf_life_date(product: Product) -> date | None:
+    """Return the best-before date of a purchase today, from the shelf life."""
+    if not product.shelf_life_days:
+        return None
+    return dt_util.now().date() + timedelta(days=product.shelf_life_days)
+
+
 def normalize(text: str) -> str:
     """Return text for case-insensitive, whitespace-insensitive matching."""
     return " ".join(text.split()).casefold()
@@ -408,7 +415,7 @@ class InventoryService:
                     zone_id=zone.id,
                     kind=MovementKind.PURCHASE,
                     delta=1.0 if quantity is None else quantity,
-                    best_before=best_before,
+                    best_before=best_before or shelf_life_date(product),
                     channel=channel,
                     user_id=user_id,
                 )
@@ -587,6 +594,41 @@ class InventoryService:
             Movement(entry, products[entry.product_id], zones[entry.zone_id])
             for entry in entries
         ]
+
+    async def async_record_purchases(
+        self,
+        purchases: list[tuple[int, float]],
+        *,
+        channel: Channel,
+        user_id: str | None = None,
+    ) -> list[Movement]:
+        """Record purchases (product id, quantity) as one operation.
+
+        Each goes to the product's default zone (or its only zone); the
+        best-before date follows the product's shelf life when known.
+        """
+        for _, quantity in purchases:
+            _check_quantity(quantity)
+        async with self._writing():
+            changes: list[StockChange] = []
+            places: dict[int, tuple[Product, Zone]] = {}
+            for product_id, quantity in purchases:
+                product = await self.async_find_product(product_id)
+                zone = await self._movement_zone(product, StockOperation.PURCHASE, None)
+                places[product.id] = (product, zone)
+                changes.append(
+                    StockChange(
+                        product_id=product.id,
+                        zone_id=zone.id,
+                        kind=MovementKind.PURCHASE,
+                        delta=quantity,
+                        best_before=shelf_life_date(product),
+                        channel=channel,
+                        user_id=user_id,
+                    )
+                )
+            entries = await self.backend.async_apply_changes(changes)
+        return [Movement(entry, *places[entry.product_id]) for entry in entries]
 
     async def async_add_alias(self, product_id: int, alias: str) -> bool:
         """Learn another name for a product; False when it is already known."""

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import datetime
+import json
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,7 @@ from custom_components.quartermaster.const import DOMAIN
 from custom_components.quartermaster.core.inventory import InventoryError
 from custom_components.quartermaster.storage.models import Channel
 from custom_components.quartermaster.vision.quality import Frame
+from custom_components.quartermaster.vision.schema import StructureMode
 from custom_components.quartermaster.vision.show import (
     EVENT_SHOW_RECOGNIZED,
     _in_hours,
@@ -413,3 +415,33 @@ async def test_tool_arms(hass: HomeAssistant, show: Any) -> None:
         )
     )
     assert result.data["status"] == "armed"  # type: ignore[union-attr]
+
+
+async def test_text_mode_list_and_announce(hass: HomeAssistant, show: Any) -> None:
+    """Text mode parses JSON; an essential below minimum is flagged for the list."""
+    entry, _scene, model, passata = show
+    runtime = entry.runtime_data
+    runtime.vision.structure_mode = StructureMode.TEXT
+    await runtime.inventory.async_set_essential("passata", essential=True, min_stock=4)
+    zone = await runtime.inventory.async_find_zone("garage")
+    sources = [dict(zone.sources[0]) | {"announce": ["notify.garage_echo"]}]
+    await hass.services.async_call(
+        DOMAIN,
+        "set_zone",
+        {"zone": "garage", "sources": [*sources, {"type": "manual"}]},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    events = async_capture_events(hass, EVENT_SHOW_RECOGNIZED)
+    await hass.services.async_call(
+        DOMAIN, "arm_show_mode", {"zone": "garage"}, blocking=True
+    )
+    model.answers["show"] = lambda: {"result_json": json.dumps(_taken(passata, 0.9)())}
+    assert (await runtime.show.async_handle_trigger("garage:0"))["status"] == "applied"
+    assert "result_json" in model.calls[-1]["structure"]
+    [event] = events
+    assert event.data["to_list"] is True
+    assert event.data["announce"] == ["notify.garage_echo"]
+    model.answers["show"] = lambda: {"result_json": "not json"}
+    with pytest.raises(InventoryError):
+        await runtime.show.async_handle_trigger("garage:0")

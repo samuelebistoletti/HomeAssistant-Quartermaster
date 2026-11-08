@@ -1,0 +1,12 @@
+# Arm show mode of the garage zone when the garage door opens, so products
+# shown to the garage camera are recorded as taken (camera_show source).
+alias: Quartermaster - arm show mode with the garage door
+triggers:
+  - trigger: state
+    entity_id: binary_sensor.garage_door
+    to: "on"
+actions:
+  - action: quartermaster.arm_show_mode
+    data:
+      zone: Garage
+mode: single

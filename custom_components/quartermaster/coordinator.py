@@ -21,9 +21,11 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.quartermaster.const import (
     CONF_EXPIRING_DAYS,
+    CONF_FORECAST_DAYS,
     CONF_SHOPPING_MODE_MINUTES,
     CONF_STALE_ZONE_DAYS,
     DEFAULT_EXPIRING_DAYS,
+    DEFAULT_FORECAST_DAYS,
     DEFAULT_SHOPPING_MODE_MINUTES,
     DEFAULT_STALE_ZONE_DAYS,
     DOMAIN,
@@ -32,7 +34,7 @@ from custom_components.quartermaster.core.confirmations import ProposalService
 from custom_components.quartermaster.core.inventory import InventoryService
 from custom_components.quartermaster.core.shopping import ShoppingService
 from custom_components.quartermaster.core.suggestions import (
-    FINISHED_LOOKBACK,
+    JOURNAL_LOOKBACK,
     Analysis,
     analyze,
     zone_last_updates,
@@ -79,6 +81,9 @@ class QuartermasterData:
     zone_checks: dict[str, dict[str, Any]] = field(default_factory=dict)
     zone_failures: dict[str, int] = field(default_factory=dict)
     photo_requests: list[PhotoRequest] = field(default_factory=list)
+    # Keys of the kept crops (zone ids, proposal ids as text).
+    zone_crops: set[str] = field(default_factory=set)
+    proposal_crops: set[str] = field(default_factory=set)
 
     @property
     def shopping_mode(self) -> bool:
@@ -159,7 +164,7 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
         zones = await backend.async_list_zones()
         stock = await backend.async_list_stock()
         journal = await backend.async_list_journal(
-            limit=JOURNAL_LIMIT, since=now - FINISHED_LOOKBACK
+            limit=JOURNAL_LIMIT, since=now - JOURNAL_LOOKBACK
         )
         updates = zone_last_updates(stock)
         zone_checks: dict[str, dict[str, Any]] = {}
@@ -177,8 +182,11 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
         signature = json.dumps(
             [[zone.id, zone.sources] for zone in zones], sort_keys=True, default=str
         )
-        if self.show is not None and signature != self._watch_signature:
-            self.show.async_start(zones)
+        if signature != self._watch_signature:
+            if self.show is not None:
+                self.show.async_start(zones)
+            if self.zones is not None:
+                self.zones.async_watch_doors(zones)
         self._watch_signature = signature
         names = {zone.id: zone.name for zone in zones}
         if self._zone_names is not None:
@@ -202,6 +210,7 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
                 now=now,
                 stale_days=self.option(CONF_STALE_ZONE_DAYS, DEFAULT_STALE_ZONE_DAYS),
                 expiring_days=self.option(CONF_EXPIRING_DAYS, DEFAULT_EXPIRING_DAYS),
+                forecast_days=self.option(CONF_FORECAST_DAYS, DEFAULT_FORECAST_DAYS),
             )
 
         analysis = compute(await self.shopping.async_items())
@@ -210,6 +219,7 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
         await self.shopping.async_sync_external()
         if self.shopping_until is not None and now >= self.shopping_until:
             self.shopping_until = None
+        crops = self.vision.crops if self.vision else None
         return QuartermasterData(
             analysis=analysis,
             products={product.id: product for product in products},
@@ -225,4 +235,6 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
             zone_checks=zone_checks,
             zone_failures=zone_failures,
             photo_requests=await self.zones.async_open_requests() if self.zones else [],
+            zone_crops=await crops.async_keys("zone") if crops else set(),
+            proposal_crops=await crops.async_keys("proposal") if crops else set(),
         )

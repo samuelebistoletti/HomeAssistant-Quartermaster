@@ -1,0 +1,11 @@
+# Turn shopping mode on and send the list when someone arrives at a shop.
+# Create a zone for the shop first (Settings → Areas, labels & zones → Zones).
+alias: Quartermaster - go shopping at the shop
+triggers:
+  - trigger: zone
+    entity_id: person.example
+    zone: zone.supermarket
+    event: enter
+actions:
+  - action: quartermaster.start_shopping
+mode: single

@@ -385,3 +385,27 @@ Cameras, when activated, track product movements as much as possible and raise e
 - **No double counting.** A passage observation that matches a recent zone observation (same product, within the window) only confirms it. It can turn a held proposal into a recorded consumption when the combined confidence reaches the threshold and the zone allows automatic writes. Otherwise it becomes its own proposal.
 - **Window:** configurable, default 5 minutes. It only decides what can be matched; it is not a requirement to see the product twice.
 - **Future cameras** (for example a living room) are zone cameras for their zone. The passage camera then confirms only what actually goes out.
+
+## Spec audit and §15 evolutions (2026-11-08)
+
+The author asked to close the gaps of a spec audit and to implement §15 now. Author answers (2026-11-08): Grocy and EverShelf adapters dropped ("li lasciamo fuori"); ESPHome scales postponed; receipts and order emails always become a proposal; the forecast also puts essentials on the list.
+
+| Topic | Decision | Source or reason |
+| --- | --- | --- |
+| Receipts | `analyze_receipt` action, Telegram caption from the `receipt_words` phrase or the Receipt button, dashboard upload `kind: receipt`. `prepare_document`: no short-side and sharpness checks (receipts are narrow, text is fine detail), long side 1600 px. Proposal `kind: purchase`, `zone_id` null; confirming records all purchases as one operation in each product's default zone | Author: always a proposal |
+| Order emails | IMAP integration's documented `imap_content` event (filtered on `entry_id`, `initial`, allowed senders) and `imap.fetch` for the full text (the event text is clipped). Sender rules: whole address, or domain with subdomains. Processed uids kept in settings. Text goes to the text AI Task (new option `ai_task_text`, falls back to the image one); the prompt marks the email as data | home-assistant.io/integrations/imap |
+| Forecast | Rate = consumed units over the span since the first consumption in the last 60 days (at least 7 days), at least 3 consumptions, undone ones excluded. days_left = floor(total / rate). Within `forecast_days` (default 5, 0 off): suggestion `running_out`, or an essential goes to the automatic list | Author: also the list |
+| Door cameras | Camera source fields `trigger_entity` (binary_sensor), `trigger_state` (off), `trigger_delay_seconds` (3), `min_interval_minutes` (30). Only that camera is read; an unclear result is dropped without photo request or failure count | Spec §15 |
+| Shelf life | A purchase without a date gets today + `shelf_life_days` | Spec §4 field, behaviour not stated |
+| Crops | Kept in `<config>/quartermaster/crops` (not browsable): the last zone crop and each proposal's crop, deleted on decision or expiry and by hourly housekeeping. camera_show and passage frames are never kept (spec §5.1 privacy wins over "proposta con il ritaglio"). Served by websocket `quartermaster/image` | Spec §6.5 |
+| Debug retention | **Deviation:** no option to keep temporary photos for debugging (spec §5 allows one); safer, not needed so far | Privacy |
+| Limits | `hourly_analysis_limit` (default 30) on every model call with images or text; `quartermaster.ask` at most 20 requests per channel and minute; camera reads time out after 15 s | Spec §5, §8 |
+| Tool arguments | Home Assistant 2026.11 `async_call_tool` does not validate arguments: each tool validates them with its own schema and returns `invalid_arguments` | Spec §8; found by a test |
+| Counting | `adjust_stock` tool action `counted` sets the quantity with journal kind `correction` | Spec §6.1, §4 |
+| Photo requests | Missing expected essentials give reason `not_recognized` and the products to frame. A request started from Telegram goes back to the chat that wrote in the last 10 minutes (the tool call does not carry the chat id) | Spec §5 step 6 |
+| Announcements | camera_show and passage sources take `announce` (notify entities, for example the zone's Echo); the camera message also says when an essential went on the list | Spec §5.1 steps 6–7 |
+| Failed checks | Announced as a check result with the reason | Phase 8 criteria |
+| Text fallback | camera_show and passage honour `structure_mode`: text mode asks for the whole result as JSON in `result_json` | Spec §4.2 |
+| Permissions | **Deviation:** writes allowed to admins, or to every user with `non_admin_writes`, not to a list of chosen users | Spec §8; simpler |
+| AI cost | AI Task gives no cost data: the dashboard shows analyses today against the daily limit | Spec §6.5 |
+| Notices | Config flow says the dashboard is a separate download; `set_zone` sources and the dashboard zone editor carry the camera privacy notice | Spec §5.1, §6.5 |

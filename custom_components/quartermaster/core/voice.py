@@ -10,17 +10,19 @@ acknowledged at once and completed in the background.
 from __future__ import annotations
 
 import asyncio
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import logging
 import re
+import time
 from typing import Any
 
 from homeassistant.core import Context, HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt as dt_util
 
-from custom_components.quartermaster.const import DOMAIN
+from custom_components.quartermaster.const import ASK_PER_MINUTE, DOMAIN
 from custom_components.quartermaster.core.phrases import async_phrase
 from custom_components.quartermaster.storage.models import Channel
 
@@ -99,6 +101,18 @@ class VoiceSessions:
     # LLM tools know the channel and can store a pending clarification.
     running: dict[str, Session] = field(default_factory=dict)
     _tasks: set[asyncio.Task[Any]] = field(default_factory=set)
+    _recent: dict[Channel, deque[float]] = field(default_factory=dict)
+
+    def _within_rate(self, channel: Channel) -> bool:
+        """Allow at most ASK_PER_MINUTE requests per channel and minute."""
+        now = time.monotonic()
+        recent = self._recent.setdefault(channel, deque())
+        while recent and now - recent[0] > 60:
+            recent.popleft()
+        if len(recent) >= ASK_PER_MINUTE:
+            return False
+        recent.append(now)
+        return True
 
     def session(self, channel: Channel, key: str) -> Session:
         """Return the live session for the channel and key, or a new one."""
@@ -127,6 +141,13 @@ class VoiceSessions:
         context: Context,
     ) -> AskReply:
         """Send the text to the agent within the session; answer in time."""
+        if not self._within_rate(channel):
+            return AskReply(
+                speech=await async_phrase(self.hass, language, "ask_rate_limited"),
+                continue_conversation=False,
+                reprompt="",
+                conversation_id=None,
+            )
         session = self.session(channel, key)
         session.expires = dt_util.utcnow() + self.lifetime
         child = Context(user_id=context.user_id, parent_id=context.id)

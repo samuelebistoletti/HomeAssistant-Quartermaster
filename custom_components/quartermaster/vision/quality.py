@@ -127,6 +127,32 @@ def prepare(data: bytes, roi: Roi | None = None) -> PreparedImage:
     )
 
 
+DOCUMENT_LONG_SIDE = 1600
+DOCUMENT_MIN_SIDE = 200
+
+
+def prepare_document(data: bytes) -> bytes:
+    """Prepare a receipt photo: readable, not dark, resized, no metadata.
+
+    Receipts are long and narrow and their text is fine detail, so the zone
+    checks on the short side and sharpness do not apply.
+    """
+    try:
+        with Image.open(io.BytesIO(data)) as source:
+            source.load()
+            image = ImageOps.exif_transpose(source).convert("RGB")
+    except (UnidentifiedImageError, OSError, ValueError) as err:
+        raise ImageRejectedError(ImageIssue.UNREADABLE) from err
+    if min(image.size) < DOCUMENT_MIN_SIDE:
+        raise ImageRejectedError(ImageIssue.TOO_SMALL)
+    if brightness(image.convert("L")) < MIN_BRIGHTNESS:
+        raise ImageRejectedError(ImageIssue.TOO_DARK)
+    image.thumbnail((DOCUMENT_LONG_SIDE, DOCUMENT_LONG_SIDE), Image.Resampling.LANCZOS)
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", quality=JPEG_QUALITY, optimize=True)
+    return buffer.getvalue()
+
+
 @dataclass(slots=True)
 class Frame:
     """A camera frame cut to the show area, with its scores."""

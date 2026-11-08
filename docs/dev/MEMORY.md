@@ -24,6 +24,7 @@ Shared state between development sessions and machines. Keep it short and factua
 - Done (2026-11-08): Phase 8 — notification router, Alexa guide and examples. 
 - Done (2026-11-08): Phase 9 without release — options menu, diagnostics, README, user guide. 184 tests, ~97 % coverage, CI green. Dev instance loads cleanly.
 - Done (2026-11-08): guided multi-step config flow of spec §10 and a language option; 186 tests; flow run on the dev instance (old dev entry deleted, its database kept as `config/quartermaster/pantry.db.bak`).
+- Done (2026-11-08): spec audit gaps closed and §15 (receipts, order emails, forecast, door cameras) implemented; Grocy/EverShelf dropped and scales postponed by the author. Dashboard updated by a background agent (zone management, crops, receipts, purchase proposals). Dashboard CI: minimatch override, TypeScript 7 held (PR #1 still open: closing it was not allowed to the agent).
 - Next (with the author): Phase 0 practical checks (Telegram bot, Alexa via tunnel, camera on the real instance, iOS, Marketplace, Cloudflare when upstream is fixed); then real-provider tests (Phase 3 dialogs, Phase 4 recall on 30 photos, Phase 5 cameras, Phase 8 Alexa).
 - Next: run the practical checks with the author (Telegram, Alexa and iOS through a quick tunnel on the second machine; camera on the real instance; Marketplace and Cloudflare on a network without TLS inspection).
 

@@ -63,6 +63,7 @@ SERVICE_SET_ZONE = "set_zone"
 SERVICE_CHECK_ZONE = "check_zone"
 SERVICE_ARM_SHOW_MODE = "arm_show_mode"
 SERVICE_ANALYZE_IMAGE = "analyze_image"
+SERVICE_ANALYZE_RECEIPT = "analyze_receipt"
 SERVICE_CONFIRM_PENDING = "confirm_pending"
 
 ATTR_PRODUCT = "product"
@@ -239,6 +240,15 @@ ANALYZE_IMAGE_SCHEMA = probatio.All(
     ),
     cv.has_at_least_one_key(ATTR_FILE, ATTR_CAMERA),
 )
+ANALYZE_RECEIPT_SCHEMA = probatio.Schema(
+    {
+        **ENTRY,
+        probatio.Required(ATTR_FILE): cv.string,
+        probatio.Optional(ATTR_CHANNEL, default="service"): probatio.In(
+            list(ASK_CHANNELS)
+        ),
+    }
+)
 CONFIRM_PENDING_SCHEMA = probatio.Schema(
     {
         **ENTRY,
@@ -263,12 +273,13 @@ SET_ZONE_SCHEMA = probatio.Schema(
         probatio.Optional(ATTR_NAME): cv.string,
         probatio.Optional(ATTR_ALIASES): probatio.All(cv.ensure_list, [cv.string]),
         probatio.Optional(ATTR_SOURCES): [dict],
-        probatio.Optional(ATTR_CHECK_SCHEDULE): probatio.Any("", cv.string),
-        probatio.Optional(ATTR_REMINDER_DAYS): probatio.All(
-            int, probatio.Range(min=0, max=365)
+        # null (from the dashboard) clears a setting, like "" or 0.
+        probatio.Optional(ATTR_CHECK_SCHEDULE): probatio.Any(None, "", cv.string),
+        probatio.Optional(ATTR_REMINDER_DAYS): probatio.Any(
+            None, probatio.All(int, probatio.Range(min=0, max=365))
         ),
-        probatio.Optional(ATTR_CONFIDENCE_THRESHOLD): probatio.All(
-            probatio.Coerce(float), probatio.Range(min=0, max=1)
+        probatio.Optional(ATTR_CONFIDENCE_THRESHOLD): probatio.Any(
+            None, probatio.All(probatio.Coerce(float), probatio.Range(min=0, max=1))
         ),
     }
 )
@@ -597,17 +608,33 @@ async def _async_ask(call: ServiceCall) -> ServiceResponse:
     return reply.as_dict() if call.return_response else None
 
 
+async def _async_read_allowed(call: ServiceCall, path_text: str) -> bytes:
+    path = Path(path_text)
+    if not call.hass.config.is_allowed_path(str(path)):
+        raise InventoryError("path_not_allowed", path=str(path))
+    try:
+        return await call.hass.async_add_executor_job(path.read_bytes)
+    except OSError as err:
+        raise InventoryError("import_unreadable", filename=path.name) from err
+
+
+async def _async_analyze_receipt(call: ServiceCall) -> ServiceResponse:
+    await _async_check_writer(call)
+    runtime = _runtime(call)
+    data = await _async_read_allowed(call, call.data[ATTR_FILE])
+    response = await runtime.purchases.async_from_receipt(
+        data,
+        channel=ASK_CHANNELS[call.data[ATTR_CHANNEL]],
+        user_id=call.context.user_id,
+    )
+    return response if call.return_response else None
+
+
 async def _async_analyze_image(call: ServiceCall) -> ServiceResponse:
     await _async_check_writer(call)
     runtime = _runtime(call)
     if path_text := call.data.get(ATTR_FILE):
-        path = Path(path_text)
-        if not call.hass.config.is_allowed_path(str(path)):
-            raise InventoryError("path_not_allowed", path=str(path))
-        try:
-            data = await call.hass.async_add_executor_job(path.read_bytes)
-        except OSError as err:
-            raise InventoryError("import_unreadable", filename=path.name) from err
+        data = await _async_read_allowed(call, path_text)
     else:
         data = await async_camera_frame(call.hass, call.data[ATTR_CAMERA])
     response = await async_photo_pipeline(
@@ -641,11 +668,20 @@ async def _async_confirm_pending(call: ServiceCall) -> ServiceResponse:
     return {"decision": call.data[ATTR_DECISION], "applied": applied}
 
 
+def _cleared(call: ServiceCall, key: str) -> Any:
+    """Return a field, with an explicit null turned into 0 (clear)."""
+    if key in call.data and call.data[key] is None:
+        return 0
+    return call.data.get(key)
+
+
 async def _async_set_zone(call: ServiceCall) -> ServiceResponse:
     await _async_check_writer(call)
     runtime = _runtime(call)
     sources = call.data.get(ATTR_SOURCES)
     schedule = call.data.get(ATTR_CHECK_SCHEDULE)
+    if ATTR_CHECK_SCHEDULE in call.data and schedule is None:
+        schedule = ""
     if schedule and not cron_is_valid(schedule):
         raise InventoryError("invalid_schedule", schedule=schedule)
     zone = await runtime.inventory.async_update_zone(
@@ -654,8 +690,8 @@ async def _async_set_zone(call: ServiceCall) -> ServiceResponse:
         aliases=call.data.get(ATTR_ALIASES),
         sources=validate_sources(sources) if sources is not None else None,
         check_schedule=schedule,
-        reminder_days=call.data.get(ATTR_REMINDER_DAYS),
-        confidence_threshold=call.data.get(ATTR_CONFIDENCE_THRESHOLD),
+        reminder_days=_cleared(call, ATTR_REMINDER_DAYS),
+        confidence_threshold=_cleared(call, ATTR_CONFIDENCE_THRESHOLD),
     )
     await runtime.coordinator.async_refresh()
     if not call.return_response:
@@ -718,6 +754,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_CHECK_ZONE, _async_check_zone, CHECK_ZONE_SCHEMA),
         (SERVICE_ARM_SHOW_MODE, _async_arm_show_mode, ARM_SHOW_MODE_SCHEMA),
         (SERVICE_ANALYZE_IMAGE, _async_analyze_image, ANALYZE_IMAGE_SCHEMA),
+        (SERVICE_ANALYZE_RECEIPT, _async_analyze_receipt, ANALYZE_RECEIPT_SCHEMA),
         (SERVICE_CONFIRM_PENDING, _async_confirm_pending, CONFIRM_PENDING_SCHEMA),
     ):
         hass.services.async_register(

@@ -18,12 +18,17 @@ import probatio
 from .const import (
     CONF_AGENT_ID,
     CONF_AI_TASK_IMAGE,
+    CONF_AI_TASK_TEXT,
     CONF_ALEXA_READ_ONLY,
     CONF_ASK_SESSION_SECONDS,
     CONF_CONFIDENCE_THRESHOLD,
     CONF_DAILY_ANALYSIS_LIMIT,
+    CONF_EMAIL_ENTRY,
+    CONF_EMAIL_SENDERS,
     CONF_EXPIRING_DAYS,
     CONF_EXTERNAL_TODO,
+    CONF_FORECAST_DAYS,
+    CONF_HOURLY_ANALYSIS_LIMIT,
     CONF_LANGUAGE,
     CONF_NON_ADMIN_WRITES,
     CONF_RECORD_PURCHASE_ON_CHECK,
@@ -42,6 +47,8 @@ from .const import (
     DEFAULT_CONFIDENCE_THRESHOLD,
     DEFAULT_DAILY_ANALYSIS_LIMIT,
     DEFAULT_EXPIRING_DAYS,
+    DEFAULT_FORECAST_DAYS,
+    DEFAULT_HOURLY_ANALYSIS_LIMIT,
     DEFAULT_NON_ADMIN_WRITES,
     DEFAULT_RECORD_PURCHASE_ON_CHECK,
     DEFAULT_SHOPPING_MODE_MINUTES,
@@ -94,6 +101,9 @@ OPTIONS_SCHEMA = probatio.Schema(
         probatio.Optional(CONF_AI_TASK_IMAGE): selector.EntitySelector(
             selector.EntitySelectorConfig(domain="ai_task")
         ),
+        probatio.Optional(CONF_AI_TASK_TEXT): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="ai_task")
+        ),
         probatio.Required(
             CONF_STRUCTURE_MODE, default=DEFAULT_STRUCTURE_MODE
         ): selector.SelectSelector(
@@ -113,6 +123,13 @@ OPTIONS_SCHEMA = probatio.Schema(
         ): selector.NumberSelector(
             selector.NumberSelectorConfig(
                 min=1, max=1000, step=1, mode=selector.NumberSelectorMode.BOX
+            )
+        ),
+        probatio.Required(
+            CONF_HOURLY_ANALYSIS_LIMIT, default=DEFAULT_HOURLY_ANALYSIS_LIMIT
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=1, max=500, step=1, mode=selector.NumberSelectorMode.BOX
             )
         ),
         probatio.Required(
@@ -161,6 +178,23 @@ OPTIONS_SCHEMA = probatio.Schema(
             90
         ),
         probatio.Required(CONF_EXPIRING_DAYS, default=DEFAULT_EXPIRING_DAYS): _days(30),
+        probatio.Required(
+            CONF_FORECAST_DAYS, default=DEFAULT_FORECAST_DAYS
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=0,
+                max=30,
+                step=1,
+                mode=selector.NumberSelectorMode.BOX,
+                unit_of_measurement="d",
+            )
+        ),
+        probatio.Optional(CONF_EMAIL_ENTRY): selector.ConfigEntrySelector(
+            selector.ConfigEntrySelectorConfig(integration="imap")
+        ),
+        probatio.Optional(CONF_EMAIL_SENDERS): selector.TextSelector(
+            selector.TextSelectorConfig(multiple=True)
+        ),
     }
 )
 
@@ -384,9 +418,11 @@ OPTION_GROUPS: dict[str, tuple[str, ...]] = {
     "models": (
         CONF_AGENT_ID,
         CONF_AI_TASK_IMAGE,
+        CONF_AI_TASK_TEXT,
         CONF_STRUCTURE_MODE,
         CONF_CONFIDENCE_THRESHOLD,
         CONF_DAILY_ANALYSIS_LIMIT,
+        CONF_HOURLY_ANALYSIS_LIMIT,
     ),
     "voice": (CONF_ASK_SESSION_SECONDS, CONF_ALEXA_READ_ONLY),
     "shopping": (
@@ -395,6 +431,9 @@ OPTION_GROUPS: dict[str, tuple[str, ...]] = {
         CONF_SHOPPING_MODE_MINUTES,
         CONF_STALE_ZONE_DAYS,
         CONF_EXPIRING_DAYS,
+        CONF_FORECAST_DAYS,
+        CONF_EMAIL_ENTRY,
+        CONF_EMAIL_SENDERS,
     ),
     "telegram": (
         CONF_TELEGRAM_EVENT,

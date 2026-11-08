@@ -57,3 +57,19 @@ SUPPORTED_LANGUAGES: Final = ("en", "it")
 DATA_INITIAL_ZONES: Final = "initial_zones"
 DATA_INITIAL_ESSENTIALS: Final = "initial_essentials"
 DATA_INITIAL_IMPORT: Final = "initial_import"
+
+# Forecast of consumption (spec §15): days ahead, 0 turns it off.
+CONF_FORECAST_DAYS: Final = "forecast_days"
+DEFAULT_FORECAST_DAYS: Final = 5
+
+# AI Task for text-only work (order emails); the image one when empty.
+CONF_AI_TASK_TEXT: Final = "ai_task_text"
+CONF_HOURLY_ANALYSIS_LIMIT: Final = "hourly_analysis_limit"
+DEFAULT_HOURLY_ANALYSIS_LIMIT: Final = 30
+
+# Order emails through the IMAP integration (spec §15).
+CONF_EMAIL_ENTRY: Final = "email_entry"
+CONF_EMAIL_SENDERS: Final = "email_senders"
+
+# Requests to quartermaster.ask per channel and minute (spec §8).
+ASK_PER_MINUTE: Final = 20

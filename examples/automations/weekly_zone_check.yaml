@@ -1,0 +1,14 @@
+# Check the pantry every Sunday evening; without a camera Quartermaster asks
+# for a photo. (A zone can also have its own check_schedule.)
+alias: Quartermaster - weekly pantry check
+triggers:
+  - trigger: time
+    at: "18:00:00"
+conditions:
+  - condition: time
+    weekday: sun
+actions:
+  - action: quartermaster.check_zone
+    data:
+      zone: Pantry
+mode: single

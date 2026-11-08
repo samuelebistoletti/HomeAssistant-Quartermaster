@@ -8,8 +8,10 @@ documented action with a response (spec §17.2).
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from pathlib import Path
+import time
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.const import ATTR_ENTITY_ID
@@ -30,7 +32,15 @@ from custom_components.quartermaster.core.inventory import (
     InventoryError,
     InventoryService,
 )
-from custom_components.quartermaster.storage.models import Channel, Zone, ZoneSnapshot
+from custom_components.quartermaster.core.phrases import configured_language
+from custom_components.quartermaster.storage.models import (
+    Channel,
+    Product,
+    Proposal,
+    Zone,
+    ZoneSnapshot,
+)
+from custom_components.quartermaster.vision.crops import CropStore
 from custom_components.quartermaster.vision.phash import SAME_IMAGE_BITS, distance
 from custom_components.quartermaster.vision.quality import (
     ImageRejectedError,
@@ -51,6 +61,8 @@ if TYPE_CHECKING:
     from custom_components.quartermaster import QuartermasterRuntimeData
 
 MEDIA_SUBDIR = Path(DOMAIN) / "tmp"
+# Spec §5: a frame that takes longer than this to read is discarded.
+CAMERA_TIMEOUT = 15
 
 INSTRUCTIONS = """You are checking a household storage zone: {zone}.
 List every food or household product you can see with the number of packages
@@ -83,6 +95,9 @@ class VisionService:
         self.ai_task_entity: str | None = None
         self.structure_mode = StructureMode.NESTED
         self.daily_limit = 50
+        self.hourly_limit = 30
+        self.crops: CropStore | None = None
+        self._recent: list[float] = []
 
     async def async_analyses_today(self) -> int:
         """Return how many model calls were made today."""
@@ -92,7 +107,8 @@ class VisionService:
         return int(await self._backend.async_get_setting(SETTING_ANALYSES_COUNT) or 0)
 
     async def async_count_call(self) -> None:
-        """Count one model call against today's limit."""
+        """Count one model call against today's and this hour's limits."""
+        self._recent.append(time.monotonic())
         count = await self.async_analyses_today()
         await self._backend.async_set_setting(
             SETTING_ANALYSES_DAY, dt_util.now().date().isoformat()
@@ -107,6 +123,8 @@ class VisionService:
             image = await self._hass.async_add_executor_job(prepare, data, roi)
         except ImageRejectedError as err:
             raise InventoryError("image_rejected", issue=err.issue.value) from err
+        if self.crops is not None:
+            await self.crops.async_save("zone", zone.id, image.jpeg)
         previous = await self._backend.async_get_snapshot(zone.id)
         if (
             previous is not None
@@ -115,10 +133,6 @@ class VisionService:
             <= SAME_IMAGE_BITS
         ):
             return AnalysisRun(result_from_dict(previous.result), image, reused=True)
-        if not self.ai_task_entity:
-            raise InventoryError("ai_task_missing")
-        if await self.async_analyses_today() >= self.daily_limit:
-            raise InventoryError("daily_limit", limit=str(self.daily_limit))
         analysis = await self._async_call_model(image, zone)
         await self._backend.async_save_snapshot(
             ZoneSnapshot(
@@ -132,60 +146,108 @@ class VisionService:
         return AnalysisRun(analysis, image, reused=False)
 
     async def _async_call_model(self, image: PreparedImage, zone: Zone) -> ZoneAnalysis:
-        media_root = self._hass.config.media_dirs.get("local")
-        if media_root is None:
-            raise InventoryError("media_dir_missing")
-        relative = MEDIA_SUBDIR / f"{ulid_now()}.jpg"
-        path = Path(media_root) / relative
         products = await self._inventory.async_list_products()
         held = {
             level.product_id
             for level in await self._inventory.async_get_stock(zone_id=zone.id)
         }
         expected = [p for p in products if p.id in held or p.default_zone_id == zone.id]
-        lines = [
-            f"{p.id}: {p.name}"
-            + (f" ({', '.join(p.aliases)})" if p.aliases else "")
-            + (f", {p.unit}" if p.unit else "")
-            + (f"; {p.visual_hints}" if p.visual_hints else "")
-            for p in expected
-        ]
-        await self._hass.async_add_executor_job(_write, path, image.jpeg)
+        return await self.async_generate_items(
+            f"{DOMAIN} zone {zone.id}",
+            INSTRUCTIONS.format(
+                zone=zone.name,
+                expected=product_lines(expected),
+                language=configured_language(self._hass),
+            ),
+            {product.id for product in expected},
+            image=image.jpeg,
+        )
+
+    async def async_keep_proposal_crop(
+        self, proposal: Proposal | None, image: PreparedImage
+    ) -> None:
+        """Keep the crop shown with a proposal until it is decided."""
+        if proposal is not None and self.crops is not None:
+            await self.crops.async_save("proposal", proposal.id, image.jpeg)
+
+    async def async_check_limits(self) -> None:
+        """Raise when today's or this hour's analyses are used up."""
+        if await self.async_analyses_today() >= self.daily_limit:
+            raise InventoryError("daily_limit", limit=str(self.daily_limit))
+        hour_ago = time.monotonic() - 3600
+        self._recent = [ts for ts in self._recent if ts > hour_ago]
+        if len(self._recent) >= self.hourly_limit:
+            raise InventoryError("hourly_limit", limit=str(self.hourly_limit))
+
+    async def async_generate_items(
+        self,
+        task_name: str,
+        instructions: str,
+        expected_ids: set[int],
+        *,
+        image: bytes | None = None,
+        entity_id: str | None = None,
+    ) -> ZoneAnalysis:
+        """Ask AI Task for a list of products, with an optional image.
+
+        The image is written to the integration's temporary media folder
+        only for the call and deleted right after.
+        """
+        entity_id = entity_id or self.ai_task_entity
+        if not entity_id:
+            raise InventoryError("ai_task_missing")
+        await self.async_check_limits()
+        data: dict[str, Any] = {
+            "task_name": task_name,
+            ATTR_ENTITY_ID: entity_id,
+            "instructions": instructions,
+            "structure": structure_for(self.structure_mode),
+        }
+        path: Path | None = None
+        if image is not None:
+            media_root = self._hass.config.media_dirs.get("local")
+            if media_root is None:
+                raise InventoryError("media_dir_missing")
+            relative = MEDIA_SUBDIR / f"{ulid_now()}.jpg"
+            path = Path(media_root) / relative
+            await self._hass.async_add_executor_job(_write, path, image)
+            data["attachments"] = [
+                {
+                    "media_content_id": "media-source://media_source/local/"
+                    + relative.as_posix(),
+                    "media_content_type": "image/jpeg",
+                }
+            ]
         try:
             await self.async_count_call()
             response = await self._hass.services.async_call(
                 "ai_task",
                 "generate_data",
-                {
-                    "task_name": f"{DOMAIN} zone {zone.id}",
-                    ATTR_ENTITY_ID: self.ai_task_entity,
-                    "instructions": INSTRUCTIONS.format(
-                        zone=zone.name,
-                        expected="\n".join(lines) or "(none)",
-                        language=self._hass.config.language,
-                    ),
-                    "structure": structure_for(self.structure_mode),
-                    "attachments": [
-                        {
-                            "media_content_id": "media-source://media_source/local/"
-                            + relative.as_posix(),
-                            "media_content_type": "image/jpeg",
-                        }
-                    ],
-                },
+                data,
                 blocking=True,
                 return_response=True,
             )
         except HomeAssistantError as err:
             raise InventoryError("analysis_failed", error=str(err)) from err
         finally:
-            await self._hass.async_add_executor_job(_delete, path)
+            if path is not None:
+                await self._hass.async_add_executor_job(_delete, path)
         try:
-            return parse_result(
-                (response or {}).get("data"), {product.id for product in expected}
-            )
+            return parse_result((response or {}).get("data"), expected_ids)
         except InvalidResultError as err:
             raise InventoryError("analysis_failed", error=str(err)) from err
+
+
+def product_lines(products: list[Product]) -> str:
+    """Describe products for the model: id, name, aliases, unit and hints."""
+    lines = [
+        f"{p.id}: {p.name}"
+        + (f" ({', '.join(p.aliases)})" if p.aliases else "")
+        + (f", {p.unit}" if p.unit else "")
+        + (f"; {p.visual_hints}" if p.visual_hints else "")
+        for p in products
+    ]
+    return "\n".join(lines) or "(none)"
 
 
 async def async_camera_frame(hass: HomeAssistant, entity_id: str) -> bytes:
@@ -200,14 +262,17 @@ async def async_camera_frame(hass: HomeAssistant, entity_id: str) -> bytes:
     path = Path(media_root) / MEDIA_SUBDIR / f"{ulid_now()}.jpg"
     await hass.async_add_executor_job(_mkdir, path.parent)
     try:
-        await hass.services.async_call(
-            "camera",
-            "snapshot",
-            {"filename": str(path)},
-            target={ATTR_ENTITY_ID: entity_id},
-            blocking=True,
-        )
+        async with asyncio.timeout(CAMERA_TIMEOUT):
+            await hass.services.async_call(
+                "camera",
+                "snapshot",
+                {"filename": str(path)},
+                target={ATTR_ENTITY_ID: entity_id},
+                blocking=True,
+            )
         return await hass.async_add_executor_job(path.read_bytes)
+    except TimeoutError as err:
+        raise InventoryError("camera_unavailable", error="timeout") from err
     except (HomeAssistantError, OSError) as err:
         raise InventoryError("camera_unavailable", error=str(err)) from err
     finally:
@@ -268,6 +333,7 @@ async def async_photo_pipeline(
         automatic=mode == "automatic",
         threshold=threshold,
     )
+    await runtime.vision.async_keep_proposal_crop(outcome.proposal, run.image)
     await runtime.zones.async_fulfil(zone.id)
     await runtime.coordinator.async_refresh()
     return as_response(run, outcome)

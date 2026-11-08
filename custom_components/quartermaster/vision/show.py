@@ -29,6 +29,7 @@ import asyncio
 import contextlib
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+import json
 import logging
 from pathlib import Path
 import time
@@ -59,7 +60,7 @@ from custom_components.quartermaster.core.inventory import (
     StockOperation,
 )
 from custom_components.quartermaster.core.zones import SourceType
-from custom_components.quartermaster.storage.models import Channel, Zone
+from custom_components.quartermaster.storage.models import Channel, Product, Zone
 from custom_components.quartermaster.vision.analyze import (
     MEDIA_SUBDIR,
     async_camera_frame,
@@ -70,6 +71,7 @@ from custom_components.quartermaster.vision.quality import (
     ImageRejectedError,
     prepare_frame,
 )
+from custom_components.quartermaster.vision.schema import StructureMode
 
 if TYPE_CHECKING:
     from custom_components.quartermaster import QuartermasterRuntimeData
@@ -135,6 +137,20 @@ PASSAGE_STRUCTURE: dict[str, Any] = {
         },
     }
 }
+
+
+def text_structure(structure: dict[str, Any]) -> dict[str, Any]:
+    """Return the fallback structure: the same fields as JSON in a text field."""
+    return {
+        "result_json": {
+            "description": "JSON object with the fields "
+            + ", ".join(structure)
+            + " (items is an array of objects with product, matched_product_id,"
+            " quantity, direction and confidence)",
+            "selector": {"text": {"multiline": True}},
+            "required": True,
+        }
+    }
 
 
 @dataclass(slots=True)
@@ -472,8 +488,10 @@ class ShowManager:
         vision = self._runtime.vision
         if not vision.ai_task_entity:
             raise InventoryError("ai_task_missing")
-        if await vision.async_analyses_today() >= vision.daily_limit:
-            raise InventoryError("daily_limit", limit=str(vision.daily_limit))
+        await vision.async_check_limits()
+        text_mode = vision.structure_mode is StructureMode.TEXT
+        if text_mode:
+            structure = text_structure(structure)
         media_root = self._hass.config.media_dirs.get("local")
         if media_root is None:
             raise InventoryError("media_dir_missing")
@@ -522,6 +540,11 @@ class ShowManager:
         finally:
             await self._hass.async_add_executor_job(_delete_all, paths)
         result = (response or {}).get("data")
+        if text_mode and isinstance(result, dict):
+            try:
+                result = json.loads(str(result.get("result_json")))
+            except ValueError as err:
+                raise InventoryError("analysis_failed", error="not JSON") from err
         if not isinstance(result, dict):
             raise InventoryError("analysis_failed", error="not an object")
         return result
@@ -593,6 +616,10 @@ class ShowManager:
                     "action": action,
                     "quantity": quantity,
                     "operation_id": observation.operation_id,
+                    "to_list": action == "taken"
+                    and product is not None
+                    and await self._async_below_minimum(product),
+                    "announce": watcher.source.get("announce", []),
                 },
             )
         return {
@@ -601,6 +628,13 @@ class ShowManager:
             "confidence": effective,
             "product": product.name if product else None,
         }
+
+    async def _async_below_minimum(self, product: Product) -> bool:
+        """Return whether an essential is now below its minimum."""
+        if not product.essential or product.min_stock is None:
+            return False
+        stock = await self._runtime.inventory.async_get_stock(product_id=product.id)
+        return sum(level.quantity for level in stock) < product.min_stock
 
     async def _async_product(self, result: dict[str, Any], ids: set[int]) -> Any:
         inventory = self._runtime.inventory

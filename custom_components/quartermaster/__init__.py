@@ -19,9 +19,13 @@ from .channels.websocket import async_setup_websocket
 from .const import (
     CONF_AGENT_ID,
     CONF_AI_TASK_IMAGE,
+    CONF_AI_TASK_TEXT,
     CONF_ASK_SESSION_SECONDS,
     CONF_DAILY_ANALYSIS_LIMIT,
+    CONF_EMAIL_ENTRY,
+    CONF_EMAIL_SENDERS,
     CONF_EXTERNAL_TODO,
+    CONF_HOURLY_ANALYSIS_LIMIT,
     CONF_STRUCTURE_MODE,
     CONF_TELEGRAM_BOT,
     CONF_TELEGRAM_CHATS,
@@ -30,6 +34,7 @@ from .const import (
     DATABASE_FILE,
     DEFAULT_ASK_SESSION_SECONDS,
     DEFAULT_DAILY_ANALYSIS_LIMIT,
+    DEFAULT_HOURLY_ANALYSIS_LIMIT,
     DEFAULT_STRUCTURE_MODE,
     DOMAIN,
 )
@@ -37,13 +42,16 @@ from .coordinator import QuartermasterCoordinator
 from .core.confirmations import ProposalService, ToolConfirmations
 from .core.initial import async_apply_initial_setup
 from .core.inventory import InventoryService
+from .core.purchases import PurchaseService
 from .core.shopping import ShoppingService
 from .core.voice import VoiceSessions
 from .core.zones import ZoneManager
 from .notify import NotificationRouter
 from .services import async_setup_services
+from .storage.models import Proposal
 from .storage.sqlite import SchemaTooNewError, SQLiteBackend
 from .vision.analyze import VisionService
+from .vision.crops import CropStore
 from .vision.schema import StructureMode
 from .vision.show import ShowManager
 
@@ -72,6 +80,7 @@ class QuartermasterRuntimeData:
     vision: VisionService
     proposals: ProposalService
     zones: ZoneManager = field(init=False)
+    purchases: PurchaseService = field(init=False)
     show: ShowManager = field(init=False)
     telegram: TelegramChannel | None = None
     notifier: NotificationRouter = field(init=False)
@@ -121,6 +130,16 @@ async def async_setup_entry(
     vision.daily_limit = int(
         entry.options.get(CONF_DAILY_ANALYSIS_LIMIT, DEFAULT_DAILY_ANALYSIS_LIMIT)
     )
+    vision.hourly_limit = int(
+        entry.options.get(CONF_HOURLY_ANALYSIS_LIMIT, DEFAULT_HOURLY_ANALYSIS_LIMIT)
+    )
+    crops = CropStore(hass)
+    vision.crops = crops
+
+    async def forget_crop(proposal: Proposal) -> None:
+        await crops.async_delete("proposal", proposal.id)
+
+    proposals.on_closed = forget_crop
     coordinator.proposals = proposals
     coordinator.vision = vision
     await coordinator.async_config_entry_first_refresh()
@@ -155,6 +174,7 @@ async def async_setup_entry(
     entry.runtime_data.show = show
     coordinator.show = show
     show.async_start(list(coordinator.data.zones.values()))
+    zones.async_watch_doors(list(coordinator.data.zones.values()))
     entry.async_on_unload(show.async_shutdown)
     if event_entity := entry.options.get(CONF_TELEGRAM_EVENT):
         telegram = TelegramChannel(
@@ -168,6 +188,13 @@ async def async_setup_entry(
         entry.runtime_data.telegram = telegram
         telegram.async_start()
         entry.async_on_unload(telegram.async_stop)
+    purchases = PurchaseService(hass, entry.runtime_data)
+    purchases.text_entity = entry.options.get(CONF_AI_TASK_TEXT)
+    purchases.email_entry = entry.options.get(CONF_EMAIL_ENTRY)
+    purchases.email_senders = list(entry.options.get(CONF_EMAIL_SENDERS, []))
+    entry.runtime_data.purchases = purchases
+    purchases.async_start()
+    entry.async_on_unload(purchases.async_stop)
     notifier = NotificationRouter(hass, entry.runtime_data)
     entry.runtime_data.notifier = notifier
     coordinator.notifier = notifier

@@ -54,6 +54,8 @@ data:
     - type: manual
 ```
 
+An interior camera (fridge, cupboard) can check the zone when its door closes: add `trigger_entity` (the door's binary sensor) to the camera source, and optionally `trigger_state` (`off`, closed, by default), `trigger_delay_seconds` (3) and `min_interval_minutes` (30). Such a check uses that camera only: when its frame is unclear nothing happens, and no photo is requested.
+
 Zones without a camera can have `reminder_days`: when they have not been updated for that many days, Quartermaster asks for a photo.
 
 ### Show mode
@@ -75,12 +77,24 @@ Send a photo through any of these:
 
 In **confirm** mode (the **Update mode** select), changes become a proposal. Confirm or reject it from the dashboard, Telegram or by voice, correcting product and quantity if needed. A correction teaches Quartermaster the name the model used. In **automatic** mode, changes above the confidence threshold are applied and the rest are proposed. When several products would change by more than half, nothing is applied automatically.
 
+## Receipts and order emails
+
+- **Receipt photo:** send it on Telegram with the caption "receipt" (or press **Receipt** among the zone buttons), choose **A receipt** in the dashboard photo card, or call `quartermaster.analyze_receipt` with a file.
+- **Order emails:** set up the IMAP integration for the mailbox that receives order and delivery emails, then choose its entry and the allowed senders (a whole address or a domain) under **Configure → Shopping list**. Only new emails from those senders are read, with the AI Task for text if set.
+
+The purchases always become a proposal: confirm, correct or reject them as for photos. A correction teaches Quartermaster the name on the receipt. Confirmed purchases go to each product's default zone, with a best-before date from its shelf life when known.
+
 ## Shopping
 
 - An essential below its minimum goes on the list once, with the quantity up to its target.
 - **Go shopping** (button, `quartermaster.start_shopping`, Telegram `/spesa`) sends the list and the suggestions and turns shopping mode on. While it is on, checking an item off records the purchase.
 - Manual items are never removed automatically.
+- With at least three consumptions in the last 60 days, a product that at the usual pace runs out within the forecast days (5 by default, **Configure → Shopping list**) is suggested; an essential goes on the list before it drops below its minimum.
 - To see the list in Bring!, Todoist or another app, set **Copy the shopping list to** in the options. Items you add there yourself are left alone.
+
+## Counting
+
+"I have 3 yogurts left" sets the quantity (a correction in the journal) instead of adding or removing.
 
 ## Undo
 

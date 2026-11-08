@@ -15,6 +15,9 @@ from custom_components.quartermaster import QuartermasterConfigEntry
 from custom_components.quartermaster.const import (
     CONF_AGENT_ID,
     CONF_AI_TASK_IMAGE,
+    CONF_AI_TASK_TEXT,
+    CONF_EMAIL_ENTRY,
+    CONF_EMAIL_SENDERS,
     CONF_EXTERNAL_TODO,
     CONF_TELEGRAM_BOT,
     CONF_TELEGRAM_CHATS,
@@ -26,6 +29,9 @@ from custom_components.quartermaster.storage.migrations import MIGRATIONS
 TO_REDACT = {
     CONF_AGENT_ID,
     CONF_AI_TASK_IMAGE,
+    CONF_AI_TASK_TEXT,
+    CONF_EMAIL_ENTRY,
+    CONF_EMAIL_SENDERS,
     CONF_EXTERNAL_TODO,
     CONF_TELEGRAM_BOT,
     CONF_TELEGRAM_CHATS,

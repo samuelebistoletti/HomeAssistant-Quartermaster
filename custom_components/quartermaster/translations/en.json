@@ -31,6 +31,7 @@
     "reason_below_target": "you have {have}, you usually keep {target}",
     "reason_stale_zone": "{zone} was not updated for {days} days",
     "reason_finished_recently": "you finished it on {date}",
+    "reason_running_out": "at the usual pace it runs out in {days_left} days",
     "reason_low_confidence": "the camera image was not clear enough",
     "reason_camera_unavailable": "the camera is not available",
     "reason_daily_limit": "the camera's daily limit is reached",
@@ -46,13 +47,24 @@
     "date_format": "{month}/{day}",
     "zone_pantry": "Pantry",
     "zone_fridge": "Fridge",
-    "zone_freezer": "Freezer"
+    "zone_freezer": "Freezer",
+    "reason_not_recognized": "some expected products were not recognized",
+    "reason_hourly_limit": "the hourly limit of image analyses is reached",
+    "reason_error": "an error occurred",
+    "notify_photo_frame": "Make sure it shows: {products}.",
+    "notify_show_to_list": "It is below the minimum: I put it on the list.",
+    "notify_check_failed": "I couldn't check {zone}: {reason}.",
+    "notify_purchases": "I read {count} purchases in an order email. Confirm them?",
+    "telegram_purchases": "I read these purchases. Confirm?",
+    "button_receipt": "🧾 Receipt",
+    "receipt_words": "receipt, bill, shopping receipt",
+    "ask_rate_limited": "Too many requests. Please try again in a minute."
   },
   "config": {
     "step": {
       "user": {
         "title": "Set up Quartermaster",
-        "description": "Quartermaster keeps track of your pantry, fridge, freezer and shelves and builds your shopping list. Everything set here can be changed later in the options.",
+        "description": "Quartermaster keeps track of your pantry, fridge, freezer and shelves and builds your shopping list. Everything set here can be changed later in the options. The dashboard is a separate download: install Quartermaster Dashboard from the Marketplace, then add it from Settings → Dashboards.",
         "data": {
           "name": "Name",
           "language": "Language of messages"
@@ -69,14 +81,18 @@
           "ai_task_image": "AI Task for images",
           "structure_mode": "How to ask for the item list",
           "confidence_threshold": "Confidence threshold for automatic mode",
-          "daily_analysis_limit": "Image analyses per day"
+          "daily_analysis_limit": "Image analyses per day",
+          "ai_task_text": "AI Task for text",
+          "hourly_analysis_limit": "Image analyses per hour"
         },
         "data_description": {
           "agent_id": "Agent used by quartermaster.ask (Alexa, Telegram, dashboard). Attach the Assist API to it so it can use the Quartermaster tools.",
           "ai_task_image": "AI Task entity with a vision model that analyzes zone photos and camera frames.",
           "structure_mode": "Use the fallback if your provider handles nested structures badly.",
           "confidence_threshold": "In automatic mode, recognized changes at or above this confidence are applied; the others are proposed. A zone can override it.",
-          "daily_analysis_limit": "Model calls for images stop for the day after this many."
+          "daily_analysis_limit": "Model calls for images stop for the day after this many.",
+          "ai_task_text": "Optional AI Task entity for text-only work, such as reading order emails. Empty uses the one for images.",
+          "hourly_analysis_limit": "Model calls for images and receipts wait for the next hour after this many."
         }
       },
       "zones": {
@@ -133,7 +149,8 @@
           "notify_weekly": "Weekly summary",
           "notify_voice_reply": "Late voice replies",
           "quiet_hours": "Quiet hours",
-          "telegram_notify": "Also notify Telegram chats, with buttons"
+          "telegram_notify": "Also notify Telegram chats, with buttons",
+          "notify_purchases": "Purchases from order emails"
         },
         "data_description": {
           "notify_photo_request": "Notify entities in order: the first available one is used.",
@@ -265,6 +282,9 @@
     },
     "telegram_download_failed": {
       "message": "The photo could not be downloaded from Telegram: {error}"
+    },
+    "hourly_limit": {
+      "message": "The limit of {limit} image analyses per hour is reached."
     }
   },
   "selector": {
@@ -708,7 +728,7 @@
         },
         "sources": {
           "name": "Sources",
-          "description": "List of sources in priority order: camera, camera_show, passage, manual. See the documentation for their fields."
+          "description": "List of sources in priority order: camera, camera_show, passage, manual. See the documentation for their fields. Camera_show and passage frames show people: only the show area goes to the AI provider and frames are deleted right after the analysis. Enable them only if you accept that."
         },
         "check_schedule": {
           "name": "Check schedule",
@@ -757,6 +777,24 @@
         "minutes": {
           "name": "Minutes",
           "description": "How long to stay on; the source setting when omitted."
+        }
+      }
+    },
+    "analyze_receipt": {
+      "name": "Analyze receipt",
+      "description": "Reads a photo of a shop receipt with the AI Task entity for images and proposes the purchases, to confirm or correct.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
+        },
+        "file": {
+          "name": "File",
+          "description": "Path of the receipt photo in a folder Home Assistant may read."
+        },
+        "channel": {
+          "name": "Channel",
+          "description": "Where the request comes from; recorded in the journal."
         }
       }
     }
@@ -859,14 +897,18 @@
           "ai_task_image": "AI Task for images",
           "structure_mode": "How to ask for the item list",
           "confidence_threshold": "Confidence threshold for automatic mode",
-          "daily_analysis_limit": "Image analyses per day"
+          "daily_analysis_limit": "Image analyses per day",
+          "ai_task_text": "AI Task for text",
+          "hourly_analysis_limit": "Image analyses per hour"
         },
         "data_description": {
           "agent_id": "Agent used by quartermaster.ask (Alexa, Telegram, dashboard). Attach the Assist API to it so it can use the Quartermaster tools.",
           "ai_task_image": "AI Task entity with a vision model that analyzes zone photos and camera frames.",
           "structure_mode": "Use the fallback if your provider handles nested structures badly.",
           "confidence_threshold": "In automatic mode, recognized changes at or above this confidence are applied; the others are proposed. A zone can override it.",
-          "daily_analysis_limit": "Model calls for images stop for the day after this many."
+          "daily_analysis_limit": "Model calls for images stop for the day after this many.",
+          "ai_task_text": "Optional AI Task entity for text-only work, such as reading order emails. Empty uses the one for images.",
+          "hourly_analysis_limit": "Model calls for images and receipts wait for the next hour after this many."
         }
       },
       "voice": {
@@ -887,14 +929,20 @@
           "record_purchase_on_check": "Record the purchase when an item is checked off",
           "shopping_mode_minutes": "Shopping mode duration",
           "stale_zone_days": "Suggest checking zones not updated for",
-          "expiring_days": "Expiring products threshold"
+          "expiring_days": "Expiring products threshold",
+          "forecast_days": "Forecast running out within",
+          "email_entry": "Order emails from",
+          "email_senders": "Allowed order email senders"
         },
         "data_description": {
           "external_todo": "Optional todo list (Bring!, Todoist, local list) that receives a one-way copy of the open items. Items added there by hand are never touched.",
           "record_purchase_on_check": "In shopping mode a checked item always records the purchase; this applies outside it.",
           "shopping_mode_minutes": "How long shopping mode stays on after Go shopping.",
           "stale_zone_days": "An essential kept in a zone not updated for more days than this is suggested.",
-          "expiring_days": "Products with a best-before date within this many days are listed as expiring."
+          "expiring_days": "Products with a best-before date within this many days are listed as expiring.",
+          "forecast_days": "A product consumed regularly that, at the usual pace, runs out within this many days is suggested; an essential goes on the list. 0 turns the forecast off.",
+          "email_entry": "Optional IMAP integration entry that receives order and delivery emails. Their purchases become a proposal to confirm.",
+          "email_senders": "Only emails from these senders are read: a full address (orders@shop.example) or a domain (shop.example)."
         }
       },
       "telegram": {
@@ -924,7 +972,8 @@
           "notify_weekly": "Weekly summary",
           "notify_voice_reply": "Late voice replies",
           "quiet_hours": "Quiet hours",
-          "telegram_notify": "Also notify Telegram chats, with buttons"
+          "telegram_notify": "Also notify Telegram chats, with buttons",
+          "notify_purchases": "Purchases from order emails"
         },
         "data_description": {
           "notify_photo_request": "Notify entities in order: the first available one is used.",

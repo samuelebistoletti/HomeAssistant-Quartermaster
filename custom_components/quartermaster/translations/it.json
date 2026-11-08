@@ -31,6 +31,7 @@
     "reason_below_target": "ne hai {have}, di solito ne tieni {target}",
     "reason_stale_zone": "{zone} non è aggiornato da {days} giorni",
     "reason_finished_recently": "l'hai finito il {date}",
+    "reason_running_out": "al ritmo attuale finisce tra {days_left} giorni",
     "reason_low_confidence": "l'immagine della telecamera non era abbastanza chiara",
     "reason_camera_unavailable": "la telecamera non è disponibile",
     "reason_daily_limit": "la telecamera ha raggiunto il limite del giorno",
@@ -46,13 +47,24 @@
     "date_format": "{day}/{month}",
     "zone_pantry": "Dispensa",
     "zone_fridge": "Frigorifero",
-    "zone_freezer": "Freezer"
+    "zone_freezer": "Freezer",
+    "reason_not_recognized": "alcuni prodotti attesi non sono stati riconosciuti",
+    "reason_hourly_limit": "è stato raggiunto il limite orario di analisi delle immagini",
+    "reason_error": "si è verificato un errore",
+    "notify_photo_frame": "Assicurati che si vedano: {products}.",
+    "notify_show_to_list": "È sotto il minimo: l'ho messo in lista.",
+    "notify_check_failed": "Non sono riuscito a controllare {zone}: {reason}.",
+    "notify_purchases": "Ho letto {count} acquisti in un'email d'ordine. Li confermo?",
+    "telegram_purchases": "Ho letto questi acquisti. Li confermo?",
+    "button_receipt": "🧾 Scontrino",
+    "receipt_words": "scontrino, ricevuta, scontrino della spesa",
+    "ask_rate_limited": "Troppe richieste. Riprova tra un minuto."
   },
   "config": {
     "step": {
       "user": {
         "title": "Configura Quartermaster",
-        "description": "Quartermaster tiene traccia di dispensa, frigo, freezer e scaffali e prepara la lista della spesa. Tutto quello che imposti qui si può cambiare dopo nelle opzioni.",
+        "description": "Quartermaster tiene traccia di dispensa, frigo, freezer e scaffali e prepara la lista della spesa. Tutto quello che imposti qui si può cambiare dopo nelle opzioni. La dashboard si scarica a parte: installa Quartermaster Dashboard dal Marketplace, poi aggiungila da Impostazioni → Plance.",
         "data": {
           "name": "Nome",
           "language": "Lingua dei messaggi"
@@ -69,14 +81,18 @@
           "ai_task_image": "AI Task per le immagini",
           "structure_mode": "Come chiedere l'elenco dei prodotti",
           "confidence_threshold": "Soglia di affidabilità della modalità automatica",
-          "daily_analysis_limit": "Analisi di immagini al giorno"
+          "daily_analysis_limit": "Analisi di immagini al giorno",
+          "ai_task_text": "AI Task per il testo",
+          "hourly_analysis_limit": "Analisi di immagini all'ora"
         },
         "data_description": {
           "agent_id": "Agente usato da quartermaster.ask (Alexa, Telegram, dashboard). Collegagli l'API Assist perché possa usare gli strumenti di Quartermaster.",
           "ai_task_image": "Entità AI Task con un modello con visione che analizza foto delle zone e fotogrammi delle telecamere.",
           "structure_mode": "Usa il ripiego se il provider gestisce male le strutture annidate.",
           "confidence_threshold": "In modalità automatica le variazioni riconosciute con affidabilità pari o superiore vengono applicate; le altre proposte. Una zona può avere la sua soglia.",
-          "daily_analysis_limit": "Oltre questo numero le chiamate al modello per le immagini si fermano fino al giorno dopo."
+          "daily_analysis_limit": "Oltre questo numero le chiamate al modello per le immagini si fermano fino al giorno dopo.",
+          "ai_task_text": "Entità AI Task facoltativa per i compiti solo testuali, come leggere le email d'ordine. Vuoto usa quella per le immagini.",
+          "hourly_analysis_limit": "Oltre questo numero, le chiamate al modello per immagini e scontrini aspettano l'ora successiva."
         }
       },
       "zones": {
@@ -133,7 +149,8 @@
           "notify_weekly": "Riepilogo settimanale",
           "notify_voice_reply": "Risposte vocali in ritardo",
           "quiet_hours": "Silenzio notturno",
-          "telegram_notify": "Notifica anche le chat Telegram, con pulsanti"
+          "telegram_notify": "Notifica anche le chat Telegram, con pulsanti",
+          "notify_purchases": "Acquisti dalle email d'ordine"
         },
         "data_description": {
           "notify_photo_request": "Entità notify in ordine: si usa la prima disponibile.",
@@ -265,6 +282,9 @@
     },
     "telegram_download_failed": {
       "message": "Impossibile scaricare la foto da Telegram: {error}"
+    },
+    "hourly_limit": {
+      "message": "È stato raggiunto il limite di {limit} analisi di immagini all'ora."
     }
   },
   "selector": {
@@ -708,7 +728,7 @@
         },
         "sources": {
           "name": "Fonti",
-          "description": "Elenco delle fonti in ordine di priorità: camera, camera_show, passage, manual. I campi sono nella documentazione."
+          "description": "Elenco delle fonti in ordine di priorità: camera, camera_show, passage, manual. I campi sono nella documentazione. I fotogrammi di camera_show e passage riprendono persone: al provider AI va solo l'area di presentazione e i fotogrammi si cancellano subito dopo l'analisi. Attivale solo se lo accetti."
         },
         "check_schedule": {
           "name": "Pianificazione",
@@ -757,6 +777,24 @@
         "minutes": {
           "name": "Minuti",
           "description": "Per quanto restare accesa; se manca vale l'impostazione della fonte."
+        }
+      }
+    },
+    "analyze_receipt": {
+      "name": "Analizza scontrino",
+      "description": "Legge la foto di uno scontrino con l'entità AI Task per le immagini e propone gli acquisti, da confermare o correggere.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
+        },
+        "file": {
+          "name": "File",
+          "description": "Percorso della foto dello scontrino in una cartella che Home Assistant può leggere."
+        },
+        "channel": {
+          "name": "Canale",
+          "description": "Da dove arriva la richiesta; registrato nello storico."
         }
       }
     }
@@ -859,14 +897,18 @@
           "ai_task_image": "AI Task per le immagini",
           "structure_mode": "Come chiedere l'elenco dei prodotti",
           "confidence_threshold": "Soglia di affidabilità della modalità automatica",
-          "daily_analysis_limit": "Analisi di immagini al giorno"
+          "daily_analysis_limit": "Analisi di immagini al giorno",
+          "ai_task_text": "AI Task per il testo",
+          "hourly_analysis_limit": "Analisi di immagini all'ora"
         },
         "data_description": {
           "agent_id": "Agente usato da quartermaster.ask (Alexa, Telegram, dashboard). Collegagli l'API Assist perché possa usare gli strumenti di Quartermaster.",
           "ai_task_image": "Entità AI Task con un modello con visione che analizza foto delle zone e fotogrammi delle telecamere.",
           "structure_mode": "Usa il ripiego se il provider gestisce male le strutture annidate.",
           "confidence_threshold": "In modalità automatica le variazioni riconosciute con affidabilità pari o superiore vengono applicate; le altre proposte. Una zona può avere la sua soglia.",
-          "daily_analysis_limit": "Oltre questo numero le chiamate al modello per le immagini si fermano fino al giorno dopo."
+          "daily_analysis_limit": "Oltre questo numero le chiamate al modello per le immagini si fermano fino al giorno dopo.",
+          "ai_task_text": "Entità AI Task facoltativa per i compiti solo testuali, come leggere le email d'ordine. Vuoto usa quella per le immagini.",
+          "hourly_analysis_limit": "Oltre questo numero, le chiamate al modello per immagini e scontrini aspettano l'ora successiva."
         }
       },
       "voice": {
@@ -887,14 +929,20 @@
           "record_purchase_on_check": "Registra l'acquisto quando si spunta una voce",
           "shopping_mode_minutes": "Durata della modalità spesa",
           "stale_zone_days": "Suggerisci di controllare le zone non aggiornate da",
-          "expiring_days": "Soglia dei prodotti in scadenza"
+          "expiring_days": "Soglia dei prodotti in scadenza",
+          "forecast_days": "Prevedi l'esaurimento entro",
+          "email_entry": "Email d'ordine da",
+          "email_senders": "Mittenti ammessi delle email d'ordine"
         },
         "data_description": {
           "external_todo": "Lista todo facoltativa (Bring!, Todoist, lista locale) che riceve una copia unidirezionale delle voci aperte. Le voci aggiunte a mano lì non vengono mai toccate.",
           "record_purchase_on_check": "In modalità spesa la spunta registra sempre l'acquisto; questa opzione vale fuori dalla modalità spesa.",
           "shopping_mode_minutes": "Per quanto resta attiva la modalità spesa dopo Vado a fare la spesa.",
           "stale_zone_days": "Un essenziale in una zona non aggiornata da più giorni di questi viene suggerito.",
-          "expiring_days": "I prodotti con scadenza entro questi giorni compaiono tra quelli in scadenza."
+          "expiring_days": "I prodotti con scadenza entro questi giorni compaiono tra quelli in scadenza.",
+          "forecast_days": "Un prodotto consumato con regolarità che, al ritmo abituale, finisce entro questi giorni viene suggerito; un essenziale va in lista. 0 disattiva la previsione.",
+          "email_entry": "Voce facoltativa dell'integrazione IMAP che riceve le email d'ordine e di consegna. I loro acquisti diventano una proposta da confermare.",
+          "email_senders": "Vengono lette solo le email di questi mittenti: un indirizzo completo (ordini@negozio.example) o un dominio (negozio.example)."
         }
       },
       "telegram": {
@@ -924,7 +972,8 @@
           "notify_weekly": "Riepilogo settimanale",
           "notify_voice_reply": "Risposte vocali in ritardo",
           "quiet_hours": "Silenzio notturno",
-          "telegram_notify": "Notifica anche le chat Telegram, con pulsanti"
+          "telegram_notify": "Notifica anche le chat Telegram, con pulsanti",
+          "notify_purchases": "Acquisti dalle email d'ordine"
         },
         "data_description": {
           "notify_photo_request": "Entità notify in ordine: si usa la prima disponibile.",

@@ -10,7 +10,7 @@ get plain text through the documented `notify.send_message` action.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from enum import StrEnum
 import logging
@@ -24,6 +24,7 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.quartermaster.const import DOMAIN
 from custom_components.quartermaster.core.phrases import async_phrase
+from custom_components.quartermaster.core.purchases import EVENT_PURCHASES_PROPOSED
 from custom_components.quartermaster.core.suggestions import Suggestion
 from custom_components.quartermaster.core.voice import EVENT_ASK_RESULT
 from custom_components.quartermaster.core.zones import EVENT_PHOTO_REQUEST
@@ -52,6 +53,7 @@ class MessageType(StrEnum):
     SHOPPING = "shopping"
     WEEKLY = "weekly"
     VOICE_REPLY = "voice_reply"
+    PURCHASES = "purchases"
 
 
 def option_key(kind: MessageType) -> str:
@@ -85,6 +87,11 @@ class Message:
     text: str
     title: str | None = None
     buttons: list[list[tuple[str, str]]] | None = None
+    # Notify entities that get the message too (a zone's own announcements).
+    also: list[str] = field(default_factory=list)
+    # Telegram chats that get it even without telegram_notify (the chat a
+    # request came from).
+    chats: list[int] = field(default_factory=list)
 
 
 class NotificationRouter:
@@ -111,6 +118,7 @@ class NotificationRouter:
             bus.async_listen(EVENT_SHOW_RECOGNIZED, self._on_show),
             bus.async_listen(EVENT_ASK_RESULT, self._on_ask_result),
             bus.async_listen(f"{DOMAIN}_zone_checked", self._on_zone_checked),
+            bus.async_listen(EVENT_PURCHASES_PROPOSED, self._on_purchases),
             async_track_time_change(self._hass, self._on_minute, second=30),
             self._runtime.coordinator.async_add_listener(self._on_refresh),
         ]
@@ -159,10 +167,28 @@ class NotificationRouter:
                 _LOGGER.warning("Notification to %s failed: %s", entity_id, err)
                 continue
             break
+        for entity_id in message.also:
+            state = self._hass.states.get(entity_id)
+            if state is None or state.state == STATE_UNAVAILABLE:
+                continue
+            try:
+                await self._hass.services.async_call(
+                    "notify",
+                    "send_message",
+                    {"message": message.text},
+                    target={ATTR_ENTITY_ID: entity_id},
+                    blocking=True,
+                )
+            except HomeAssistantError as err:
+                _LOGGER.warning("Notification to %s failed: %s", entity_id, err)
         telegram = self._runtime.telegram
-        if telegram is not None and self._options.get(CONF_TELEGRAM_NOTIFY):
-            for chat_id in sorted(c for c in telegram.chats if c > 0):
-                await telegram.async_send(chat_id, message.text, message.buttons)
+        if telegram is None:
+            return
+        chats = set(message.chats)
+        if self._options.get(CONF_TELEGRAM_NOTIFY):
+            chats |= {c for c in telegram.chats if c > 0}
+        for chat_id in sorted(chats):
+            await telegram.async_send(chat_id, message.text, message.buttons)
 
     async def async_flush(self) -> None:
         """Send the messages held during quiet hours."""
@@ -181,12 +207,20 @@ class NotificationRouter:
         key = (
             "notify_photo_reminder" if data.get("reminder") else "notify_photo_request"
         )
-        await self.async_send(
-            Message(
-                MessageType.PHOTO_REQUEST,
-                await self._phrase(key, zone=data["zone"], reason=reason),
+        text = await self._phrase(key, zone=data["zone"], reason=reason)
+        if products := data.get("products"):
+            text += " " + await self._phrase(
+                "notify_photo_frame", products=", ".join(products)
             )
-        )
+        chats: list[int] = []
+        telegram = self._runtime.telegram
+        if (
+            data.get("channel") == Channel.TELEGRAM
+            and telegram is not None
+            and (chat := telegram.recent_chat()) is not None
+        ):
+            chats.append(chat)
+        await self.async_send(Message(MessageType.PHOTO_REQUEST, text, chats=chats))
 
     @callback
     def _on_show(self, event: Event[dict[str, Any]]) -> None:
@@ -204,11 +238,14 @@ class NotificationRouter:
             quantity=f"{data.get('quantity', 1):g}",
             zone=data.get("zone"),
         )
+        if data.get("to_list"):
+            text += " " + await self._phrase("notify_show_to_list")
         await self.async_send(
             Message(
                 MessageType.CAMERA,
                 text,
                 buttons=[[(await self._phrase("button_undo"), "/qm_undo_camera")]],
+                also=list(data.get("announce") or []),
             )
         )
 
@@ -226,18 +263,45 @@ class NotificationRouter:
     @callback
     def _on_zone_checked(self, event: Event[dict[str, Any]]) -> None:
         data = event.data
+        if data.get("status") == "failed" and data.get("reason") != "already_running":
+            self._task(self._async_check_failed(data), "check")
         if data.get("status") != "updated":
             return
         self._task(self._async_zone_checked(data), "check")
 
-    async def _async_zone_checked(self, data: dict[str, Any]) -> None:
+    def _zone_name(self, zone_id: str) -> str:
         zones = self._runtime.coordinator.data.zones
-        zone = (
-            zones[data["zone_id"]].name if data["zone_id"] in zones else data["zone_id"]
+        return zones[zone_id].name if zone_id in zones else zone_id
+
+    async def _async_check_failed(self, data: dict[str, Any]) -> None:
+        reason = await self._phrase(f"reason_{data.get('reason') or 'analysis_failed'}")
+        text = await self._phrase(
+            "notify_check_failed", zone=self._zone_name(data["zone_id"]), reason=reason
         )
+        await self.async_send(Message(MessageType.CHECK_RESULT, text))
+
+    @callback
+    def _on_purchases(self, event: Event[dict[str, Any]]) -> None:
+        # Receipts sent from a chat or the dashboard are answered there.
+        if event.data.get("source") != "email":
+            return
+        self._task(self._async_purchases(event.data), "purchases")
+
+    async def _async_purchases(self, data: dict[str, Any]) -> None:
+        proposal_id = data["proposal_id"]
+        text = await self._phrase("notify_purchases", count=data.get("count", 0))
+        buttons = [
+            [
+                (await self._phrase("button_confirm"), f"/qm_ok {proposal_id}"),
+                (await self._phrase("button_reject"), f"/qm_no {proposal_id}"),
+            ]
+        ]
+        await self.async_send(Message(MessageType.PURCHASES, text, buttons=buttons))
+
+    async def _async_zone_checked(self, data: dict[str, Any]) -> None:
         text = await self._phrase(
             "notify_check_result",
-            zone=zone,
+            zone=self._zone_name(data["zone_id"]),
             applied=data.get("applied") or 0,
             proposed="1" if data.get("proposal_id") else "0",
         )

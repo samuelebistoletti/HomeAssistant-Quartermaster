@@ -271,6 +271,27 @@ analyze_image:
             - dashboard
             - service
 
+analyze_receipt:
+  fields:
+    config_entry_id: *config_entry
+    file:
+      required: true
+      example: "/media/receipt.jpg"
+      selector:
+        text:
+    channel:
+      default: service
+      selector:
+        select:
+          translation_key: ask_channel
+          options:
+            - alexa
+            - assist
+            - voice
+            - telegram
+            - dashboard
+            - service
+
 confirm_pending:
   fields:
     config_entry_id: *config_entry

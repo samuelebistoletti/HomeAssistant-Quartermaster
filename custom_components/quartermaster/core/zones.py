@@ -11,17 +11,23 @@ expires. Zones without a camera get a reminder every `reminder_days`.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Coroutine
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 import json
 import logging
+import time
 from typing import TYPE_CHECKING, Any
 
-from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
+from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.event import async_track_time_change
+from homeassistant.helpers.event import (
+    EventStateChangedData,
+    async_track_state_change_event,
+    async_track_time_change,
+)
 from homeassistant.util import dt as dt_util
 import probatio
 
@@ -116,6 +122,9 @@ _WATCH = {
         probatio.Coerce(float), probatio.Range(min=0, max=1)
     ),
     probatio.Optional("hours"): _hours,
+    probatio.Optional("announce"): probatio.All(
+        cv.ensure_list, [cv.entity_domain("notify")]
+    ),
 }
 
 SOURCE_SCHEMAS: dict[SourceType, probatio.Schema] = {
@@ -129,6 +138,19 @@ SOURCE_SCHEMAS: dict[SourceType, probatio.Schema] = {
             ),
             probatio.Optional("max_checks_per_day", default=4): probatio.All(
                 int, probatio.Range(min=1, max=96)
+            ),
+            # Interior camera with a door sensor (spec §15).
+            probatio.Optional("trigger_entity"): probatio.All(
+                cv.entity_id, probatio.Match(r"^binary_sensor\.")
+            ),
+            probatio.Optional("trigger_state", default="off"): probatio.In(
+                ["on", "off"]
+            ),
+            probatio.Optional("trigger_delay_seconds", default=3): probatio.All(
+                probatio.Coerce(float), probatio.Range(min=0, max=120)
+            ),
+            probatio.Optional("min_interval_minutes", default=30): probatio.All(
+                int, probatio.Range(min=1, max=1440)
             ),
         }
     ),
@@ -209,6 +231,8 @@ class ZoneManager:
         self._unsubs: list[CALLBACK_TYPE] = []
         self._running: set[str] = set()
         self._housekeeping_lock = asyncio.Lock()
+        self._door_unsubs: list[CALLBACK_TYPE] = []
+        self._door_checks: dict[tuple[str, int], float] = {}
 
     @property
     def _backend(self) -> StorageBackend:
@@ -266,33 +290,22 @@ class ZoneManager:
         self._running.add(zone.id)
         try:
             reason: str | None = None
+            missing: list[str] = []
             sources = zone.sources or [{"type": SourceType.MANUAL.value}]
             for index, source in enumerate(sources):
                 kind = source.get("type")
                 if kind == SourceType.CAMERA:
-                    if not await self._async_source_quota(
-                        zone.id, index, int(source.get("max_checks_per_day", 4))
-                    ):
-                        reason = "daily_limit"
-                        continue
-                    try:
-                        frame = await async_camera_frame(
-                            self._hass, source["entity_id"]
-                        )
-                        outcome = await self._async_analyze(
-                            zone, frame, source, channel, user_id
-                        )
-                    except InventoryError as err:
-                        reason = _reason(err)
-                        continue
-                    if outcome is None:
-                        reason = "low_confidence"
+                    outcome = await self._async_camera_source(
+                        zone, index, source, channel, user_id
+                    )
+                    if isinstance(outcome, tuple):
+                        reason, missing = outcome
                         continue
                     await self._async_record(outcome)
                     return outcome
                 if kind == SourceType.MANUAL:
                     request = await self.async_request_photo(
-                        zone, reason or "check", channel=channel
+                        zone, reason or "check", channel=channel, products=missing
                     )
                     outcome = CheckOutcome(
                         zone.id,
@@ -310,6 +323,98 @@ class ZoneManager:
             self._running.discard(zone.id)
             await runtime.coordinator.async_request_refresh()
 
+    async def _async_camera_source(
+        self,
+        zone: Zone,
+        index: int,
+        source: dict[str, Any],
+        channel: Channel,
+        user_id: str | None,
+    ) -> CheckOutcome | tuple[str, list[str]]:
+        """Read and analyze one camera source within its daily limit."""
+        if not await self._async_source_quota(
+            zone.id, index, int(source.get("max_checks_per_day", 4))
+        ):
+            return "daily_limit", []
+        try:
+            frame = await async_camera_frame(self._hass, source["entity_id"])
+            return await self._async_analyze(zone, frame, source, channel, user_id)
+        except InventoryError as err:
+            return _reason(err), []
+
+    # Interior cameras with a door sensor (spec §15)
+
+    @callback
+    def async_watch_doors(self, zones: list[Zone]) -> None:
+        """Check a zone's camera when its door sensor reaches the set state."""
+        while self._door_unsubs:
+            self._door_unsubs.pop()()
+        for zone in zones:
+            for index, source in enumerate(zone.sources):
+                if source.get("type") != SourceType.CAMERA or not source.get(
+                    "trigger_entity"
+                ):
+                    continue
+                self._door_unsubs.append(
+                    async_track_state_change_event(
+                        self._hass,
+                        [source["trigger_entity"]],
+                        self._door_listener(zone.id, index, source),
+                    )
+                )
+
+    def _door_listener(
+        self, zone_id: str, index: int, source: dict[str, Any]
+    ) -> Callable[[Event[EventStateChangedData]], None]:
+        wanted = source.get("trigger_state", "off")
+
+        @callback
+        def changed(event: Event[EventStateChangedData]) -> None:
+            new, old = event.data["new_state"], event.data["old_state"]
+            if new is None or new.state != wanted:
+                return
+            if old is None or old.state in (wanted, STATE_UNAVAILABLE, STATE_UNKNOWN):
+                return
+            key = (zone_id, index)
+            if (last := self._door_checks.get(key)) is not None and (
+                time.monotonic() - last
+                < 60 * float(source.get("min_interval_minutes", 30))
+            ):
+                return
+            self._door_checks[key] = time.monotonic()
+
+            async def run() -> None:
+                await asyncio.sleep(float(source.get("trigger_delay_seconds", 3)))
+                await self.async_check_door(zone_id, index)
+
+            self._background(run(), f"door check {zone_id}")
+
+        return changed
+
+    async def async_check_door(self, zone_id: str, index: int) -> CheckOutcome | None:
+        """Check a zone with one camera after its door closed.
+
+        Only that camera is used: no photo request and no failure count, as
+        a frame taken after a door event is often just unclear.
+        """
+        zones = {z.id: z for z in await self._runtime.inventory.async_list_zones()}
+        zone = zones.get(zone_id)
+        if zone is None or index >= len(zone.sources) or zone.id in self._running:
+            return None
+        self._running.add(zone.id)
+        try:
+            outcome = await self._async_camera_source(
+                zone, index, zone.sources[index], Channel.CAMERA, None
+            )
+            if isinstance(outcome, tuple):
+                _LOGGER.debug("Door check of %s not used: %s", zone.id, outcome[0])
+                return None
+            await self._async_record(outcome)
+            return outcome
+        finally:
+            self._running.discard(zone.id)
+            await self._runtime.coordinator.async_request_refresh()
+
     async def _async_analyze(
         self,
         zone: Zone,
@@ -317,8 +422,12 @@ class ZoneManager:
         source: dict[str, Any],
         channel: Channel,
         user_id: str | None,
-    ) -> CheckOutcome | None:
-        """Analyze a camera frame; None when the result is insufficient."""
+    ) -> CheckOutcome | tuple[str, list[str]]:
+        """Analyze a camera frame.
+
+        When the result is insufficient, return the reason and the expected
+        products that were not seen (what the photo should show).
+        """
         runtime = self._runtime
         roi = tuple(source["roi"]) if source.get("roi") else None
         run = await runtime.vision.async_analyze(frame, zone, roi=roi)
@@ -329,15 +438,13 @@ class ZoneManager:
             for p in await runtime.inventory.async_list_products()
             if p.essential
         }
-        missing_essential = any(
-            normalize(name) in essentials for name in analysis.expected_not_seen
-        )
-        if (
-            not analysis.image_usable
-            or analysis.overall_confidence < threshold
-            or missing_essential
-        ):
-            return None
+        missing_essentials = [
+            name for name in analysis.expected_not_seen if normalize(name) in essentials
+        ]
+        if not analysis.image_usable or analysis.overall_confidence < threshold:
+            return "low_confidence", missing_essentials
+        if missing_essentials:
+            return "not_recognized", missing_essentials
         mode = await self._backend.async_get_setting(SETTING_UPDATE_MODE)
         outcome = await runtime.proposals.async_create(
             zone,
@@ -347,6 +454,7 @@ class ZoneManager:
             automatic=mode == "automatic",
             threshold=threshold,
         )
+        await runtime.vision.async_keep_proposal_crop(outcome.proposal, run.image)
         await self.async_fulfil(zone.id)
         return CheckOutcome(
             zone.id,
@@ -370,7 +478,12 @@ class ZoneManager:
     # Photo requests
 
     async def async_request_photo(
-        self, zone: Zone, reason: str, *, channel: Channel
+        self,
+        zone: Zone,
+        reason: str,
+        *,
+        channel: Channel,
+        products: list[str] | None = None,
     ) -> PhotoRequest:
         """Open a photo request (one per zone at a time) and announce it."""
         for request in await self._backend.async_list_photo_requests(
@@ -389,11 +502,18 @@ class ZoneManager:
                 expires_at=now + REQUEST_LIFETIME,
             )
         )
-        self._announce(request, zone, reminder=False)
+        self._announce(request, zone, reminder=False, products=products)
         return request
 
     @callback
-    def _announce(self, request: PhotoRequest, zone: Zone, *, reminder: bool) -> None:
+    def _announce(
+        self,
+        request: PhotoRequest,
+        zone: Zone,
+        *,
+        reminder: bool,
+        products: list[str] | None = None,
+    ) -> None:
         self._hass.bus.async_fire(
             EVENT_PHOTO_REQUEST,
             {
@@ -403,6 +523,7 @@ class ZoneManager:
                 "reason": request.reason,
                 "channel": request.channel.value,
                 "reminder": reminder,
+                "products": products or [],
             },
         )
 
@@ -435,9 +556,11 @@ class ZoneManager:
 
     @callback
     def async_stop(self) -> None:
-        """Stop the timers."""
+        """Stop the timers and the door sensors."""
         while self._unsubs:
             self._unsubs.pop()()
+        while self._door_unsubs:
+            self._door_unsubs.pop()()
 
     @callback
     def _async_minute(self, now: datetime) -> None:
@@ -500,6 +623,10 @@ class ZoneManager:
                 await self.async_request_photo(
                     zone, "reminder", channel=Channel.SCHEDULER
                 )
+        if (crops := self._runtime.vision.crops) is not None:
+            pending = await self._runtime.proposals.async_pending()
+            await crops.async_prune("proposal", {str(p.id) for p in pending})
+            await crops.async_prune("zone", set(zones))
         await self._runtime.coordinator.async_request_refresh()
 
 

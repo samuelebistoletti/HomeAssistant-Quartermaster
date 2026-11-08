@@ -37,8 +37,11 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util.ulid import ulid_now
 
 from custom_components.quartermaster.const import DOMAIN
-from custom_components.quartermaster.core.inventory import InventoryError
-from custom_components.quartermaster.core.phrases import async_phrase
+from custom_components.quartermaster.core.inventory import InventoryError, normalize
+from custom_components.quartermaster.core.phrases import (
+    async_phrase,
+    configured_language,
+)
 from custom_components.quartermaster.core.voice import EVENT_ASK_RESULT
 from custom_components.quartermaster.storage.models import (
     Channel,
@@ -59,6 +62,9 @@ PHOTO_ZONE_TTL = timedelta(minutes=10)
 CB_CONFIRM = "/qm_ok"
 CB_REJECT = "/qm_no"
 CB_ZONE = "/qm_zone"
+# Zone ids are slugs, so this can never be one.
+RECEIPT = "@receipt"
+RECENT_CHAT_SECONDS = 600
 CB_UNDO = "/qm_undo"
 CB_ADD = "/qm_add"
 CB_UNDO_CAMERA = "/qm_undo_camera"
@@ -120,6 +126,8 @@ class TelegramChannel:
         self._unsubs: list[CALLBACK_TYPE] = []
         self._recent: dict[int, deque[float]] = {}
         self.held: dict[str, HeldPhoto] = {}
+        # Last chat that wrote, so replies to its requests go back there.
+        self.last_chat: tuple[int, float] | None = None
 
     @callback
     def async_start(self) -> None:
@@ -182,6 +190,7 @@ class TelegramChannel:
             return
         if not self._within_rate(chat_id):
             return
+        self.last_chat = (chat_id, time.monotonic())
         bot = data.get("bot")
         if (
             isinstance(bot, dict)
@@ -273,6 +282,9 @@ class TelegramChannel:
             return
         photo = await self._async_download(str(file_id))
         caption = str(data.get("text") or "").strip()
+        if caption and await self._is_receipt(caption):
+            await self._async_receipt(chat_id, photo)
+            return
         zone = None
         if caption:
             try:
@@ -303,6 +315,53 @@ class TelegramChannel:
         except OSError as err:
             raise InventoryError("telegram_download_failed", error=str(err)) from err
 
+    def recent_chat(self) -> int | None:
+        """Return the chat that wrote in the last few minutes, if any."""
+        if self.last_chat is None:
+            return None
+        chat_id, ts = self.last_chat
+        return chat_id if time.monotonic() - ts <= RECENT_CHAT_SECONDS else None
+
+    async def _is_receipt(self, caption: str) -> bool:
+        words = {
+            normalize(word)
+            for language in {configured_language(self._hass), "en"}
+            for word in (
+                await async_phrase(self._hass, language, "receipt_words")
+            ).split(",")
+        }
+        return normalize(caption) in words
+
+    async def _async_receipt(self, chat_id: int, photo: bytes) -> None:
+        result = await self._runtime.purchases.async_from_receipt(
+            photo, channel=Channel.TELEGRAM, user_id=None
+        )
+        await self.async_send_purchases(chat_id, result)
+
+    async def async_send_purchases(self, chat_id: int, result: dict[str, Any]) -> None:
+        """Describe the purchases read from a receipt, with buttons."""
+        if result["proposal_id"] is None:
+            await self.async_send(chat_id, await self._phrase("telegram_nothing"))
+            return
+        lines = [await self._phrase("telegram_purchases")]
+        lines += [
+            f"• {row['product'] or row['seen_as']}: {_number(row['proposed'])}"
+            for row in result["items"]
+        ]
+        keyboard = [
+            [
+                (
+                    await self._phrase("button_confirm"),
+                    f"{CB_CONFIRM} {result['proposal_id']}",
+                ),
+                (
+                    await self._phrase("button_reject"),
+                    f"{CB_REJECT} {result['proposal_id']}",
+                ),
+            ]
+        ]
+        await self.async_send(chat_id, "\n".join(lines), keyboard)
+
     async def _async_ask_zone(self, chat_id: int, photo: bytes) -> None:
         now = dt_util.utcnow()
         self.held = {k: v for k, v in self.held.items() if v.expires > now}
@@ -316,6 +375,9 @@ class TelegramChannel:
             ]
             for i in range(0, len(zones), 2)
         ]
+        keyboard.append(
+            [(await self._phrase("button_receipt"), f"{CB_ZONE} {token} {RECEIPT}")]
+        )
         await self.async_send(
             chat_id, await self._phrase("telegram_choose_zone"), keyboard
         )
@@ -384,7 +446,10 @@ class TelegramChannel:
                 answer = await self._phrase("telegram_expired")
             else:
                 await self._async_answer(query_id, "")
-                await self._async_analyze(chat_id, held.data, args[1])
+                if args[1] == RECEIPT:
+                    await self._async_receipt(chat_id, held.data)
+                else:
+                    await self._async_analyze(chat_id, held.data, args[1])
                 return
         elif command == CB_UNDO:
             await self._async_undo(chat_id, query_id)

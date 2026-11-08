@@ -1,0 +1,17 @@
+# Read a receipt photo saved in a watched folder (for example by a scanner app
+# or a phone sync) and propose the purchases. Requires the Folder Watcher
+# integration on that folder, which must be in allowlist_external_dirs.
+# Its event entity ids depend on your setup: check yours.
+alias: Quartermaster - receipts from a folder
+triggers:
+  - trigger: state
+    entity_id: event.receipts_closed
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.to_state.attributes.file | lower is match('.*\.(jpe?g|png)$') }}
+actions:
+  - action: quartermaster.analyze_receipt
+    data:
+      file: "{{ trigger.to_state.attributes.path }}"
+mode: queued

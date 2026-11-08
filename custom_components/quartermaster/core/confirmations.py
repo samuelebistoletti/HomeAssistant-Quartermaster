@@ -7,6 +7,7 @@ photos and cameras (Phase 4) also live here.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
@@ -68,6 +69,8 @@ class ToolConfirmations:
 
 
 PROPOSAL_TTL = timedelta(hours=24)
+# Payload kind of proposals from receipts and order emails; others are counts.
+PURCHASE = "purchase"
 # Several products changing by more than half: never applied automatically.
 LARGE_CHANGE_RATIO = 0.5
 
@@ -89,8 +92,10 @@ class ProposalService:
         """Wrap the inventory."""
         self._inventory = inventory
         self._backend = inventory.backend
+        # Called when a proposal is decided or expires (deletes its crop).
+        self.on_closed: Callable[[Proposal], Awaitable[None]] | None = None
 
-    async def _async_match(self, item: SeenItem) -> Product | None:
+    async def async_match(self, item: SeenItem) -> Product | None:
         if item.matched_product_id is not None:
             try:
                 return await self._inventory.async_find_product(item.matched_product_id)
@@ -116,7 +121,7 @@ class ProposalService:
         }
         rows: list[dict[str, Any]] = []
         for key, item in enumerate(analysis.items):
-            product = await self._async_match(item)
+            product = await self.async_match(item)
             current = stock.get(product.id, 0.0) if product else None
             if product is not None and current == item.quantity:
                 continue
@@ -206,6 +211,36 @@ class ProposalService:
             )
         )
 
+    async def async_propose_purchases(
+        self,
+        rows: list[dict[str, Any]],
+        *,
+        channel: Channel,
+        user_id: str | None,
+        source: str,
+    ) -> Proposal:
+        """Store purchases read from a receipt or an order email."""
+        now = dt_util.utcnow()
+        return await self._backend.async_add_proposal(
+            Proposal(
+                id=0,
+                created=now,
+                channel=channel,
+                zone_id=None,
+                payload={
+                    "kind": PURCHASE,
+                    "source": source,
+                    "items": rows,
+                    "user_id": user_id,
+                },
+                expires_at=now + PROPOSAL_TTL,
+            )
+        )
+
+    async def _async_closed(self, proposal: Proposal) -> None:
+        if self.on_closed is not None:
+            await self.on_closed(proposal)
+
     async def async_pending(self) -> list[Proposal]:
         """Return pending proposals, expiring the old ones."""
         now = dt_util.utcnow()
@@ -216,6 +251,7 @@ class ProposalService:
             if proposal.expires_at <= now:
                 proposal.status = ProposalStatus.EXPIRED
                 await self._backend.async_update_proposal(proposal)
+                await self._async_closed(proposal)
             else:
                 pending.append(proposal)
         return pending
@@ -231,6 +267,7 @@ class ProposalService:
         proposal = await self._async_get(proposal_id)
         proposal.status = ProposalStatus.REJECTED
         await self._backend.async_update_proposal(proposal)
+        await self._async_closed(proposal)
         return proposal
 
     async def async_confirm(
@@ -249,7 +286,8 @@ class ProposalService:
         """
         proposal = await self._async_get(proposal_id)
         corrections = corrections or {}
-        if proposal.zone_id is None:
+        purchase = proposal.payload.get("kind") == PURCHASE
+        if proposal.zone_id is None and not purchase:
             raise InventoryError("proposal_not_found", proposal=str(proposal_id))
         chosen = [
             row
@@ -257,6 +295,7 @@ class ProposalService:
             if keys is None or row["key"] in keys
         ]
         counts: list[tuple[int, str, float, float | None]] = []
+        bought: list[tuple[int, float]] = []
         applied: list[dict[str, Any]] = []
         for row in chosen:
             correction = corrections.get(row["key"], {})
@@ -271,11 +310,21 @@ class ProposalService:
             if product_id is None:
                 continue  # an unknown product needs a correction naming it
             quantity = float(correction.get("quantity", row["proposed"]))
-            counts.append((product_id, proposal.zone_id, quantity, row["confidence"]))
+            if purchase:
+                bought.append((product_id, quantity))
+            else:
+                assert proposal.zone_id is not None
+                counts.append(
+                    (product_id, proposal.zone_id, quantity, row["confidence"])
+                )
             applied.append({**row, "product_id": product_id, "proposed": quantity})
         if counts:
             await self._inventory.async_apply_counts(
                 counts, channel=channel, user_id=user_id
+            )
+        if bought:
+            await self._inventory.async_record_purchases(
+                bought, channel=channel, user_id=user_id
             )
         chosen_keys = {row["key"] for row in chosen}
         remaining = [
@@ -287,4 +336,6 @@ class ProposalService:
         else:
             proposal.status = ProposalStatus.CONFIRMED
         await self._backend.async_update_proposal(proposal)
+        if proposal.status is ProposalStatus.CONFIRMED:
+            await self._async_closed(proposal)
         return applied
