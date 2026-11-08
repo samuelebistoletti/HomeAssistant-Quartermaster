@@ -17,19 +17,19 @@ async def test_diagnostics_redact(
     """Counts are given; entity ids, chats and names are not."""
     hass.config_entries.async_update_entry(
         init_integration,
-        options={"telegram_chats": ["12345"], "agent_id": "conversation.secret"},
+        options={"telegram_chats": ["12345"], "agent_id": "conversation.home_agent"},
     )
     await hass.config_entries.async_reload(init_integration.entry_id)
     await hass.async_block_till_done()
     inventory = init_integration.runtime_data.inventory
-    await inventory.async_add_zone("Private room")
-    await inventory.async_add_product("Secret sauce", default_zone="private_room")
-    await inventory.async_set_stock("secret sauce", 1, channel=Channel.SERVICE)
+    await inventory.async_add_zone("Back room")
+    await inventory.async_add_product("Family sauce", default_zone="back_room")
+    await inventory.async_set_stock("family sauce", 1, channel=Channel.SERVICE)
     await init_integration.runtime_data.coordinator.async_refresh()
 
     result = await async_get_config_entry_diagnostics(hass, init_integration)
     text = repr(result)
-    for secret in ("12345", "conversation.secret", "Private room", "Secret sauce"):
+    for secret in ("12345", "conversation.home_agent", "Back room", "Family sauce"):
         assert secret not in text
     assert result["counts"]["products"] == 1
     assert result["channels"] == {"service": 1}
