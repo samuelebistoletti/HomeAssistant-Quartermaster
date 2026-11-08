@@ -4,7 +4,7 @@ Shared state between development sessions and machines. Keep it short and factua
 
 ## Status
 
-- Phase: 0 (checks and skeleton), in progress.
+- Phase: 0 practical checks pending (with the author); Phase 1 (storage and inventory) started 2026-11-08 at the author's request, in parallel.
 - Done: spec read; OctopusEnergyIT conventions reviewed; spec sanitized (Appendix A moved to `docs/ENVIRONMENT.local.md`, gitignored, local to the author's main machine only).
 - Done: 0.a docs review and 0.b domain check (results in TECHNICAL_NOTES.md, Phase 0 section).
 - Done: 0.c (2026.11.0).
@@ -12,6 +12,7 @@ Shared state between development sessions and machines. Keep it short and factua
 - Done: CI green on GitHub for both repos (no tags or releases).
 - Done: 0.e practical-checks kit (docs/phase0/CHECKLIST.md, examples/phase0/, scripts/phase0/); Alexa HA-side behaviour verified by simulation.
 - Done (2026-11-08): strategy shows in the New dashboard dialog and renders in it/en at phone and desktop width (dev, headless Chrome). WARP on the author's PC was the TLS inspection; disconnected, outbound HTTPS from the dev container works.
+- Done (2026-11-08): Phase 1 code — SQLite backend with migrations, inventory service, actions adjust_stock, undo_last, set_stock, add_product, set_essential, export_data, import_data; 50 tests, 100 % coverage; checked on the dev instance. Waiting for the author's review and the open questions in TECHNICAL_NOTES (Phase 1).
 - Next: run the practical checks with the author (Telegram, Alexa and iOS through a quick tunnel on the second machine; camera on the real instance; Marketplace and Cloudflare on a network without TLS inspection).
 
 ## Decisions from the author (2026-11-07)
@@ -32,5 +33,7 @@ Shared state between development sessions and machines. Keep it short and factua
 - Work may continue from two different machines: keep this file and `TECHNICAL_NOTES.md` up to date and pushed.
 
 ## Open questions for the author
+
+- Phase 1: required `config_entry_id`, zone actions, operation id in the journal (details in TECHNICAL_NOTES, Phase 1).
 
 - Marketplace check needs the author's GitHub device sign-in on the dev instance; and if the Marketplace requires a release, whether a test pre-release is allowed.

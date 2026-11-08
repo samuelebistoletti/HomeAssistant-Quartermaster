@@ -6,5 +6,261 @@
         "description": "Quartermaster tiene traccia di dispensa, frigorifero, freezer e scaffali e compila la tua lista della spesa. Conferma per aggiungerlo."
       }
     }
+  },
+  "exceptions": {
+    "invalid_quantity": {
+      "message": "La quantità {quantity} non è valida."
+    },
+    "invalid_name": {
+      "message": "Il nome non può essere vuoto."
+    },
+    "zone_exists": {
+      "message": "Esiste già una zona chiamata {zone}."
+    },
+    "zone_not_empty": {
+      "message": "La zona {zone} contiene ancora prodotti."
+    },
+    "zone_not_found": {
+      "message": "Nessuna zona chiamata {zone}."
+    },
+    "ambiguous_zone": {
+      "message": "{zone} corrisponde a più zone: {candidates}. Indica quale."
+    },
+    "zone_required": {
+      "message": "Indica in quale zona va {product}."
+    },
+    "product_not_found": {
+      "message": "Nessun prodotto chiamato {product}."
+    },
+    "ambiguous_product": {
+      "message": "{product} corrisponde a più prodotti: {candidates}. Indica quale."
+    },
+    "product_exists": {
+      "message": "Esiste già un prodotto chiamato {product}."
+    },
+    "not_in_stock": {
+      "message": "{product} non è presente in nessuna zona."
+    },
+    "min_stock_required": {
+      "message": "Un prodotto essenziale richiede una scorta minima: {product}."
+    },
+    "target_below_min": {
+      "message": "La scorta obiettivo di {product} è sotto la scorta minima."
+    },
+    "nothing_to_undo": {
+      "message": "Non c'è nessun movimento da annullare."
+    },
+    "undo_zone_missing": {
+      "message": "Il movimento non si può annullare perché la sua zona è stata eliminata."
+    },
+    "invalid_import": {
+      "message": "Il file non si può importare: {error}"
+    },
+    "import_unreadable": {
+      "message": "Il file {filename} non si può leggere dalla cartella quartermaster/exports."
+    },
+    "invalid_filename": {
+      "message": "{filename} non è un nome di file valido. Indica solo il nome di un file nella cartella quartermaster/exports."
+    },
+    "database_too_new": {
+      "message": "L'archivio dell'inventario è stato scritto da una versione più recente di Quartermaster (schema {found}). Aggiorna l'integrazione."
+    },
+    "database_error": {
+      "message": "Impossibile aprire l'archivio dell'inventario: {error}"
+    },
+    "product_in_many_zones": {
+      "message": "{product} è in più zone: {candidates}. Indica quale."
+    }
+  },
+  "selector": {
+    "operation": {
+      "options": {
+        "consume": "Consumo",
+        "purchase": "Acquisto",
+        "finish": "Finito"
+      }
+    },
+    "export_format": {
+      "options": {
+        "json": "JSON (tutto)",
+        "csv": "CSV (prodotti e scorte)"
+      }
+    }
+  },
+  "services": {
+    "adjust_stock": {
+      "name": "Modifica scorta",
+      "description": "Registra che un prodotto è stato consumato, comprato o finito in una zona.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire."
+        },
+        "product": {
+          "name": "Prodotto",
+          "description": "Nome, alias o ID del prodotto."
+        },
+        "operation": {
+          "name": "Operazione",
+          "description": "Consumo toglie la quantità, acquisto la aggiunge, finito azzera la zona."
+        },
+        "quantity": {
+          "name": "Quantità",
+          "description": "Quantità nell'unità del prodotto. Predefinita 1; ignorata con finito."
+        },
+        "zone": {
+          "name": "Zona",
+          "description": "Nome, alias o ID della zona. Se manca, la zona si ricava da dove si trova il prodotto."
+        },
+        "best_before": {
+          "name": "Da consumarsi entro",
+          "description": "Data di scadenza della scorta in questa zona."
+        }
+      }
+    },
+    "undo_last": {
+      "name": "Annulla ultimo movimento",
+      "description": "Annulla il movimento di scorta più recente non ancora annullato.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire."
+        }
+      }
+    },
+    "set_stock": {
+      "name": "Imposta scorta",
+      "description": "Imposta la quantità contata di un prodotto in una zona.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire."
+        },
+        "product": {
+          "name": "Prodotto",
+          "description": "Nome, alias o ID del prodotto."
+        },
+        "quantity": {
+          "name": "Quantità",
+          "description": "Quantità contata nell'unità del prodotto."
+        },
+        "zone": {
+          "name": "Zona",
+          "description": "Nome, alias o ID della zona. Se manca, la zona si ricava da dove si trova il prodotto."
+        },
+        "best_before": {
+          "name": "Da consumarsi entro",
+          "description": "Data di scadenza della scorta in questa zona."
+        }
+      }
+    },
+    "add_product": {
+      "name": "Aggiungi prodotto",
+      "description": "Crea un prodotto nell'inventario.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire."
+        },
+        "name": {
+          "name": "Nome",
+          "description": "Nome del prodotto, unico nell'inventario."
+        },
+        "aliases": {
+          "name": "Alias",
+          "description": "Altri nomi con cui si chiama il prodotto."
+        },
+        "category": {
+          "name": "Categoria",
+          "description": "Categoria, per esempio formaggi o pasta."
+        },
+        "default_zone": {
+          "name": "Zona predefinita",
+          "description": "Zona in cui vanno gli acquisti quando non si indica la zona."
+        },
+        "unit": {
+          "name": "Unità",
+          "description": "Unità delle quantità, per esempio bottiglia o pacco."
+        },
+        "essential": {
+          "name": "Essenziale",
+          "description": "Il prodotto deve esserci sempre."
+        },
+        "min_stock": {
+          "name": "Scorta minima",
+          "description": "Sotto questa quantità totale il prodotto va in lista. Obbligatoria per gli essenziali."
+        },
+        "target_stock": {
+          "name": "Scorta obiettivo",
+          "description": "Quantità a cui riportare il prodotto quando si compra."
+        },
+        "visual_hints": {
+          "name": "Indizi visivi",
+          "description": "Come appare il prodotto, per riconoscerlo nelle foto."
+        },
+        "barcode": {
+          "name": "Codice a barre",
+          "description": "Codice a barre facoltativo."
+        },
+        "shelf_life_days": {
+          "name": "Durata",
+          "description": "Giorni tipici prima della scadenza."
+        }
+      }
+    },
+    "set_essential": {
+      "name": "Imposta essenziale",
+      "description": "Segna un prodotto come essenziale con le sue scorte, o lo toglie dagli essenziali.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire."
+        },
+        "product": {
+          "name": "Prodotto",
+          "description": "Nome, alias o ID del prodotto."
+        },
+        "essential": {
+          "name": "Essenziale",
+          "description": "Disattiva per togliere il prodotto dagli essenziali."
+        },
+        "min_stock": {
+          "name": "Scorta minima",
+          "description": "Sotto questa quantità totale il prodotto va in lista. Obbligatoria per gli essenziali."
+        },
+        "target_stock": {
+          "name": "Scorta obiettivo",
+          "description": "Quantità a cui riportare il prodotto quando si compra."
+        }
+      }
+    },
+    "export_data": {
+      "name": "Esporta dati",
+      "description": "Scrive l'inventario in un file nella cartella quartermaster/exports della configurazione. JSON contiene tutto; CSV prodotti e scorte.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire."
+        },
+        "format": {
+          "name": "Formato",
+          "description": "Formato del file."
+        }
+      }
+    },
+    "import_data": {
+      "name": "Importa dati",
+      "description": "Legge un file dalla cartella quartermaster/exports. Un'esportazione JSON sostituisce tutto l'inventario; un file CSV aggiunge zone e prodotti mancanti e ne imposta le quantità.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire."
+        },
+        "filename": {
+          "name": "Nome del file",
+          "description": "Nome del file nella cartella quartermaster/exports."
+        }
+      }
+    }
   }
 }

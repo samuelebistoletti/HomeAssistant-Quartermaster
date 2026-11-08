@@ -6,5 +6,261 @@
         "description": "Quartermaster keeps track of your pantry, fridge, freezer and shelves and builds your shopping list. Submit to add it."
       }
     }
+  },
+  "exceptions": {
+    "invalid_quantity": {
+      "message": "The quantity {quantity} is not valid."
+    },
+    "invalid_name": {
+      "message": "The name cannot be empty."
+    },
+    "zone_exists": {
+      "message": "A zone called {zone} already exists."
+    },
+    "zone_not_empty": {
+      "message": "The zone {zone} still holds products."
+    },
+    "zone_not_found": {
+      "message": "No zone called {zone}."
+    },
+    "ambiguous_zone": {
+      "message": "{zone} matches more than one zone: {candidates}. Say which one."
+    },
+    "zone_required": {
+      "message": "Say in which zone {product} goes."
+    },
+    "product_not_found": {
+      "message": "No product called {product}."
+    },
+    "ambiguous_product": {
+      "message": "{product} matches more than one product: {candidates}. Say which one."
+    },
+    "product_exists": {
+      "message": "A product called {product} already exists."
+    },
+    "not_in_stock": {
+      "message": "{product} is not in stock in any zone."
+    },
+    "min_stock_required": {
+      "message": "An essential product needs a minimum stock: {product}."
+    },
+    "target_below_min": {
+      "message": "The target stock of {product} is below its minimum stock."
+    },
+    "nothing_to_undo": {
+      "message": "There is no movement to undo."
+    },
+    "undo_zone_missing": {
+      "message": "The movement cannot be undone because its zone was deleted."
+    },
+    "invalid_import": {
+      "message": "The file cannot be imported: {error}"
+    },
+    "import_unreadable": {
+      "message": "The file {filename} cannot be read from the quartermaster/exports folder."
+    },
+    "invalid_filename": {
+      "message": "{filename} is not a valid file name. Give only the name of a file in the quartermaster/exports folder."
+    },
+    "database_too_new": {
+      "message": "The inventory database was written by a newer version of Quartermaster (schema {found}). Update the integration."
+    },
+    "database_error": {
+      "message": "The inventory database cannot be opened: {error}"
+    },
+    "product_in_many_zones": {
+      "message": "{product} is in more than one zone: {candidates}. Say which one."
+    }
+  },
+  "selector": {
+    "operation": {
+      "options": {
+        "consume": "Consume",
+        "purchase": "Purchase",
+        "finish": "Finished"
+      }
+    },
+    "export_format": {
+      "options": {
+        "json": "JSON (everything)",
+        "csv": "CSV (products and stock)"
+      }
+    }
+  },
+  "services": {
+    "adjust_stock": {
+      "name": "Adjust stock",
+      "description": "Records that a product was consumed, bought or finished in a zone.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on."
+        },
+        "product": {
+          "name": "Product",
+          "description": "Product name, alias or ID."
+        },
+        "operation": {
+          "name": "Operation",
+          "description": "Consume removes the quantity, purchase adds it, finish sets the zone to zero."
+        },
+        "quantity": {
+          "name": "Quantity",
+          "description": "Quantity in the product's unit. Defaults to 1; ignored when finishing."
+        },
+        "zone": {
+          "name": "Zone",
+          "description": "Zone name, alias or ID. If omitted, the zone is chosen from where the product is kept."
+        },
+        "best_before": {
+          "name": "Best before",
+          "description": "Best-before date of the stock in this zone."
+        }
+      }
+    },
+    "undo_last": {
+      "name": "Undo last movement",
+      "description": "Reverts the most recent stock movement that is not undone yet.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on."
+        }
+      }
+    },
+    "set_stock": {
+      "name": "Set stock",
+      "description": "Sets the counted quantity of a product in a zone.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on."
+        },
+        "product": {
+          "name": "Product",
+          "description": "Product name, alias or ID."
+        },
+        "quantity": {
+          "name": "Quantity",
+          "description": "Counted quantity in the product's unit."
+        },
+        "zone": {
+          "name": "Zone",
+          "description": "Zone name, alias or ID. If omitted, the zone is chosen from where the product is kept."
+        },
+        "best_before": {
+          "name": "Best before",
+          "description": "Best-before date of the stock in this zone."
+        }
+      }
+    },
+    "add_product": {
+      "name": "Add product",
+      "description": "Creates a product in the inventory.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Product name, unique in the inventory."
+        },
+        "aliases": {
+          "name": "Aliases",
+          "description": "Other names the product is called by."
+        },
+        "category": {
+          "name": "Category",
+          "description": "Category, for example cheese or pasta."
+        },
+        "default_zone": {
+          "name": "Default zone",
+          "description": "Zone where purchases go when no zone is given."
+        },
+        "unit": {
+          "name": "Unit",
+          "description": "Unit of the quantities, for example bottle or pack."
+        },
+        "essential": {
+          "name": "Essential",
+          "description": "The product must always be at home."
+        },
+        "min_stock": {
+          "name": "Minimum stock",
+          "description": "Below this total quantity the product goes on the shopping list. Required for essentials."
+        },
+        "target_stock": {
+          "name": "Target stock",
+          "description": "Quantity to bring the product back to when buying."
+        },
+        "visual_hints": {
+          "name": "Visual hints",
+          "description": "How the product looks, to help recognize it in photos."
+        },
+        "barcode": {
+          "name": "Barcode",
+          "description": "Optional barcode."
+        },
+        "shelf_life_days": {
+          "name": "Shelf life",
+          "description": "Typical days before it expires."
+        }
+      }
+    },
+    "set_essential": {
+      "name": "Set essential",
+      "description": "Marks a product as essential with its stock levels, or unmarks it.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on."
+        },
+        "product": {
+          "name": "Product",
+          "description": "Product name, alias or ID."
+        },
+        "essential": {
+          "name": "Essential",
+          "description": "Turn off to remove the product from the essentials."
+        },
+        "min_stock": {
+          "name": "Minimum stock",
+          "description": "Below this total quantity the product goes on the shopping list. Required for essentials."
+        },
+        "target_stock": {
+          "name": "Target stock",
+          "description": "Quantity to bring the product back to when buying."
+        }
+      }
+    },
+    "export_data": {
+      "name": "Export data",
+      "description": "Writes the inventory to a file in the quartermaster/exports folder of the configuration directory. JSON holds everything; CSV holds products and stock.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on."
+        },
+        "format": {
+          "name": "Format",
+          "description": "File format."
+        }
+      }
+    },
+    "import_data": {
+      "name": "Import data",
+      "description": "Reads a file from the quartermaster/exports folder. A JSON export replaces the whole inventory; a CSV file adds missing zones and products and sets their quantities.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on."
+        },
+        "filename": {
+          "name": "File name",
+          "description": "Name of the file in the quartermaster/exports folder."
+        }
+      }
+    }
   }
 }

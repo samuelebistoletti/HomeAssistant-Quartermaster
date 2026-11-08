@@ -153,3 +153,39 @@ The bundle was loaded with `frontend.extra_module_url` (dev setup) and checked i
 Two documented requirements block the Marketplace part of checklist section 5. It waits for the author:
 - Adding a custom repository needs a GitHub account linked with the device sign-in method.
 - "By default, the Marketplace offers stable releases only". The repositories have no releases by design, and the docs do not say what happens with a repository without releases. Check this first once signed in. If a release is required, the author decides whether a test pre-release is allowed.
+
+## Phase 1 — storage and inventory (started 2026-11-08)
+
+Started at the author's request while the Phase 0 practical checks are still open. Phase 1 depends on none of them.
+
+### Decisions
+
+| Topic | Decision | Source or reason |
+| --- | --- | --- |
+| Where actions are registered | `async_setup`, with `CONFIG_SCHEMA = cv.config_entry_only_config_schema` | contributors.home-assistant.io, actions and quality-scale rule `action-setup` |
+| Action target | Every action has a **required** `config_entry_id` (selector `config_entry`), looked up with `service.async_get_config_entry` | Same pages: "make the target required and do not fall back to a default". The helper also accepts `None` (single loaded entry); see the open questions |
+| Schemas | `probatio` with `cv` validators | Same pages; HA 2026.9+ |
+| Responses | All Phase 1 actions use `SupportsResponse.OPTIONAL` and return `None` when no response is asked | Actions page |
+| Admin-only actions | `export_data` and `import_data` use `async_register_admin_service`: they write or replace files in the config folder and import replaces the whole inventory | Actions page |
+| Errors | `InventoryError(ServiceValidationError)` with keys under `exceptions` in both translation files. HA builds `str(err)` in English and strips the final period; the frontend shows the message in the user's language | `helpers/translation.py` 2026.11 (behaviour, not used as an API) |
+| Database | `<config>/quartermaster/pantry.db`, WAL, foreign keys on, one connection used only from the executor and serialized by a lock, explicit `BEGIN IMMEDIATE` transactions | Spec §4 |
+| Migrations | Numbered modules in `storage/migrations/`; the version is in `settings.schema_version`; each migration runs in its own transaction; a database from a newer version stops the setup (`ConfigEntryError`, `database_too_new`) | Spec §4 |
+| Schema v1 | All tables of spec §4 are created now, including those used from Phase 2 onwards, to avoid early migrations | — |
+| Quantities | Decimal, rounded to 3 digits, never below zero (a consumption larger than the stock records the delta actually applied), at most 100,000 | Spec §4 and §8 (plausible values) |
+| Undo | An undo applies the opposite of the journaled delta (so later movements by other channels stay), is journaled as `undo` with `undoes_id`, and is never undone itself; repeating undo walks back through older movements. The `undo_last` action takes the newest movement from any channel (like the spec's button); `only_channel` + user and the 10-minute window are ready for the LLM tool (Phase 3) | Spec §4, §6.1 |
+| Product names | Unique among active products, compared ignoring case and spaces; aliases may overlap and then resolve as ambiguous with the candidates | Spec §6.2 |
+| Turning off `essential` | Clears `min_stock` and `target_stock` | — |
+| Export/import location | `<config>/quartermaster/exports/`; `import_data` takes a plain file name in that folder, any path is refused | Spec §4; no path traversal |
+| JSON export | Full state: zones, products, stock, journal, shopping items. Import validates the format, version, every row and every reference, then replaces everything in one transaction; pending changes and zone snapshots are cleared. Export then import gives the same state (tested) | Spec §4, Phase 1 criterion |
+| CSV export | One row per product and zone (products without stock too). Import merges: creates missing zones and products and sets quantities as `import` movements; existing products are not modified | Spec §4 |
+| Imports inside the package | Absolute (`custom_components.quartermaster...`), because the shared `.ruff.toml` bans relative imports from parent packages (TID252) | OctopusEnergyIT conventions |
+
+### Verified on the dev instance (2026-11-08)
+
+CSV import (2 zones, 2 products), consumption by alias, finish, undo, unknown-product error and CSV export all behave as in the tests. Exception text through the REST API is in English (see above).
+
+### Open questions for the author
+
+1. `config_entry_id` is required in every action, as the docs say. Quartermaster allows one entry only, and `service.async_get_config_entry` can fall back to it when the field is omitted. Making the field optional would simplify YAML (Alexa `intent_script`, automations). Keep it required?
+2. The spec lists no zone actions. Zones can be created only through `import_data` until the options flow or the dashboard (later phases). Add `add_zone` / `remove_zone` actions?
+3. The journal has no operation id. A photo proposal applying several changes is undone one movement at a time. Add an `operation_id` column (new migration) in Phase 4?

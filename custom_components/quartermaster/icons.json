@@ -1,0 +1,11 @@
+{
+  "services": {
+    "adjust_stock": { "service": "mdi:basket-minus" },
+    "undo_last": { "service": "mdi:undo" },
+    "set_stock": { "service": "mdi:counter" },
+    "add_product": { "service": "mdi:basket-plus" },
+    "set_essential": { "service": "mdi:star" },
+    "export_data": { "service": "mdi:database-export" },
+    "import_data": { "service": "mdi:database-import" }
+  }
+}

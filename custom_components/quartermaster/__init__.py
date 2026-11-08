@@ -3,13 +3,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
+import sqlite3
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryError
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.typing import ConfigType
 
-from .const import DOMAIN
+from .const import DATABASE_FILE, DOMAIN
+from .core.inventory import InventoryService
+from .services import async_setup_services
+from .storage.sqlite import SchemaTooNewError, SQLiteBackend
 
 PLATFORMS: list[Platform] = []
 
@@ -20,15 +27,39 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 class QuartermasterRuntimeData:
     """Runtime objects shared by every platform of the config entry."""
 
+    inventory: InventoryService
+
 
 type QuartermasterConfigEntry = ConfigEntry[QuartermasterRuntimeData]
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Register the integration actions."""
+    async_setup_services(hass)
+    return True
 
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: QuartermasterConfigEntry
 ) -> None:
     """Set up Quartermaster from a config entry."""
-    entry.runtime_data = QuartermasterRuntimeData()
+    backend = SQLiteBackend(hass, Path(hass.config.path(DOMAIN, DATABASE_FILE)))
+    try:
+        await backend.async_open()
+    except SchemaTooNewError as err:
+        raise ConfigEntryError(
+            translation_domain=DOMAIN,
+            translation_key="database_too_new",
+            translation_placeholders={"found": str(err.found)},
+        ) from err
+    except (OSError, sqlite3.Error) as err:
+        raise ConfigEntryError(
+            translation_domain=DOMAIN,
+            translation_key="database_error",
+            translation_placeholders={"error": str(err)},
+        ) from err
+    entry.runtime_data = QuartermasterRuntimeData(inventory=InventoryService(backend))
+    entry.async_on_unload(backend.async_close)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
 
