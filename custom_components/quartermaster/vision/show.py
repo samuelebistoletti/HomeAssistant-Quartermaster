@@ -207,7 +207,7 @@ class Watcher:
     key: str
     zone_id: str
     source: dict[str, Any]
-    last_trigger: float = 0.0
+    last_trigger: float | None = None
     unchanged: int = 0
     reference: bytes | None = None
     busy: bool = False
@@ -361,9 +361,9 @@ class ShowManager:
             return {"status": "not_armed"}
         if not _in_hours(source.get("hours"), now):
             return {"status": "outside_hours"}
-        if (
-            watcher.busy
-            or time.monotonic() - watcher.last_trigger < source["cooldown_seconds"]
+        if watcher.busy or (
+            watcher.last_trigger is not None
+            and time.monotonic() - watcher.last_trigger < source["cooldown_seconds"]
         ):
             return {"status": "cooldown"}
         if not await self._async_count(watcher, source["max_per_day"]):
