@@ -4,5 +4,12 @@ set -e
 
 cd "$(dirname "$0")/.."
 
-ruff format .
-ruff check . --fix
+# The ruff pinned in requirements.txt: the virtual environment's when there is
+# one (host), otherwise the one on PATH (dev container).
+RUFF=ruff
+if [ -x .venv/bin/ruff ]; then
+    RUFF=.venv/bin/ruff
+fi
+
+"$RUFF" format .
+"$RUFF" check . --fix

@@ -13,11 +13,15 @@ release_body.md
 # misc
 .coverage
 coverage.xml
+htmlcov/
 .mypy_cache
 .ruff_cache
 .vscode
+.idea/
 .venv
+node_modules/
 .env
+.env.*
 .DS_Store
 
 # Home Assistant development configuration (config/.dev holds the dev token)

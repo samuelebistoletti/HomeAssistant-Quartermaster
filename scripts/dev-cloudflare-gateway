@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Install the community Cloudflare AI Gateway integration on the dev instance.
+#
+# Downloads the latest upstream main and, while upstream still imports
+# voluptuous_openapi (gone from Home Assistant since 2026.9), switches its two
+# schema conversions to probatio.to_openapi, as Home Assistant's own
+# openai_conversation does. See TECHNICAL_NOTES.md (Cloudflare AI Gateway).
+# The copy goes to config/custom_components (gitignored): dev instance only.
+#
+#   scripts/dev-cloudflare-gateway && docker compose restart homeassistant
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+REPO="https://github.com/michaeldwan/ha-cloudflare-ai-gateway.git"
+TARGET="config/custom_components/cloudflare_ai_gateway"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
+git clone --quiet --depth 1 "$REPO" "$WORK/src"
+echo "Upstream main: $(git -C "$WORK/src" log -1 --format='%h %s')"
+
+python3 - "$WORK/src/custom_components/cloudflare_ai_gateway/entity.py" <<'EOF'
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+if "voluptuous_openapi" not in text:
+    print("Upstream no longer uses voluptuous_openapi: installed unchanged.")
+    sys.exit(0)
+replacements = {
+    "from voluptuous_openapi import convert\n": "import probatio\n",
+    "convert(tool.parameters, custom_serializer=custom_serializer)": (
+        "probatio.to_openapi(tool.parameters, custom_serializer=custom_serializer,"
+        ' openapi_version="3.1.0")'
+    ),
+    "convert(structure, custom_serializer=custom_serializer)": (
+        "probatio.to_openapi(structure, custom_serializer=custom_serializer,"
+        ' openapi_version="3.1.0")'
+    ),
+}
+for old, new in replacements.items():
+    if old not in text:
+        sys.exit(f"Upstream changed, patch not applied: {old.strip()!r} not found")
+    text = text.replace(old, new)
+path.write_text(text, encoding="utf-8")
+print("Patched: schema conversion through probatio.to_openapi.")
+EOF
+
+mkdir -p "$(dirname "$TARGET")"
+rm -rf "$TARGET"
+cp -R "$WORK/src/custom_components/cloudflare_ai_gateway" "$TARGET"
+echo "Installed in $TARGET. Restart Home Assistant: docker compose restart homeassistant"

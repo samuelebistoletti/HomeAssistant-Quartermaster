@@ -13,6 +13,7 @@ python3.14 -m venv .venv && .venv/bin/pip install -r requirements_test.txt
 bash scripts/lint                     # ruff format + ruff check --fix (the only formatter/linter)
 docker compose up -d                  # dev HA :8123 + ha-mcp :8086 (also started by the dev container)
 uv run --with aiohttp scripts/dev-bootstrap  # first start: dev user + ha-mcp token in config/.dev/
+scripts/dev-cloudflare-gateway               # optional: patched Cloudflare AI Gateway integration on the dev instance
 ```
 
 ## Layout
@@ -33,6 +34,8 @@ uv run --with aiohttp scripts/dev-bootstrap  # first start: dev user + ha-mcp to
 - No secrets, personal data or real home details in code, examples, fixtures or docs. Personal environment notes go to `*.local.md` (gitignored).
 - Development and tests run on the dev instance only. On the author's real instance: reads only, and only when asked.
 - No debug flags enabled in commits.
+- Always the latest stable version of everything: Home Assistant (the minimum is the latest stable; older releases are not supported), libraries, GitHub Actions, Docker images, third-party integrations. Adopt new majors instead of pinning back; the only exception is a pin that must match Home Assistant's own manifests.
+- Before committing run `.venv/bin/ruff format --check .` too; after every push wait for all GitHub Actions runs of the commit and fix any failure at once.
 
 ## Decisions (do not re-litigate without a new reason)
 
