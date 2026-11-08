@@ -6,6 +6,7 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 from homeassistant.core import HomeAssistant
+from homeassistant.setup import async_setup_component
 import pytest
 from pytest_homeassistant.common import MockConfigEntry
 
@@ -15,9 +16,14 @@ from custom_components.quartermaster.storage.sqlite import SQLiteBackend
 
 
 @pytest.fixture(autouse=True)
-def config_dir(hass: HomeAssistant, tmp_path: Path) -> Path:
-    """Keep the database and exports of each test in its own folder."""
+async def config_dir(hass: HomeAssistant, tmp_path: Path) -> Path:
+    """Keep the database and exports of each test in its own folder.
+
+    Also set up the core `homeassistant` component, which `conversation`
+    (a dependency) needs, as on a real instance.
+    """
     hass.config.config_dir = str(tmp_path)
+    assert await async_setup_component(hass, "homeassistant", {})
     return tmp_path
 
 

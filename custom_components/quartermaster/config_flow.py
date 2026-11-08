@@ -15,11 +15,16 @@ from homeassistant.helpers import selector
 import probatio
 
 from .const import (
+    CONF_AGENT_ID,
+    CONF_ALEXA_READ_ONLY,
+    CONF_ASK_SESSION_SECONDS,
     CONF_EXPIRING_DAYS,
     CONF_EXTERNAL_TODO,
     CONF_RECORD_PURCHASE_ON_CHECK,
     CONF_SHOPPING_MODE_MINUTES,
     CONF_STALE_ZONE_DAYS,
+    DEFAULT_ALEXA_READ_ONLY,
+    DEFAULT_ASK_SESSION_SECONDS,
     DEFAULT_EXPIRING_DAYS,
     DEFAULT_RECORD_PURCHASE_ON_CHECK,
     DEFAULT_SHOPPING_MODE_MINUTES,
@@ -42,6 +47,21 @@ def _days(maximum: int) -> selector.NumberSelector:
 
 OPTIONS_SCHEMA = probatio.Schema(
     {
+        probatio.Optional(CONF_AGENT_ID): selector.ConversationAgentSelector(),
+        probatio.Required(
+            CONF_ASK_SESSION_SECONDS, default=DEFAULT_ASK_SESSION_SECONDS
+        ): selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=30,
+                max=900,
+                step=10,
+                mode=selector.NumberSelectorMode.BOX,
+                unit_of_measurement="s",
+            )
+        ),
+        probatio.Required(
+            CONF_ALEXA_READ_ONLY, default=DEFAULT_ALEXA_READ_ONLY
+        ): selector.BooleanSelector(),
         probatio.Optional(CONF_EXTERNAL_TODO): selector.EntitySelector(
             selector.EntitySelectorConfig(domain="todo")
         ),

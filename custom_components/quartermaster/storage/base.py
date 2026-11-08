@@ -65,6 +65,12 @@ class StorageBackend(ABC):
         """Return stock rows, optionally filtered."""
 
     @abstractmethod
+    async def async_set_opened(
+        self, product_id: int, zone_id: str, when: datetime
+    ) -> None:
+        """Record when a product was opened in a zone."""
+
+    @abstractmethod
     async def async_apply_changes(
         self, changes: list[StockChange]
     ) -> list[JournalEntry]:

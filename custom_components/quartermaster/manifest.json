@@ -9,6 +9,10 @@
     "@samuelebistoletti"
   ],
   "config_flow": true,
+  "dependencies": [
+    "conversation",
+    "llm"
+  ],
   "documentation": "https://github.com/samuelebistoletti/HomeAssistant-Quartermaster",
   "integration_type": "service",
   "iot_class": "calculated",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
 import sqlite3
 
@@ -13,10 +14,19 @@ from homeassistant.exceptions import ConfigEntryError
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from .const import CONF_EXTERNAL_TODO, DATABASE_FILE, DOMAIN
+from .const import (
+    CONF_AGENT_ID,
+    CONF_ASK_SESSION_SECONDS,
+    CONF_EXTERNAL_TODO,
+    DATABASE_FILE,
+    DEFAULT_ASK_SESSION_SECONDS,
+    DOMAIN,
+)
 from .coordinator import QuartermasterCoordinator
+from .core.confirmations import ToolConfirmations
 from .core.inventory import InventoryService
 from .core.shopping import ShoppingService
+from .core.voice import VoiceSessions
 from .services import async_setup_services
 from .storage.sqlite import SchemaTooNewError, SQLiteBackend
 
@@ -38,6 +48,8 @@ class QuartermasterRuntimeData:
     inventory: InventoryService
     shopping: ShoppingService
     coordinator: QuartermasterCoordinator
+    voice: VoiceSessions
+    confirmations: ToolConfirmations
 
 
 type QuartermasterConfigEntry = ConfigEntry[QuartermasterRuntimeData]
@@ -77,8 +89,22 @@ async def async_setup_entry(
     entry.async_on_unload(
         inventory.async_add_listener(coordinator.async_inventory_changed)
     )
+    voice = VoiceSessions(
+        hass,
+        agent_id=entry.options.get(CONF_AGENT_ID),
+        lifetime=timedelta(
+            seconds=entry.options.get(
+                CONF_ASK_SESSION_SECONDS, DEFAULT_ASK_SESSION_SECONDS
+            )
+        ),
+    )
+    entry.async_on_unload(voice.async_shutdown)
     entry.runtime_data = QuartermasterRuntimeData(
-        inventory=inventory, shopping=shopping, coordinator=coordinator
+        inventory=inventory,
+        shopping=shopping,
+        coordinator=coordinator,
+        voice=voice,
+        confirmations=ToolConfirmations(),
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 

@@ -1,4 +1,8 @@
 {
+  "common": {
+    "ask_working": "Ci sto lavorando, ti avviso quando ho finito.",
+    "ask_error": "Non ci sono riuscito, riprova."
+  },
   "config": {
     "step": {
       "user": {
@@ -97,6 +101,16 @@
         "products": "Prodotti",
         "essentials": "Essenziali",
         "shopping": "Lista della spesa"
+      }
+    },
+    "ask_channel": {
+      "options": {
+        "alexa": "Alexa",
+        "assist": "Assist",
+        "voice": "Voce",
+        "telegram": "Telegram",
+        "dashboard": "Dashboard",
+        "service": "Automazione o script"
       }
     }
   },
@@ -392,6 +406,32 @@
           "description": "Esegue l'importazione; altrimenti mostra solo l'anteprima."
         }
       }
+    },
+    "ask": {
+      "name": "Chiedi",
+      "description": "Invia una frase all'agente di conversazione con gli strumenti di Quartermaster e restituisce cosa dire, se restare in ascolto e un breve reprompt. La usano l'intent_script di Alexa e gli altri canali.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
+        },
+        "text": {
+          "name": "Testo",
+          "description": "Cosa ha detto l'utente."
+        },
+        "channel": {
+          "name": "Canale",
+          "description": "Da dove arriva la richiesta; registrato nello storico."
+        },
+        "language": {
+          "name": "Lingua",
+          "description": "Lingua del testo; predefinita quella di sistema."
+        },
+        "session_key": {
+          "name": "Chiave di sessione",
+          "description": "Tiene separati i fili, per esempio uno per ogni Echo. Predefinita l'utente."
+        }
+      }
     }
   },
   "entity": {
@@ -439,6 +479,9 @@
       "init": {
         "title": "Opzioni di Quartermaster",
         "data": {
+          "agent_id": "Agente di conversazione",
+          "ask_session_seconds": "Memoria della conversazione di quartermaster.ask",
+          "alexa_read_only": "Alexa può solo leggere",
           "external_todo": "Copia la lista della spesa in",
           "record_purchase_on_check": "Registra l'acquisto quando si spunta una voce",
           "shopping_mode_minutes": "Durata della modalità spesa",
@@ -446,6 +489,9 @@
           "expiring_days": "Soglia dei prodotti in scadenza"
         },
         "data_description": {
+          "agent_id": "Agente usato da quartermaster.ask (Alexa, Telegram, dashboard). Collegagli l'API Assist perché possa usare gli strumenti di Quartermaster.",
+          "ask_session_seconds": "Per quanto una risposta continua la stessa conversazione, per esempio dopo una domanda.",
+          "alexa_read_only": "Le richieste da Alexa non possono modificare l'inventario né la lista.",
           "external_todo": "Lista todo facoltativa (Bring!, Todoist, lista locale) che riceve una copia unidirezionale delle voci aperte. Le voci aggiunte a mano lì non vengono mai toccate.",
           "record_purchase_on_check": "In modalità spesa la spunta registra sempre l'acquisto; questa opzione vale fuori dalla modalità spesa.",
           "shopping_mode_minutes": "Per quanto resta attiva la modalità spesa dopo Vado a fare la spesa.",

@@ -224,6 +224,38 @@ CSV import (2 zones, 2 products), consumption by alias, finish, undo, unknown-pr
 - Import from a test todo list with preview: tested with Home Assistant's own shopping list.
 - Dev instance: entities created with Italian names; an essential below minimum appears on the list and in "Da comprare".
 
+## Phase 3 — LLM tools and voice (2026-11-08)
+
+### Decisions
+
+| Topic | Decision | Source or reason |
+| --- | --- | --- |
+| Tools | `llm.py`, offered to the Assist API only while the entry is loaded: list_zones, get_stock, get_missing, get_suggestions, get_expiring, get_shopping_list, add_to_shopping_list, remove_from_shopping_list, adjust_stock, undo_last, set_essential, create_product. Named `quartermaster__*`, `integration` set, `ToolAnnotations` declared, `ToolResult` returned; inventory errors become `error` results | contributors.home-assistant.io LLM API; TECHNICAL_NOTES Phase 0 |
+| Deferred tools | check_zone and arm_show_mode (Phase 5), confirm_pending (Phase 4) | Need zones and proposals |
+| Tool argument defaults | Read with `.get()` defaults: in 2026.11 `async_call_tool` validates but passes the original arguments, so schema defaults are not applied | Observed in tests |
+| Product search | Exact name or alias, then a rough singular/plural stem (formaggio/formaggi, cheese/cheeses), then category; limited to the zone and to products in stock when consuming; best stocked first; at most 3 candidates returned | Spec §6.2 |
+| Ambiguity | Several candidates: no write, `ambiguous` with candidates and zones; a product held in several zones without a zone: `ambiguous_zone`. Within a quartermaster.ask session the held-back action, quantity and zone are kept, so the answer ("la mozzarella") completes the write even if the agent passes only the product | Spec §6.2, §6.4 |
+| Not found | `not_found`, or `not_in_stock` for a known product at zero; the prompt tells the agent to offer the shopping list and product creation | Spec §6.2 |
+| "Opened" | Sets `stock.opened_at`; not a movement, so not journaled or undoable | Spec §6.2 |
+| Confirmations | set_essential and create_product always, purchases over 20 units: the tool returns `confirmation_required` with a single-use id (5 minutes, bound to the tool) and writes only when called again with it. The prompt asks the agent to get an explicit yes. Limit: the integration cannot verify that the user actually said yes; the id only forces a second, deliberate call | Spec §6.1, §8 |
+| "Large" change | For a single voice or chat change, a purchase above 20 units. Consumption is bounded by the stock. Multi-product changes over 50 % (photos) are handled by proposals in Phase 4 | Spec §6.1, §8 (interpretation) |
+| Channel and user | quartermaster.ask runs `conversation.process` with a child context and maps its id to the session, so the tools journal the right channel (alexa, telegram…) and user; any other call is `assist` | Spec §6.4, §8 |
+| Alexa read-only | Option `alexa_read_only`: write tools return `read_only` for the alexa channel | Spec §6.4 |
+| quartermaster.ask | Inputs text, channel (alexa, assist, voice, telegram, dashboard, service), language, session_key (default: the calling user). Session lifetime option (default 120 s). Reply within 5 s or acknowledge ("ci sto lavorando…") and fire `quartermaster_ask_result` when done; notifications pick it up in Phase 8. Agent errors give a spoken apology. Reprompt = last question of the reply | Spec §6.4 |
+| Agent | Option `agent_id` (conversation agent selector); empty uses Home Assistant's default agent, which has no LLM tools | Spec §7 |
+| Spoken phrases from Python | Under `common` in the translation files, read with `homeassistant.helpers.translation.async_get_translations`: public but not described in the integration guides. **Deviation (A, author 2026-11-08)** | Author decision |
+| Manifest | `dependencies: ["conversation", "llm"]` | The tools and ask need both |
+| Tests | `requirements_test.txt` adds the three requirements of HA's conversation component (versions from its 2026.11.0 manifest); the fixtures set up the core `homeassistant` component, which conversation needs | Test-only; the integration has no requirements |
+
+### Acceptance criteria
+
+- Ten test phrases in Italian and English produce the expected movements: tested with a **simulated agent** (scripted phrase → tool call) through quartermaster.ask, on the alexa channel. A real provider is still to be tried: it waits for an agent with an LLM on the dev instance (Cloudflare route blocked upstream; another provider needs the author's key).
+- "ho finito il formaggio in frigo" with two cheeses asks and writes nothing; "la mozzarella" in the same session completes it: tested.
+- "annulla" restores the quantity: tested.
+- Unknown product leads to the shopping list question: the tool returns `not_found` and the prompt instructs the agent; the wording depends on the real model.
+- Operations needing confirmation do not write without it: tested.
+- Dev instance: `quartermaster.ask` answers in Italian; with the default agent (no LLM) it returns the spoken apology.
+
 ## Planned extensions (author requests)
 
 ### Corroborating camera for camera_show (requested 2026-11-08, Phase 5)

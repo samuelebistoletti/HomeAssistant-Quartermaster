@@ -398,6 +398,19 @@ class SQLiteBackend(StorageBackend):
         ).fetchall()
         return [_stock(row) for row in rows]
 
+    async def async_set_opened(
+        self, product_id: int, zone_id: str, when: datetime
+    ) -> None:
+        """Record when a product was opened in a zone."""
+        await self._run(self._set_opened, product_id, zone_id, when)
+
+    def _set_opened(self, product_id: int, zone_id: str, when: datetime) -> None:
+        with self._transaction() as conn:
+            conn.execute(
+                "UPDATE stock SET opened_at = ? WHERE product_id = ? AND zone_id = ?",
+                (when.isoformat(), product_id, zone_id),
+            )
+
     async def async_apply_changes(
         self, changes: list[StockChange]
     ) -> list[JournalEntry]:

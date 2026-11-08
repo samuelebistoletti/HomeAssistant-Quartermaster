@@ -53,6 +53,7 @@ SERVICE_REFRESH_SHOPPING_LIST = "refresh_shopping_list"
 SERVICE_START_SHOPPING = "start_shopping"
 SERVICE_ADD_TO_SHOPPING_LIST = "add_to_shopping_list"
 SERVICE_IMPORT_FROM_TODO = "import_from_todo"
+SERVICE_ASK = "ask"
 
 ATTR_PRODUCT = "product"
 ATTR_OPERATION = "operation"
@@ -77,6 +78,18 @@ ATTR_TEXT = "text"
 ATTR_FROM_SUGGESTION = "from_suggestion"
 ATTR_TARGET = "target"
 ATTR_APPLY = "apply"
+ATTR_CHANNEL = "channel"
+ATTR_LANGUAGE = "language"
+ATTR_SESSION_KEY = "session_key"
+
+ASK_CHANNELS = {
+    "alexa": Channel.ALEXA,
+    "assist": Channel.ASSIST,
+    "voice": Channel.ASSIST,
+    "telegram": Channel.TELEGRAM,
+    "dashboard": Channel.DASHBOARD,
+    "service": Channel.SERVICE,
+}
 
 FORMAT_JSON = "json"
 FORMAT_CSV = "csv"
@@ -174,6 +187,17 @@ IMPORT_FROM_TODO_SCHEMA = probatio.Schema(
         probatio.Required(ATTR_TARGET): probatio.Coerce(ImportTarget),
         probatio.Optional(ATTR_MIN_STOCK, default=1.0): QUANTITY,
         probatio.Optional(ATTR_APPLY, default=False): cv.boolean,
+    }
+)
+ASK_SCHEMA = probatio.Schema(
+    {
+        **ENTRY,
+        probatio.Required(ATTR_TEXT): cv.string,
+        probatio.Optional(ATTR_CHANNEL, default="service"): probatio.In(
+            list(ASK_CHANNELS)
+        ),
+        probatio.Optional(ATTR_LANGUAGE): cv.string,
+        probatio.Optional(ATTR_SESSION_KEY): cv.string,
     }
 )
 IMPORT_DATA_SCHEMA = probatio.Schema(
@@ -450,6 +474,19 @@ async def _async_import_from_todo(call: ServiceCall) -> ServiceResponse:
     }
 
 
+async def _async_ask(call: ServiceCall) -> ServiceResponse:
+    runtime = _runtime(call)
+    key = call.data.get(ATTR_SESSION_KEY) or call.context.user_id or "default"
+    reply = await runtime.voice.async_ask(
+        call.data[ATTR_TEXT],
+        channel=ASK_CHANNELS[call.data[ATTR_CHANNEL]],
+        key=key,
+        language=call.data.get(ATTR_LANGUAGE),
+        context=call.context,
+    )
+    return reply.as_dict() if call.return_response else None
+
+
 @callback
 def async_setup_services(hass: HomeAssistant) -> None:
     """Register the integration actions."""
@@ -473,6 +510,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
             ADD_TO_SHOPPING_LIST_SCHEMA,
         ),
         (SERVICE_IMPORT_FROM_TODO, _async_import_from_todo, IMPORT_FROM_TODO_SCHEMA),
+        (SERVICE_ASK, _async_ask, ASK_SCHEMA),
     ):
         hass.services.async_register(
             DOMAIN,

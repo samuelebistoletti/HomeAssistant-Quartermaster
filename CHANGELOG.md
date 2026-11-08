@@ -9,3 +9,5 @@
 - Shopping list todo entity with automatic items for essentials below minimum, manual and suggested items, optional purchase recording when checked, one-way copy to another todo list and import from a todo list.
 - Sensors for essentials to buy, purchase suggestions (with the reason) and expiring products; best-before calendar; Go shopping and Undo buttons; update mode select; options flow.
 - Actions `get_suggestions`, `refresh_shopping_list`, `start_shopping`, `add_to_shopping_list` and `import_from_todo`.
+- LLM tools for conversation agents using the Assist API (stock, missing, suggestions, expiring, shopping list, adjust stock with clarifications, undo, essentials and new products with confirmation).
+- Action `ask` for Alexa and other channels: sessions per channel with clarifications, reply or acknowledgement within 5 seconds, reprompt; options for the agent, session length and read-only Alexa.

@@ -1,4 +1,8 @@
 {
+  "common": {
+    "ask_working": "I'm on it. I'll let you know when it's done.",
+    "ask_error": "Sorry, I couldn't do that. Please try again."
+  },
   "config": {
     "step": {
       "user": {
@@ -97,6 +101,16 @@
         "products": "Products",
         "essentials": "Essentials",
         "shopping": "Shopping list"
+      }
+    },
+    "ask_channel": {
+      "options": {
+        "alexa": "Alexa",
+        "assist": "Assist",
+        "voice": "Voice",
+        "telegram": "Telegram",
+        "dashboard": "Dashboard",
+        "service": "Automation or script"
       }
     }
   },
@@ -392,6 +406,32 @@
           "description": "Carry out the import; otherwise only preview it."
         }
       }
+    },
+    "ask": {
+      "name": "Ask",
+      "description": "Sends a sentence to the conversation agent with the Quartermaster tools and returns what to say, whether to keep listening and a short reprompt. Used by Alexa intent_script and other channels.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
+        },
+        "text": {
+          "name": "Text",
+          "description": "What the user said."
+        },
+        "channel": {
+          "name": "Channel",
+          "description": "Where the request comes from; recorded in the journal."
+        },
+        "language": {
+          "name": "Language",
+          "description": "Language of the text; defaults to the system language."
+        },
+        "session_key": {
+          "name": "Session key",
+          "description": "Keeps separate threads, for example one per Echo device. Defaults to the user."
+        }
+      }
     }
   },
   "entity": {
@@ -439,6 +479,9 @@
       "init": {
         "title": "Quartermaster options",
         "data": {
+          "agent_id": "Conversation agent",
+          "ask_session_seconds": "Conversation memory for quartermaster.ask",
+          "alexa_read_only": "Alexa can only read",
           "external_todo": "Copy the shopping list to",
           "record_purchase_on_check": "Record the purchase when an item is checked off",
           "shopping_mode_minutes": "Shopping mode duration",
@@ -446,6 +489,9 @@
           "expiring_days": "Expiring products threshold"
         },
         "data_description": {
+          "agent_id": "Agent used by quartermaster.ask (Alexa, Telegram, dashboard). Attach the Assist API to it so it can use the Quartermaster tools.",
+          "ask_session_seconds": "How long an answer continues the same conversation, for example after a question.",
+          "alexa_read_only": "Requests from Alexa cannot change the inventory or the list.",
           "external_todo": "Optional todo list (Bring!, Todoist, local list) that receives a one-way copy of the open items. Items added there by hand are never touched.",
           "record_purchase_on_check": "In shopping mode a checked item always records the purchase; this applies outside it.",
           "shopping_mode_minutes": "How long shopping mode stays on after Go shopping.",

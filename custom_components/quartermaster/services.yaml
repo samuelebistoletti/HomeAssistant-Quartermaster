@@ -209,3 +209,32 @@ import_from_todo:
       default: false
       selector:
         boolean:
+
+ask:
+  fields:
+    config_entry_id: *config_entry
+    text:
+      required: true
+      example: "I finished the milk"
+      selector:
+        text:
+    channel:
+      default: service
+      selector:
+        select:
+          translation_key: ask_channel
+          options:
+            - alexa
+            - assist
+            - voice
+            - telegram
+            - dashboard
+            - service
+    language:
+      example: "it"
+      selector:
+        language:
+    session_key:
+      example: "kitchen-echo"
+      selector:
+        text:

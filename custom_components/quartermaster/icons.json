@@ -41,6 +41,9 @@
     },
     "import_from_todo": {
       "service": "mdi:clipboard-arrow-down-outline"
+    },
+    "ask": {
+      "service": "mdi:chat-question-outline"
     }
   },
   "entity": {

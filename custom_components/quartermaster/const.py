@@ -24,3 +24,9 @@ DEFAULT_EXPIRING_DAYS: Final = 3
 
 # Internal settings stored in the database.
 SETTING_UPDATE_MODE: Final = "update_mode"
+CONF_AGENT_ID: Final = "agent_id"
+CONF_ASK_SESSION_SECONDS: Final = "ask_session_seconds"
+CONF_ALEXA_READ_ONLY: Final = "alexa_read_only"
+
+DEFAULT_ASK_SESSION_SECONDS: Final = 120
+DEFAULT_ALEXA_READ_ONLY: Final = False

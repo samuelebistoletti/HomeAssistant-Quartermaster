@@ -66,6 +66,39 @@ def normalize(text: str) -> str:
     return " ".join(text.split()).casefold()
 
 
+_STEM_ENDINGS = "aeiouàèéìòóù"
+
+
+def stem(text: str) -> str:
+    """Return a rough stem so singular and plural forms match.
+
+    "formaggio" and "formaggi" both give "formagg"; "cheeses" and "cheese"
+    give "chees". Only used to find candidates, never to write.
+    """
+    words = []
+    for word in normalize(text).split():
+        if len(word) > 3 and word.endswith("es"):
+            word = word[:-2]
+        elif len(word) > 3 and word.endswith("s"):
+            word = word[:-1]
+        trimmed = word.rstrip(_STEM_ENDINGS)
+        words.append(trimmed if len(trimmed) >= 3 else word)
+    return " ".join(words)
+
+
+@dataclass(slots=True)
+class Candidate:
+    """A product that may be the one meant, with where it is kept."""
+
+    product: Product
+    levels: list[StockLevel]
+
+    @property
+    def total(self) -> float:
+        """Quantity in all zones."""
+        return round(sum(level.quantity for level in self.levels), 3)
+
+
 def _check_quantity(value: float) -> None:
     if not 0 <= value <= MAX_QUANTITY:
         raise InventoryError("invalid_quantity", quantity=str(value))
@@ -250,6 +283,59 @@ class InventoryService:
             product.target_stock = target_stock
             await self.backend.async_update_product(product)
         return product
+
+    async def async_search(
+        self, query: str, *, zone_id: str | None = None, in_stock: bool = False
+    ) -> list[Candidate]:
+        """Find products by name or alias, then by stem, then by category.
+
+        With `zone_id` only products with stock in that zone qualify; with
+        `in_stock` only products with a positive quantity. The best matches
+        come first, ordered by quantity in the zone.
+        """
+        products = await self.backend.async_list_products(include_archived=False)
+        stock = await self.backend.async_list_stock()
+        key, key_stem = normalize(query), stem(query)
+
+        def names(product: Product) -> list[str]:
+            return [product.name, *product.aliases]
+
+        tiers: tuple[Callable[[Product], bool], ...] = (
+            lambda p: any(normalize(n) == key for n in names(p)),
+            lambda p: any(stem(n) == key_stem for n in names(p)),
+            lambda p: p.category is not None and stem(p.category) == key_stem,
+        )
+        for matches in tiers:
+            candidates = []
+            for product in products:
+                if not matches(product):
+                    continue
+                levels = [
+                    level
+                    for level in stock
+                    if level.product_id == product.id
+                    and (zone_id is None or level.zone_id == zone_id)
+                    and (not in_stock or level.quantity > 0)
+                ]
+                if (zone_id is not None or in_stock) and not levels:
+                    continue
+                candidates.append(Candidate(product, levels))
+            if candidates:
+                return sorted(candidates, key=lambda c: (-c.total, c.product.name))
+        return []
+
+    async def async_mark_opened(
+        self, product_ref: str | int, *, zone_ref: str | None = None
+    ) -> Zone:
+        """Record that a product was opened in a zone (not a movement)."""
+        async with self._writing():
+            product = await self.async_find_product(product_ref)
+            if zone_ref:
+                zone = await self.async_find_zone(zone_ref)
+            else:
+                zone = await self._movement_zone(product, StockOperation.CONSUME, None)
+            await self.backend.async_set_opened(product.id, zone.id, dt_util.utcnow())
+        return zone
 
     # Stock and movements
 
