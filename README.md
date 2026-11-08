@@ -36,10 +36,6 @@ Then go to **Settings** → **Devices & services** → **Add integration** → *
 
 The dashboard comes from a separate repository, [HomeAssistant-Quartermaster-Dashboard](https://github.com/samuelebistoletti/HomeAssistant-Quartermaster-Dashboard). Install it from the Marketplace as a **Dashboard**, then create a dashboard from **Settings** → **Dashboards** → **Add dashboard** → **Quartermaster**. Home Assistant offers no documented way for the integration to check that the dashboard is installed, so do not skip this step.
 
-### Domain conflict
-
-Another custom integration, [quartermaster-app/ha-quartermaster](https://github.com/quartermaster-app/ha-quartermaster), uses the same `quartermaster` domain. Home Assistant can load only one integration per domain, so the two cannot be installed together.
-
 ## Configuration
 
 Everything is in **Settings** → **Devices & services** → **Quartermaster** → **Configure**, grouped in:

@@ -77,7 +77,7 @@ Everything user-facing is multilingual, Alexa included: translations for the int
 
 - `quartermaster` is absent from the hacs/default catalog (integration and plugin lists, HACS data by domain), from home-assistant/brands and from core.
 - The custom integration `quartermaster-app/ha-quartermaster` (a shopping-list app, releases v0.2.0 and v0.2.1 on 2026-10-08) already uses the domain `quartermaster`. Both cannot be installed together, and the Marketplace rule "Two repositories can not install the same domain" may matter at catalog inclusion.
-- The author kept the domain (2026-11-07). Mention the conflict in the README.
+- The author kept the domain (2026-11-07). The README does not mention the conflict (author, 2026-11-08).
 
 ## Phase 0 — skeleton decisions
 
