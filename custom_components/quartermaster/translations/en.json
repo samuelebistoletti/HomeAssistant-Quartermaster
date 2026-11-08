@@ -43,14 +43,121 @@
     "reason_analysis_failed": "the analysis failed",
     "reason_ai_task_missing": "no AI Task entity is set",
     "reason_media_dir_missing": "there is no media folder",
-    "date_format": "{month}/{day}"
+    "date_format": "{month}/{day}",
+    "zone_pantry": "Pantry",
+    "zone_fridge": "Fridge",
+    "zone_freezer": "Freezer"
   },
   "config": {
     "step": {
       "user": {
         "title": "Set up Quartermaster",
-        "description": "Quartermaster keeps track of your pantry, fridge, freezer and shelves and builds your shopping list. Submit to add it."
+        "description": "Quartermaster keeps track of your pantry, fridge, freezer and shelves and builds your shopping list. Everything set here can be changed later in the options.",
+        "data": {
+          "name": "Name",
+          "language": "Language of messages"
+        },
+        "data_description": {
+          "name": "Shown as the name of the integration.",
+          "language": "Language of notifications, Telegram messages and replies sent by Quartermaster itself."
+        }
+      },
+      "models": {
+        "title": "AI models",
+        "data": {
+          "agent_id": "Conversation agent",
+          "ai_task_image": "AI Task for images",
+          "structure_mode": "How to ask for the item list",
+          "confidence_threshold": "Confidence threshold for automatic mode",
+          "daily_analysis_limit": "Image analyses per day"
+        },
+        "data_description": {
+          "agent_id": "Agent used by quartermaster.ask (Alexa, Telegram, dashboard). Attach the Assist API to it so it can use the Quartermaster tools.",
+          "ai_task_image": "AI Task entity with a vision model that analyzes zone photos and camera frames.",
+          "structure_mode": "Use the fallback if your provider handles nested structures badly.",
+          "confidence_threshold": "In automatic mode, recognized changes at or above this confidence are applied; the others are proposed. A zone can override it.",
+          "daily_analysis_limit": "Model calls for images stop for the day after this many."
+        }
+      },
+      "zones": {
+        "title": "Zones",
+        "description": "Where you keep food and supplies. Remove the ones you don't have, rename them or type new ones. You can add more later.",
+        "data": {
+          "zones": "Zones"
+        },
+        "data_description": {
+          "zones": "Each zone gets its own last check sensor and check button."
+        }
+      },
+      "zone": {
+        "title": "Zone {zone}",
+        "description": "Optional: a camera that sees {zone}. Without one, Quartermaster asks you for a photo when needed.",
+        "data": {
+          "camera": "Camera",
+          "roi": "Crop"
+        },
+        "data_description": {
+          "camera": "Camera that frames the zone.",
+          "roi": "The part of the frame to analyze, as fractions x1, y1, x2, y2 (for example 0.6, 0.05, 1, 1). Empty uses the whole frame."
+        }
+      },
+      "channels": {
+        "title": "Telegram and voice",
+        "description": "All optional. You can set up Telegram later.",
+        "data": {
+          "telegram_event_entity": "Telegram bot event entity",
+          "telegram_bot_entry": "Telegram bot",
+          "telegram_chats": "Allowed Telegram chats",
+          "telegram_groups": "Answer in Telegram groups",
+          "ask_session_seconds": "Conversation memory for quartermaster.ask",
+          "alexa_read_only": "Alexa can only read"
+        },
+        "data_description": {
+          "telegram_event_entity": "The update event entity of your Telegram bot (Polling or Webhooks). Leave empty to turn the Telegram channel off.",
+          "telegram_bot_entry": "The bot used for replies; taken from the events when empty.",
+          "telegram_chats": "Chat IDs Quartermaster answers, in addition to the bot's own allowlist. Group IDs are negative.",
+          "telegram_groups": "Group messages are ignored unless this is on.",
+          "ask_session_seconds": "How long an answer continues the same conversation, for example after a question.",
+          "alexa_read_only": "Requests from Alexa cannot change the inventory or the list."
+        }
+      },
+      "notifications": {
+        "title": "Notifications",
+        "data": {
+          "notify_photo_request": "Photo requests",
+          "notify_check_result": "Zone check results",
+          "notify_expiring": "Expiring products",
+          "notify_camera": "Products recognized by cameras",
+          "notify_essential_finished": "Essentials running out",
+          "notify_shopping": "Shopping list and suggestions",
+          "notify_weekly": "Weekly summary",
+          "notify_voice_reply": "Late voice replies",
+          "quiet_hours": "Quiet hours",
+          "telegram_notify": "Also notify Telegram chats, with buttons"
+        },
+        "data_description": {
+          "notify_photo_request": "Notify entities in order: the first available one is used.",
+          "quiet_hours": "For example 22:00-07:00; messages wait until the end.",
+          "telegram_notify": "Sends every notification to the allowed private Telegram chats, with buttons. Do not also select the Telegram notify entities."
+        }
+      },
+      "essentials": {
+        "title": "Essentials",
+        "description": "Products that must always be at home: when they run out they go on the shopping list. You can also import the items of a todo list you already use.",
+        "data": {
+          "essentials": "Essentials",
+          "import_todo": "Import from todo list",
+          "import_target": "Import the items as"
+        },
+        "data_description": {
+          "essentials": "One product per line, for example coffee or milk. Each starts with a minimum of 1.",
+          "import_todo": "For example your Bring! or local shopping list. Its items are read once, at setup.",
+          "import_target": "Products, essentials, or items of the Quartermaster shopping list."
+        }
       }
+    },
+    "error": {
+      "invalid_roi": "Enter four fractions between 0 and 1, x1, y1, x2, y2, with x1 < x2 and y1 < y2."
     }
   },
   "exceptions": {
@@ -727,12 +834,22 @@
       "init": {
         "title": "Quartermaster options",
         "menu_options": {
+          "general": "General",
           "models": "AI models",
           "voice": "Voice and Alexa",
           "shopping": "Shopping list",
           "telegram": "Telegram",
           "notifications": "Notifications",
           "permissions": "Permissions"
+        }
+      },
+      "general": {
+        "title": "General",
+        "data": {
+          "language": "Language of messages"
+        },
+        "data_description": {
+          "language": "Language of notifications, Telegram messages and replies sent by Quartermaster itself."
         }
       },
       "models": {

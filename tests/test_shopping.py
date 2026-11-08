@@ -483,6 +483,7 @@ async def test_options_flow(
     result = await hass.config_entries.options.async_init(init_integration.entry_id)
     assert result["type"] == "menu"
     assert result["menu_options"] == [
+        "general",
         "models",
         "voice",
         "shopping",

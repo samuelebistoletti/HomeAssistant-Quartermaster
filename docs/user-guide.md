@@ -2,10 +2,14 @@
 
 ## First steps
 
-1. Add the integration and open **Configure → AI models**. Choose:
+1. Add the integration. The setup asks for:
    - a conversation agent with an LLM, with the **Assist** API attached;
-   - an AI Task entity with a vision model.
-2. Create your zones, for example with Developer tools → Actions:
+   - an AI Task entity with a vision model;
+   - your first zones, each with an optional camera;
+   - Telegram, notifications and your first essentials, all optional.
+
+   Everything can be changed later under **Configure**.
+2. Add more zones when you need them, for example with Developer tools → Actions:
 
    ```yaml
    action: quartermaster.add_zone

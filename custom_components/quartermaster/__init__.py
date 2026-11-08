@@ -35,6 +35,7 @@ from .const import (
 )
 from .coordinator import QuartermasterCoordinator
 from .core.confirmations import ProposalService, ToolConfirmations
+from .core.initial import async_apply_initial_setup
 from .core.inventory import InventoryService
 from .core.shopping import ShoppingService
 from .core.voice import VoiceSessions
@@ -109,6 +110,7 @@ async def async_setup_entry(
     inventory = InventoryService(backend)
     shopping = ShoppingService(hass, backend, inventory)
     shopping.external_entity_id = entry.options.get(CONF_EXTERNAL_TODO)
+    await async_apply_initial_setup(hass, entry, inventory, shopping)
     coordinator = QuartermasterCoordinator(hass, entry, inventory, shopping)
     proposals = ProposalService(inventory)
     vision = VisionService(hass, inventory)

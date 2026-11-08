@@ -21,6 +21,8 @@
 - Telegram channel through the Telegram bot integration: texts to the agent per chat, photos to the vision pipeline with zone from the caption or buttons, proposal and suggestion buttons, undo, commands, allowed chats, group option and rate limit.
 - Notifications per message type with fallback entities, quiet hours and optional Telegram copies with buttons: photo requests, zone checks, expiring products (daily), camera recognitions with Undo, essentials running out, shopping list and suggestions, weekly summary, late voice replies.
 - Alexa guide (`docs/alexa.md`) and examples: multilingual interaction models and `intent_script` for `quartermaster.ask`.
-- Options grouped in a menu (AI models, voice and Alexa, shopping list, Telegram, notifications, permissions).
+- Guided setup: name and language, AI models, first zones with optional camera and crop, Telegram and voice, notifications, first essentials and an optional import from a todo list.
+- Language option for the messages sent by Quartermaster.
+- Options grouped in a menu (general, voice and Alexa, shopping list, Telegram, notifications, permissions).
 - Diagnostics with personal data redacted (only counts and settings).
 - README and user guide.

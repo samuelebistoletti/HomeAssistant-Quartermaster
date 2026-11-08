@@ -43,14 +43,121 @@
     "reason_analysis_failed": "l'analisi non è riuscita",
     "reason_ai_task_missing": "manca l'entità AI Task",
     "reason_media_dir_missing": "manca la cartella media",
-    "date_format": "{day}/{month}"
+    "date_format": "{day}/{month}",
+    "zone_pantry": "Dispensa",
+    "zone_fridge": "Frigorifero",
+    "zone_freezer": "Freezer"
   },
   "config": {
     "step": {
       "user": {
         "title": "Configura Quartermaster",
-        "description": "Quartermaster tiene traccia di dispensa, frigorifero, freezer e scaffali e compila la tua lista della spesa. Conferma per aggiungerlo."
+        "description": "Quartermaster tiene traccia di dispensa, frigo, freezer e scaffali e prepara la lista della spesa. Tutto quello che imposti qui si può cambiare dopo nelle opzioni.",
+        "data": {
+          "name": "Nome",
+          "language": "Lingua dei messaggi"
+        },
+        "data_description": {
+          "name": "Mostrato come nome dell'integrazione.",
+          "language": "Lingua di notifiche, messaggi Telegram e risposte inviate da Quartermaster stesso."
+        }
+      },
+      "models": {
+        "title": "Modelli AI",
+        "data": {
+          "agent_id": "Agente di conversazione",
+          "ai_task_image": "AI Task per le immagini",
+          "structure_mode": "Come chiedere l'elenco dei prodotti",
+          "confidence_threshold": "Soglia di affidabilità della modalità automatica",
+          "daily_analysis_limit": "Analisi di immagini al giorno"
+        },
+        "data_description": {
+          "agent_id": "Agente usato da quartermaster.ask (Alexa, Telegram, dashboard). Collegagli l'API Assist perché possa usare gli strumenti di Quartermaster.",
+          "ai_task_image": "Entità AI Task con un modello con visione che analizza foto delle zone e fotogrammi delle telecamere.",
+          "structure_mode": "Usa il ripiego se il provider gestisce male le strutture annidate.",
+          "confidence_threshold": "In modalità automatica le variazioni riconosciute con affidabilità pari o superiore vengono applicate; le altre proposte. Una zona può avere la sua soglia.",
+          "daily_analysis_limit": "Oltre questo numero le chiamate al modello per le immagini si fermano fino al giorno dopo."
+        }
+      },
+      "zones": {
+        "title": "Zone",
+        "description": "Dove tieni cibo e scorte. Togli quelle che non hai, rinominale o scrivine di nuove. Puoi aggiungerne altre dopo.",
+        "data": {
+          "zones": "Zone"
+        },
+        "data_description": {
+          "zones": "Ogni zona ha il suo sensore dell'ultimo controllo e il suo pulsante di controllo."
+        }
+      },
+      "zone": {
+        "title": "Zona {zone}",
+        "description": "Facoltativo: una telecamera che inquadra {zone}. Senza, Quartermaster ti chiede una foto quando serve.",
+        "data": {
+          "camera": "Telecamera",
+          "roi": "Ritaglio"
+        },
+        "data_description": {
+          "camera": "Telecamera che inquadra la zona.",
+          "roi": "La parte dell'immagine da analizzare, come frazioni x1, y1, x2, y2 (per esempio 0.6, 0.05, 1, 1). Vuoto usa tutta l'immagine."
+        }
+      },
+      "channels": {
+        "title": "Telegram e voce",
+        "description": "Tutto facoltativo. Puoi configurare Telegram anche dopo.",
+        "data": {
+          "telegram_event_entity": "Entità evento del bot Telegram",
+          "telegram_bot_entry": "Bot Telegram",
+          "telegram_chats": "Chat Telegram consentite",
+          "telegram_groups": "Rispondi nei gruppi Telegram",
+          "ask_session_seconds": "Memoria della conversazione di quartermaster.ask",
+          "alexa_read_only": "Alexa può solo leggere"
+        },
+        "data_description": {
+          "telegram_event_entity": "L'entità evento degli aggiornamenti del tuo bot Telegram (Polling o Webhooks). Vuota per disattivare il canale Telegram.",
+          "telegram_bot_entry": "Il bot usato per rispondere; se vuoto si ricava dagli eventi.",
+          "telegram_chats": "ID delle chat a cui Quartermaster risponde, oltre all'elenco del bot. Gli ID dei gruppi sono negativi.",
+          "telegram_groups": "I messaggi di gruppo vengono ignorati se questa opzione è spenta.",
+          "ask_session_seconds": "Per quanto una risposta continua la stessa conversazione, per esempio dopo una domanda.",
+          "alexa_read_only": "Le richieste da Alexa non possono modificare l'inventario né la lista."
+        }
+      },
+      "notifications": {
+        "title": "Notifiche",
+        "data": {
+          "notify_photo_request": "Richieste di foto",
+          "notify_check_result": "Esito dei controlli",
+          "notify_expiring": "Prodotti in scadenza",
+          "notify_camera": "Prodotti riconosciuti dalle telecamere",
+          "notify_essential_finished": "Essenziali in esaurimento",
+          "notify_shopping": "Lista e suggerimenti della spesa",
+          "notify_weekly": "Riepilogo settimanale",
+          "notify_voice_reply": "Risposte vocali in ritardo",
+          "quiet_hours": "Silenzio notturno",
+          "telegram_notify": "Notifica anche le chat Telegram, con pulsanti"
+        },
+        "data_description": {
+          "notify_photo_request": "Entità notify in ordine: si usa la prima disponibile.",
+          "quiet_hours": "Per esempio 22:00-07:00; i messaggi aspettano la fine.",
+          "telegram_notify": "Manda ogni notifica alle chat private Telegram consentite, con pulsanti. Non selezionare anche le entità notify di Telegram."
+        }
+      },
+      "essentials": {
+        "title": "Essenziali",
+        "description": "Prodotti che devono esserci sempre in casa: quando finiscono vanno nella lista della spesa. Puoi anche importare le voci di una lista todo che usi già.",
+        "data": {
+          "essentials": "Essenziali",
+          "import_todo": "Importa da lista todo",
+          "import_target": "Importa le voci come"
+        },
+        "data_description": {
+          "essentials": "Un prodotto per riga, per esempio caffè o latte. Ognuno parte con un minimo di 1.",
+          "import_todo": "Per esempio la lista di Bring! o una lista locale. Le voci vengono lette una volta, durante la configurazione.",
+          "import_target": "Prodotti, essenziali o voci della lista della spesa di Quartermaster."
+        }
       }
+    },
+    "error": {
+      "invalid_roi": "Inserisci quattro frazioni tra 0 e 1, x1, y1, x2, y2, con x1 < x2 e y1 < y2."
     }
   },
   "exceptions": {
@@ -727,12 +834,22 @@
       "init": {
         "title": "Opzioni di Quartermaster",
         "menu_options": {
+          "general": "Generale",
           "models": "Modelli AI",
           "voice": "Voce e Alexa",
           "shopping": "Lista della spesa",
           "telegram": "Telegram",
           "notifications": "Notifiche",
           "permissions": "Permessi"
+        }
+      },
+      "general": {
+        "title": "Generale",
+        "data": {
+          "language": "Lingua dei messaggi"
+        },
+        "data_description": {
+          "language": "Lingua di notifiche, messaggi Telegram e risposte inviate da Quartermaster stesso."
         }
       },
       "models": {

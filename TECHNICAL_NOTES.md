@@ -353,10 +353,22 @@ Criteria (spec Phase 8): Alexa dialogs with a real skill and a real agent are **
 | Topic | Decision | Source or reason |
 | --- | --- | --- |
 | Options | Menu of groups (`async_show_menu`), one form per group; a submitted group replaces only its own keys, so emptied fields are removed | contributors.home-assistant.io flow steps |
-| Config flow | Still a single confirmation step; everything is set in the options and zones by action or dashboard. **Deviation** from the multi-step flow of spec §10, kept simple until the author decides | Spec §10 |
+| Config flow | Guided setup of spec §10 (author decision 2026-11-08), see below | Spec §10 |
 | Diagnostics | Options with entity ids, chats and agent redacted; only counts, source types and statuses; no names, images or paths | Spec §8 |
 | Docs | README (features, requirements, install, configuration, actions, entities, limitations, removal, compatibility), `docs/user-guide.md`, `docs/alexa.md`, `docs/dashboard-api.md` | Spec Phase 9 |
 | Release | Not done: no version bump, tag or release (author rule) | — |
+
+### Guided setup (author decision 2026-11-08)
+
+| Topic | Decision | Source or reason |
+| --- | --- | --- |
+| Steps | `user` (name, language) → `models` → `zones` → `zone` once per chosen zone (camera and crop) → `channels` (Telegram and voice) → `notifications` → `essentials` (essentials, import from a todo list). Steps chain by returning the next step; `last_step=False` until the last | contributors.home-assistant.io flow steps |
+| Settings | Fields of `models`, `channels` and `notifications` are the same options as the options flow, saved with `async_create_entry(options=...)`; the name becomes the entry title | Same page: adjustable settings in `options` |
+| Zones | Multi-select with custom values, pre-filled with Pantry, Fridge and Freezer in the chosen language (`common` phrases). A zone with a camera gets `camera` then `manual` sources; without, `manual` only. Crop typed as `x1, y1, x2, y2`, validated with the source schema | Spec §10, §4.1 |
+| Applying | The flow cannot reach the database, which opens with the entry: zones, essentials (minimum 1) and the todo import wait in `entry.data` and are applied by the first setup, which then removes them. A failing item is logged and skipped so the entry still loads | Own design |
+| Language | New option `language` (English or Italian, `LanguageSelector`), also in a new **General** options group. Phrases sent without a language (notifications, Telegram) use it, then the system language. Entity names keep following the user's interface language | Spec §10 step 1 |
+| Dashboard open points | Author accepted for now (2026-11-08): tile links from the current URL, "la zona X" sentence, picker language, upload errors translated by the dashboard, Go shopping not permission-checked | Author |
+| Quiet hours | Held messages stay in memory and are lost on restart: accepted by the author (2026-11-08) | Author |
 
 ## Planned extensions (author requests)
 

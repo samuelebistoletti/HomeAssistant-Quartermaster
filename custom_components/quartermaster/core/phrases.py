@@ -11,16 +11,28 @@ from __future__ import annotations
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.translation import async_get_translations
 
-from custom_components.quartermaster.const import DOMAIN
+from custom_components.quartermaster.const import CONF_LANGUAGE, DOMAIN
 
 _PREFIX = f"component.{DOMAIN}.common."
+
+
+def configured_language(hass: HomeAssistant) -> str:
+    """Return the language chosen in the options, or the system language."""
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if language := entry.options.get(CONF_LANGUAGE):
+            return str(language)
+    return hass.config.language
 
 
 async def async_phrase(
     hass: HomeAssistant, language: str | None, key: str, **placeholders: str
 ) -> str:
-    """Return a phrase in `language` (or the system language), filled in."""
-    language = language or hass.config.language
+    """Return a phrase in `language`, filled in.
+
+    Without a language, the one chosen in the options is used, then the
+    system language.
+    """
+    language = language or configured_language(hass)
     texts = await async_get_translations(hass, language, "common", [DOMAIN])
     text = texts.get(_PREFIX + key)
     if text is None and language != "en":

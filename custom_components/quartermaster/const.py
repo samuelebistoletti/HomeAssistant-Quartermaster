@@ -47,3 +47,13 @@ CONF_TELEGRAM_EVENT: Final = "telegram_event_entity"
 CONF_TELEGRAM_BOT: Final = "telegram_bot_entry"
 CONF_TELEGRAM_CHATS: Final = "telegram_chats"
 CONF_TELEGRAM_GROUPS: Final = "telegram_groups"
+
+# Language of the phrases sent by the integration (notifications, Telegram).
+CONF_LANGUAGE: Final = "language"
+SUPPORTED_LANGUAGES: Final = ("en", "it")
+
+# What the guided setup asks for, kept in entry.data until the first setup
+# applies it to the database.
+DATA_INITIAL_ZONES: Final = "initial_zones"
+DATA_INITIAL_ESSENTIALS: Final = "initial_essentials"
+DATA_INITIAL_IMPORT: Final = "initial_import"

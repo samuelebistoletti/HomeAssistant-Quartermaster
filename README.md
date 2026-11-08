@@ -30,7 +30,7 @@ Everything is in English and Italian, voice included.
 
 Once 1.0.0 is released, Quartermaster can be installed from the Marketplace (**Settings** → **Marketplace**). Until it is in the default catalog, add this repository there as a custom repository of type **Integration**.
 
-Then go to **Settings** → **Devices & services** → **Add integration** → **Quartermaster**.
+Then go to **Settings** → **Devices & services** → **Add integration** → **Quartermaster**. The setup walks you through the name and language, the AI models, your first zones (Pantry, Fridge and Freezer are suggested, each with an optional camera), Telegram and voice, notifications and your first essentials. Every step can be skipped and changed later.
 
 The dashboard comes from a separate repository, [HomeAssistant-Quartermaster-Dashboard](https://github.com/samuelebistoletti/HomeAssistant-Quartermaster-Dashboard). Install it from the Marketplace as a **Dashboard**, then create a dashboard from **Settings** → **Dashboards** → **Add dashboard** → **Quartermaster**. Home Assistant offers no documented way for the integration to check that the dashboard is installed, so do not skip this step.
 
@@ -44,6 +44,7 @@ Everything is in **Settings** → **Devices & services** → **Quartermaster** �
 
 | Group | What you set |
 | --- | --- |
+| General | Language of the messages Quartermaster sends (notifications, Telegram) |
 | AI models | Conversation agent, AI Task entity for images, structured or text output, confidence threshold for automatic mode, image analyses per day |
 | Voice and Alexa | How long `quartermaster.ask` keeps a conversation, read-only Alexa |
 | Shopping list | Copy to another todo list (Bring!, Todoist, local list…), purchase on check-off, shopping mode duration, stale zone days, expiring threshold |
