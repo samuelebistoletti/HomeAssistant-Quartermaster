@@ -66,7 +66,9 @@ FORMAT_JSON = "json"
 FORMAT_CSV = "csv"
 
 QUANTITY = probatio.All(probatio.Coerce(float), probatio.Range(min=0, max=MAX_QUANTITY))
-ENTRY = {probatio.Required(ATTR_CONFIG_ENTRY_ID): cv.string}
+# Optional: Quartermaster allows a single entry, which is used when omitted
+# (deviation from the action-setup rule, see TECHNICAL_NOTES).
+ENTRY = {probatio.Optional(ATTR_CONFIG_ENTRY_ID): cv.string}
 
 ADJUST_STOCK_SCHEMA = probatio.Schema(
     {
@@ -132,7 +134,7 @@ IMPORT_DATA_SCHEMA = probatio.Schema(
 
 def _inventory(call: ServiceCall) -> InventoryService:
     entry = service.async_get_config_entry(
-        call.hass, DOMAIN, call.data[ATTR_CONFIG_ENTRY_ID]
+        call.hass, DOMAIN, call.data.get(ATTR_CONFIG_ENTRY_ID)
     )
     inventory: InventoryService = entry.runtime_data.inventory
     return inventory

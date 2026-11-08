@@ -214,3 +214,29 @@ async def test_transfer_actions_need_admin(
                 context=Context(user_id=hass_read_only_user.id),
                 **data,
             )
+
+
+async def test_config_entry_is_optional(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Without config_entry_id the only loaded entry is used."""
+    await _kitchen(hass, init_integration)
+    response = await hass.services.async_call(
+        DOMAIN,
+        "add_product",
+        {"name": "Salt", "default_zone": "pantry"},
+        blocking=True,
+        return_response=True,
+    )
+    assert response is not None
+    assert response["name"] == "Salt"
+
+
+async def test_no_loaded_entry(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Without config_entry_id and no loaded entry the action is refused."""
+    await hass.config_entries.async_unload(init_integration.entry_id)
+    with pytest.raises(ServiceValidationError) as err:
+        await hass.services.async_call(DOMAIN, "undo_last", {}, blocking=True)
+    assert err.value.translation_key == "service_config_entry_not_loaded"

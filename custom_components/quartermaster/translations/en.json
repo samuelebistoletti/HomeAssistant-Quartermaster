@@ -94,7 +94,7 @@
       "fields": {
         "config_entry_id": {
           "name": "Quartermaster entry",
-          "description": "The Quartermaster config entry to act on."
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
         },
         "product": {
           "name": "Product",
@@ -124,7 +124,7 @@
       "fields": {
         "config_entry_id": {
           "name": "Quartermaster entry",
-          "description": "The Quartermaster config entry to act on."
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
         }
       }
     },
@@ -134,7 +134,7 @@
       "fields": {
         "config_entry_id": {
           "name": "Quartermaster entry",
-          "description": "The Quartermaster config entry to act on."
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
         },
         "product": {
           "name": "Product",
@@ -160,7 +160,7 @@
       "fields": {
         "config_entry_id": {
           "name": "Quartermaster entry",
-          "description": "The Quartermaster config entry to act on."
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
         },
         "name": {
           "name": "Name",
@@ -214,7 +214,7 @@
       "fields": {
         "config_entry_id": {
           "name": "Quartermaster entry",
-          "description": "The Quartermaster config entry to act on."
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
         },
         "product": {
           "name": "Product",
@@ -240,7 +240,7 @@
       "fields": {
         "config_entry_id": {
           "name": "Quartermaster entry",
-          "description": "The Quartermaster config entry to act on."
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
         },
         "format": {
           "name": "Format",
@@ -254,7 +254,7 @@
       "fields": {
         "config_entry_id": {
           "name": "Quartermaster entry",
-          "description": "The Quartermaster config entry to act on."
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
         },
         "filename": {
           "name": "File name",

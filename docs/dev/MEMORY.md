@@ -29,11 +29,12 @@ Shared state between development sessions and machines. Keep it short and factua
 - Everything user-facing is multilingual, Alexa included (models and intent_script per language).
 - Cloudflare AI Gateway community integration: wait for the upstream fix (open PRs michaeldwan/ha-cloudflare-ai-gateway#4 and #5 add voluptuous-openapi as a requirement; whether it handles probatio schemas must be re-checked after the merge). Cloudflare checks wait for it.
 - Alexa multilingual: one multi-locale skill, one query intent per locale passing `language`, launch reply in the HA language (Amazon best practice; HA drops the locale).
+- Action `config_entry_id` is optional (single entry used when omitted), a documented deviation from `action-setup` (2026-11-08).
 - Release tags use the `v` prefix (`v1.0.0`), as in OctopusEnergyIT.
 - Work may continue from two different machines: keep this file and `TECHNICAL_NOTES.md` up to date and pushed.
 
 ## Open questions for the author
 
-- Phase 1: required `config_entry_id`, zone actions, operation id in the journal (details in TECHNICAL_NOTES, Phase 1).
+- Phase 1: zone actions, operation id in the journal (details in TECHNICAL_NOTES, Phase 1).
 
 - Marketplace check needs the author's GitHub device sign-in on the dev instance; and if the Marketplace requires a release, whether a test pre-release is allowed.

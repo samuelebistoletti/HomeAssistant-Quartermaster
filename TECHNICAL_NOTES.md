@@ -163,7 +163,7 @@ Started at the author's request while the Phase 0 practical checks are still ope
 | Topic | Decision | Source or reason |
 | --- | --- | --- |
 | Where actions are registered | `async_setup`, with `CONFIG_SCHEMA = cv.config_entry_only_config_schema` | contributors.home-assistant.io, actions and quality-scale rule `action-setup` |
-| Action target | Every action has a **required** `config_entry_id` (selector `config_entry`), looked up with `service.async_get_config_entry` | Same pages: "make the target required and do not fall back to a default". The helper also accepts `None` (single loaded entry); see the open questions |
+| Action target | `config_entry_id` (selector `config_entry`) is **optional**; when omitted, `service.async_get_config_entry` uses the only loaded entry and raises Home Assistant's own translated errors if there is none. **Deviation (A, author 2026-11-08)** from the `action-setup` rule ("make the target required"): Quartermaster allows a single entry (`single_config_entry`), and the ID changes on every reinstall, which would break the YAML for Alexa `intent_script`, automations and the docs examples. Passing the ID still works | contributors.home-assistant.io, actions and `action-setup`; author decision |
 | Schemas | `probatio` with `cv` validators | Same pages; HA 2026.9+ |
 | Responses | All Phase 1 actions use `SupportsResponse.OPTIONAL` and return `None` when no response is asked | Actions page |
 | Admin-only actions | `export_data` and `import_data` use `async_register_admin_service`: they write or replace files in the config folder and import replaces the whole inventory | Actions page |
@@ -186,6 +186,6 @@ CSV import (2 zones, 2 products), consumption by alias, finish, undo, unknown-pr
 
 ### Open questions for the author
 
-1. `config_entry_id` is required in every action, as the docs say. Quartermaster allows one entry only, and `service.async_get_config_entry` can fall back to it when the field is omitted. Making the field optional would simplify YAML (Alexa `intent_script`, automations). Keep it required?
+1. ~~Required `config_entry_id`~~: made optional (author, 2026-11-08), see the table.
 2. The spec lists no zone actions. Zones can be created only through `import_data` until the options flow or the dashboard (later phases). Add `add_zone` / `remove_zone` actions?
 3. The journal has no operation id. A photo proposal applying several changes is undone one movement at a time. Add an `operation_id` column (new migration) in Phase 4?

@@ -1,7 +1,6 @@
 adjust_stock:
   fields:
     config_entry_id: &config_entry
-      required: true
       selector:
         config_entry:
           integration: quartermaster

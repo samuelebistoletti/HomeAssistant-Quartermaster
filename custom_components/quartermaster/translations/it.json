@@ -94,7 +94,7 @@
       "fields": {
         "config_entry_id": {
           "name": "Voce di Quartermaster",
-          "description": "La voce di configurazione di Quartermaster su cui agire."
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
         },
         "product": {
           "name": "Prodotto",
@@ -124,7 +124,7 @@
       "fields": {
         "config_entry_id": {
           "name": "Voce di Quartermaster",
-          "description": "La voce di configurazione di Quartermaster su cui agire."
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
         }
       }
     },
@@ -134,7 +134,7 @@
       "fields": {
         "config_entry_id": {
           "name": "Voce di Quartermaster",
-          "description": "La voce di configurazione di Quartermaster su cui agire."
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
         },
         "product": {
           "name": "Prodotto",
@@ -160,7 +160,7 @@
       "fields": {
         "config_entry_id": {
           "name": "Voce di Quartermaster",
-          "description": "La voce di configurazione di Quartermaster su cui agire."
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
         },
         "name": {
           "name": "Nome",
@@ -214,7 +214,7 @@
       "fields": {
         "config_entry_id": {
           "name": "Voce di Quartermaster",
-          "description": "La voce di configurazione di Quartermaster su cui agire."
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
         },
         "product": {
           "name": "Prodotto",
@@ -240,7 +240,7 @@
       "fields": {
         "config_entry_id": {
           "name": "Voce di Quartermaster",
-          "description": "La voce di configurazione di Quartermaster su cui agire."
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
         },
         "format": {
           "name": "Formato",
@@ -254,7 +254,7 @@
       "fields": {
         "config_entry_id": {
           "name": "Voce di Quartermaster",
-          "description": "La voce di configurazione di Quartermaster su cui agire."
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
         },
         "filename": {
           "name": "Nome del file",
