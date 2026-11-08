@@ -1,58 +1,44 @@
 # Working memory
 
-Shared state between development sessions and machines. Keep it short and factual, and free of secrets or personal data. Durable architecture decisions go to `TECHNICAL_NOTES.md`; this file tracks where the work stands. It will be replaced by a dedicated skill.
+Shared state between development sessions and machines. Keep it short and factual, and free of secrets or personal data. Durable architecture decisions go to `TECHNICAL_NOTES.md`; this file tracks where the work stands. Update it and push it at the end of every working session.
+
+## Resume here (last update 2026-11-08)
+
+1. Read `CLAUDE.md` (rules), this file, then `TECHNICAL_NOTES.md` and `docs/SPEC.md` as needed. The author writes in Italian; answer in Italian, code and docs in English.
+2. Set up the machine as in `CONTRIBUTING.md` → "Working on another computer" (both repos side by side, dashboard built, `.venv`, `docker compose up -d`, `scripts/dev-bootstrap`, then `scripts/dev-cloudflare-gateway`). A new machine has a fresh dev instance: the author enters provider keys again in the dev UI. `docs/ENVIRONMENT.local.md` (author's environment, gitignored) exists only where the author copied it: ask for the details you need instead of guessing.
+3. Current step: **real-provider tests on the dev instance through the Cloudflare AI Gateway.**
+   - Waiting for the author to add the Cloudflare AI Gateway integration in the dev UI (account ID, gateway, token).
+   - Then create a conversation agent, a text AI Task and an image AI Task with the author's chosen Workers AI models (agent `glm-4.7-flash`, text `gpt-oss-20b`, images `gemma-4-26b-a4b-it`), attach the Assist API to the agent, select them in Quartermaster's options.
+   - Check first: gateway authentication (the author's gateway requires it; the integration's chat client sends the token only as `Authorization`, without `cf-aig-authorization`: if refused, add the header in `scripts/dev-cloudflare-gateway`), then whether Workers AI accepts `strict: true` structured output with optional fields (fallback: text structure mode).
+   - Then: Phase 3 dialogs (ten phrases, it/en), receipts and order emails, Phase 4 recall on ≥30 author photos (target 85 %), threshold tuning.
+4. After that, with the author: Telegram bot on dev, cameras on the real instance (read-only, only when asked), Alexa and iOS through a tunnel, Marketplace check, provider table in the README. Release 1.0.0 only when the author asks.
 
 ## Status
 
-- Phase: 0 practical checks pending (with the author); Phase 1 (storage and inventory) started 2026-11-08 at the author's request, in parallel.
-- Done: spec read; OctopusEnergyIT conventions reviewed; spec sanitized (Appendix A moved to `docs/ENVIRONMENT.local.md`, gitignored, local to the author's main machine only).
-- Done: 0.a docs review and 0.b domain check (results in TECHNICAL_NOTES.md, Phase 0 section).
-- Done: 0.c (2026.11.0).
-- Done: 0.d skeleton of both repos (local: tests, ruff, mypy, hassfest green; config flow verified on the dev instance).
-- Done: CI green on GitHub for both repos (no tags or releases).
-- Done: 0.e practical-checks kit (docs/phase0/CHECKLIST.md, examples/phase0/, scripts/phase0/); Alexa HA-side behaviour verified by simulation.
-- Done (2026-11-08): strategy shows in the New dashboard dialog and renders in it/en at phone and desktop width (dev, headless Chrome). WARP on the author's PC was the TLS inspection; disconnected, outbound HTTPS from the dev container works.
-- Done (2026-11-08): Phase 1 code — SQLite backend with migrations, inventory service, actions add_zone, remove_zone, adjust_stock, undo_last, set_stock, add_product, set_essential, export_data, import_data; 56 tests, 100 % coverage; checked on the dev instance. Author decisions applied (optional config_entry_id, zone actions, operation id). Author approved Phase 2 and asked to keep going through the phases autonomously (2026-11-08), asking only on important doubts.
-- Done (2026-11-08): Phase 2 — coordinator, todo shopping list, sensors, calendar, buttons, select, options flow, Phase 2 actions; 78 tests, 99 % coverage; checked on the dev instance. 
-- Done (2026-11-08): Phase 3 — llm.py tools, quartermaster.ask with sessions, options; 101 tests, 98 % coverage. Real-provider dialogs pending (needs an LLM agent on dev). 
-- Done (2026-11-08): Phase 4 — vision pipeline, proposals, analyze_image, confirm_pending; 120 tests, 98 % coverage. Recall on 30 real photos pending (needs a vision AI Task and the author's photos). 
-- Done (2026-11-08): websocket API for the dashboard (docs/dashboard-api.md); a background agent builds the dashboard frontend in the dashboard repo.
-- Done (2026-11-08): Phase 5 part 1 — zone manager, schedules, photo requests, per-zone entities; 156 tests. 
-- Done (2026-11-08): Phase 5 part 2 — camera_show (burst), passage cameras with corroboration, show mode switch, repairs; 168 tests, 97.6 % coverage. Clip mode and real-camera tuning wait for the Phase 0 camera check. 
-- Done (2026-11-08): dashboard frontend built by a background agent (dashboard repo, CI green); integration answers: partial proposal confirm, suggestion quantity, richer snapshot.
-- Done (2026-11-08): Phase 6 Telegram from the docs (author approved implementing before the Phase 0 check); 176 tests. 
-- Done (2026-11-08): Phase 8 — notification router, Alexa guide and examples. 
-- Done (2026-11-08): Phase 9 without release — options menu, diagnostics, README, user guide. 184 tests, ~97 % coverage, CI green. Dev instance loads cleanly.
-- Done (2026-11-08): guided multi-step config flow of spec §10 and a language option; 186 tests; flow run on the dev instance (old dev entry deleted, its database kept as `config/quartermaster/pantry.db.bak`).
-- Done (2026-11-08): spec audit gaps closed and §15 (receipts, order emails, forecast, door cameras) implemented; Grocy/EverShelf dropped and scales postponed by the author. Dashboard updated by a background agent (zone management, crops, receipts, purchase proposals). Dashboard CI: minimatch override, TypeScript 7 held (PR #1 still open: closing it was not allowed to the agent).
-- Next (with the author): Phase 0 practical checks (Telegram bot, Alexa via tunnel, camera on the real instance, iOS, Marketplace, Cloudflare when upstream is fixed); then real-provider tests (Phase 3 dialogs, Phase 4 recall on 30 photos, Phase 5 cameras, Phase 8 Alexa).
-- Next: run the practical checks with the author (Telegram, Alexa and iOS through a quick tunnel on the second machine; camera on the real instance; Marketplace and Cloudflare on a network without TLS inspection).
+- Phases 0.a–0.e, 1–6, 8 and 9 implemented (no release); spec audit gaps closed; §15 implemented: receipts, order emails (IMAP), forecast, door-triggered interior cameras. Grocy/EverShelf dropped, ESPHome scales postponed (author).
+- Guided multi-step config flow and language option.
+- Integration: 203 tests, ~97 % coverage, ruff, mypy strict; CI green on `main`. Dashboard: 106 tests, TypeScript 7 (`tsc` 7.0, tools on `@typescript/typescript6`), CI green; Dependabot PR #1 closed after the move.
+- Dev instance: Home Assistant 2026.11.0, ha-mcp 9.1.2, patched Cloudflare AI Gateway integration installed (dev only), loads cleanly.
+- Pending real-world checks: all Phase 0 practical checks (Telegram, Alexa, iOS, camera freshness and clip mode, Marketplace, Cloudflare), real-provider dialogs and recall, camera tuning, Alexa end to end.
 
-## Decisions from the author (2026-11-07)
+## Decisions from the author
 
-- Spec is committed without any personal or environment data.
-- Alexa and iOS checks: the dev instance is exposed through a Cloudflare quick tunnel, created later on another machine.
-- Ring camera checks (freshness and `camera.record`): run on the author's real instance, only when the author says so.
-- Dashboard development: the integration's docker-compose mounts `../HomeAssistant-Quartermaster-Dashboard/dist` into the dev instance (single dev instance for both repos).
-- Branching: work directly on `main` for now (overrides the dedicated-branch/PR rule until the author says otherwise). Still no version bump, no tags, no releases.
-- Domain stays `quartermaster` (confirmed 2026-11-07) despite `quartermaster-app/ha-quartermaster` using the same domain (released 2026-10-08, not in hacs/default or brands at that date). Document the conflict in the README and TECHNICAL_NOTES.
-- Pushing to `main` is allowed.
-- Minimum HA 2026.11.0 (Python >= 3.14.2); no legacy-HACS install section.
-- Action buttons only on Telegram and in the dashboard; other notify entities get plain text.
-- Everything user-facing is multilingual, Alexa included (models and intent_script per language).
-- Cloudflare AI Gateway community integration: patched copy of upstream main installed on the dev instance only (see TECHNICAL_NOTES); the author enters account ID, gateway and token in the dev UI. Before: wait for the upstream fix (open PRs michaeldwan/ha-cloudflare-ai-gateway#4 and #5 add voluptuous-openapi as a requirement; whether it handles probatio schemas must be re-checked after the merge). Cloudflare checks wait for it.
-- Alexa multilingual: one multi-locale skill, one query intent per locale passing `language`, launch reply in the HA language (Amazon best practice; HA drops the locale).
-- Cameras as observation points (2026-11-08): off by default; zone cameras + passage cameras; positive-only corroboration; passage cameras only propose; no double counting; window default 5 min (TECHNICAL_NOTES "Planned extensions").
-- Python-side translated phrases via async_get_translations (documented deviation, 2026-11-08).
-- Action `config_entry_id` is optional (single entry used when omitted), a documented deviation from `action-setup` (2026-11-08).
-- Phase 2 (2026-11-08): a deleted automatic shopping item comes back while the essential is below minimum; new action add_to_shopping_list; recording the purchase when checking an item outside shopping mode is off by default.
-- 2026-11-08: build the guided config flow; dashboard open points accepted for now; in-memory quiet hours queue accepted.
-- Release tags use the `v` prefix (`v1.0.0`), as in OctopusEnergyIT.
-- Work may continue from two different machines: keep this file and `TECHNICAL_NOTES.md` up to date and pushed.
+- Spec committed without personal or environment data; personal notes in `*.local.md` (gitignored).
+- Work directly on `main`; pushing is allowed. No version bump, tags or releases unless asked. Release tags use the `v` prefix.
+- Always the latest stable version of everything; Home Assistant minimum = latest stable (2026.11.0), older releases not supported. Adopt new majors. Exception: pins that must match Home Assistant's manifests (`gazetteer-matcher`).
+- After every push wait for all GitHub Actions runs and fix failures; run `ruff format --check` before committing.
+- Domain stays `quartermaster`; the README does not mention the other integration using it.
+- Everything user-facing multilingual (en, it), Alexa included; one multi-locale skill.
+- Action buttons only on Telegram and in the dashboard.
+- Cameras: off by default; zone + passage cameras; positive-only corroboration; passage cameras only propose.
+- Receipts and order emails always become a proposal; the forecast also puts essentials on the list.
+- Permissions: administrators plus a chosen list of non-admin users (`write_users`), listed with `hass.auth.async_get_users()` (public, not in the developer docs; accepted by the author).
+- A photo request started from a Telegram chat goes back to that chat (chat id from the conversation session).
+- Kept as they are: no debug retention of photos; analyses tile instead of AI cost; dashboard reload after adding or deleting a zone.
+- Cloudflare AI Gateway: test now with the locally patched community integration (dev only), not waiting for upstream.
+- Ring camera checks only on the real instance, read-only, when the author says so. Alexa and iOS through a Cloudflare quick tunnel on the second machine.
+- Python-side translated phrases via `async_get_translations`; action `config_entry_id` optional (documented deviations).
 
 ## Open questions for the author
-
-
-
 
 - Marketplace check needs the author's GitHub device sign-in on the dev instance; and if the Marketplace requires a release, whether a test pre-release is allowed.
