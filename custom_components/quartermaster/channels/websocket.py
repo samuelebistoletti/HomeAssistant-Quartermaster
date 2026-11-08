@@ -1,8 +1,8 @@
 """Websocket commands for the dashboard cards.
 
 Reading is open to every authenticated user; writing (photo upload) needs an
-administrator, or any user when the `non_admin_writes` option is on. Other
-writes go through the integration actions, which apply the same rule.
+administrator or a user chosen in the `write_users` option. Other writes go
+through the integration actions, which apply the same rule.
 """
 
 from __future__ import annotations
@@ -18,11 +18,7 @@ from homeassistant.exceptions import HomeAssistantError, Unauthorized
 from homeassistant.helpers import entity_registry as er, service
 import probatio
 
-from custom_components.quartermaster.const import (
-    CONF_NON_ADMIN_WRITES,
-    DEFAULT_NON_ADMIN_WRITES,
-    DOMAIN,
-)
+from custom_components.quartermaster.const import CONF_WRITE_USERS, DOMAIN
 from custom_components.quartermaster.core.inventory import InventoryError
 from custom_components.quartermaster.core.zones import ZONE_ERROR_FAILURES
 from custom_components.quartermaster.storage.models import Channel, ShoppingStatus
@@ -46,11 +42,8 @@ def can_write(runtime: QuartermasterRuntimeData, user: User | None) -> bool:
     """Return whether a user may change the inventory from the dashboard."""
     if user is None or user.is_admin:
         return True
-    return bool(
-        runtime.coordinator.config_entry.options.get(
-            CONF_NON_ADMIN_WRITES, DEFAULT_NON_ADMIN_WRITES
-        )
-    )
+    options = runtime.coordinator.config_entry.options
+    return user.id in options.get(CONF_WRITE_USERS, [])
 
 
 ENTITY_KEYS: tuple[tuple[str, str], ...] = (

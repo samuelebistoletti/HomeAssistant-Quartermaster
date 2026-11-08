@@ -41,8 +41,8 @@ DEFAULT_CONFIDENCE_THRESHOLD: Final = 0.75
 
 SETTING_ANALYSES_DAY: Final = "analyses_day"
 SETTING_ANALYSES_COUNT: Final = "analyses_count"
-CONF_NON_ADMIN_WRITES: Final = "non_admin_writes"
-DEFAULT_NON_ADMIN_WRITES: Final = False
+# Non-admin users who may change the inventory (administrators always may).
+CONF_WRITE_USERS: Final = "write_users"
 CONF_TELEGRAM_EVENT: Final = "telegram_event_entity"
 CONF_TELEGRAM_BOT: Final = "telegram_bot_entry"
 CONF_TELEGRAM_CHATS: Final = "telegram_chats"

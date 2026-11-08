@@ -11,7 +11,7 @@ from homeassistant.exceptions import Unauthorized
 import pytest
 from pytest_homeassistant.common import MockConfigEntry
 
-from custom_components.quartermaster.const import DOMAIN
+from custom_components.quartermaster.const import CONF_WRITE_USERS, DOMAIN
 from custom_components.quartermaster.core.inventory import InventoryService
 from custom_components.quartermaster.storage.models import Channel
 
@@ -106,10 +106,11 @@ async def test_non_admin_cannot_write(
     hass_ws_client: Any,
     hass_read_only_access_token: str,
     hass_read_only_user: User,
+    hass_admin_user: User,
     init_integration: MockConfigEntry,
     stocked: InventoryService,
 ) -> None:
-    """Non-admins read but cannot write, unless the option allows it."""
+    """Non-admins read but cannot write, unless they are chosen in the options."""
     client = await hass_ws_client(hass, hass_read_only_access_token)
     await client.send_json_auto_id({"type": f"{DOMAIN}/snapshot"})
     assert (await client.receive_json())["result"]["can_write"] is False
@@ -126,10 +127,18 @@ async def test_non_admin_cannot_write(
             context=Context(user_id=hass_read_only_user.id),
         )
 
-    hass.config_entries.async_update_entry(
-        init_integration, options={"non_admin_writes": True}
+    # The permissions step lists the non-admin users; the chosen ones may write.
+    result = await hass.config_entries.options.async_init(init_integration.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "permissions"}
     )
-    await hass.config_entries.async_reload(init_integration.entry_id)
+    field = result["data_schema"].schema[CONF_WRITE_USERS]
+    users = [option["value"] for option in field.config["options"]]
+    assert hass_read_only_user.id in users
+    assert hass_admin_user.id not in users
+    await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_WRITE_USERS: [hass_read_only_user.id]}
+    )
     await hass.async_block_till_done()
     await hass.services.async_call(
         DOMAIN,

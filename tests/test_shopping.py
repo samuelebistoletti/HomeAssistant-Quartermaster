@@ -510,7 +510,7 @@ async def test_options_flow(
 
     for group, data in (
         ("voice", {"ask_session_seconds": 60, "alexa_read_only": True}),
-        ("permissions", {"non_admin_writes": True}),
+        ("permissions", {}),
         (
             "models",
             {

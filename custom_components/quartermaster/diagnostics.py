@@ -22,6 +22,7 @@ from custom_components.quartermaster.const import (
     CONF_TELEGRAM_BOT,
     CONF_TELEGRAM_CHATS,
     CONF_TELEGRAM_EVENT,
+    CONF_WRITE_USERS,
 )
 from custom_components.quartermaster.notify import MessageType, option_key
 from custom_components.quartermaster.storage.migrations import MIGRATIONS
@@ -36,6 +37,7 @@ TO_REDACT = {
     CONF_TELEGRAM_BOT,
     CONF_TELEGRAM_CHATS,
     CONF_TELEGRAM_EVENT,
+    CONF_WRITE_USERS,
     *(option_key(kind) for kind in MessageType),
 }
 

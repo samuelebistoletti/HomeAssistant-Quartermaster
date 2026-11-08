@@ -36,6 +36,7 @@ _QUESTION = re.compile(r"[^.!?]*\?")
 # Session key of a Telegram chat: the prefix and the chat id.
 TELEGRAM_SESSION_PREFIX = "chat:"
 
+
 @dataclass(slots=True)
 class PendingClarification:
     """A write held back until the user picks one of the candidates."""

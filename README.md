@@ -52,7 +52,7 @@ Everything is in **Settings** → **Devices & services** → **Quartermaster** �
 | Shopping list | Copy to another todo list (Bring!, Todoist, local list…), purchase on check-off, shopping mode duration, stale zone days, expiring threshold, forecast days, order emails (IMAP entry and allowed senders) |
 | Telegram | The bot's event entity, the bot, allowed chats, groups |
 | Notifications | Notify entities per message type (first available wins), quiet hours, Telegram copies with buttons |
-| Permissions | Whether non-admin users can change data (reading is open to all) |
+| Permissions | Which non-admin users can change data (administrators always can; reading is open to all) |
 
 Zones, their cameras and schedules are set with the `quartermaster.set_zone` action or from the dashboard. See the [user guide](docs/user-guide.md).
 

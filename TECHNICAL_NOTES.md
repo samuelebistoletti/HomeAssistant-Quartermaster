@@ -283,7 +283,7 @@ CSV import (2 zones, 2 products), consumption by alias, finish, undo, unknown-pr
 
 ## Phase 7.1 — websocket commands (2026-11-08, ahead of Phase 5–6 so the dashboard can be built in parallel)
 
-Contract in `docs/dashboard-api.md`. Reading for every authenticated user, writing for administrators (or everyone with the `non_admin_writes` option), checked in the websocket commands and in the write actions when the call carries a user; calls without a user (automations, the integration itself) are allowed. Entity ids are resolved from the entity registry by unique id, because they follow the user's language. Upload limit 2 MB after browser-side resizing (spec §17.2).
+Contract in `docs/dashboard-api.md`. Reading for every authenticated user, writing for administrators and the users chosen in the `write_users` option, checked in the websocket commands and in the write actions when the call carries a user; calls without a user (automations, the integration itself) are allowed. Entity ids are resolved from the entity registry by unique id, because they follow the user's language. Upload limit 2 MB after browser-side resizing (spec §17.2).
 
 ## Phase 5 — zones and cameras (2026-11-08)
 
@@ -406,6 +406,6 @@ The author asked to close the gaps of a spec audit and to implement §15 now. Au
 | Announcements | camera_show and passage sources take `announce` (notify entities, for example the zone's Echo); the camera message also says when an essential went on the list | Spec §5.1 steps 6–7 |
 | Failed checks | Announced as a check result with the reason | Phase 8 criteria |
 | Text fallback | camera_show and passage honour `structure_mode`: text mode asks for the whole result as JSON in `result_json` | Spec §4.2 |
-| Permissions | **Deviation:** writes allowed to admins, or to every user with `non_admin_writes`, not to a list of chosen users | Spec §8; simpler |
+| Permissions | Writes allowed to administrators and to the non-admin users chosen in `write_users`. The options step lists the active, non-system, non-admin users with `hass.auth.async_get_users()`: public but not in the developer docs (only `async_get_user` and `is_admin` are), and there is no user selector. **Author decision (2026-11-08):** use it anyway for a real user list; if it changes, only the options step breaks, the check uses the documented `async_get_user` | Spec §8; contributors.home-assistant.io (permissions); author |
 | AI cost | AI Task gives no cost data: the dashboard shows analyses today against the daily limit | Spec §6.5 |
 | Notices | Config flow says the dashboard is a separate download; `set_zone` sources and the dashboard zone editor carry the camera privacy notice | Spec §5.1, §6.5 |

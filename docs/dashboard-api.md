@@ -14,7 +14,7 @@ Contract between the integration and the cards of `HomeAssistant-Quartermaster-D
 
 Errors use the standard websocket error with `code` and, for inventory errors, `translation_domain: quartermaster`, `translation_key` and `translation_placeholders` (keys under `exceptions` in the integration translations). `not_loaded` when the integration is not set up; `unauthorized` for writes by non-writers.
 
-Writers: administrators, or every user when the `non_admin_writes` option is on (`can_write` tells the card).
+Writers: administrators and the users chosen in the `write_users` option (`can_write` tells the card).
 
 ## Snapshot
 

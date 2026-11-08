@@ -984,10 +984,10 @@
       "permissions": {
         "title": "Permissions",
         "data": {
-          "non_admin_writes": "Non-admin users can change the inventory"
+          "write_users": "Users who can change the inventory"
         },
         "data_description": {
-          "non_admin_writes": "Otherwise only administrators change data from the dashboard and actions; reading stays open to every user."
+          "write_users": "Administrators can always change data from the dashboard and actions. Choose the other users who can; reading stays open to every user."
         }
       }
     }

@@ -984,10 +984,10 @@
       "permissions": {
         "title": "Permessi",
         "data": {
-          "non_admin_writes": "Gli utenti non amministratori possono modificare l'inventario"
+          "write_users": "Utenti che possono modificare l'inventario"
         },
         "data_description": {
-          "non_admin_writes": "Altrimenti solo gli amministratori modificano i dati dalla dashboard e dalle azioni; la lettura resta aperta a tutti."
+          "write_users": "Gli amministratori possono sempre modificare i dati dalla dashboard e dalle azioni. Scegli gli altri utenti che possono farlo; la lettura resta aperta a tutti."
         }
       }
     }

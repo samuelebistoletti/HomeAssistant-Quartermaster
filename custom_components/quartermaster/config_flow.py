@@ -30,7 +30,6 @@ from .const import (
     CONF_FORECAST_DAYS,
     CONF_HOURLY_ANALYSIS_LIMIT,
     CONF_LANGUAGE,
-    CONF_NON_ADMIN_WRITES,
     CONF_RECORD_PURCHASE_ON_CHECK,
     CONF_SHOPPING_MODE_MINUTES,
     CONF_STALE_ZONE_DAYS,
@@ -39,6 +38,7 @@ from .const import (
     CONF_TELEGRAM_CHATS,
     CONF_TELEGRAM_EVENT,
     CONF_TELEGRAM_GROUPS,
+    CONF_WRITE_USERS,
     DATA_INITIAL_ESSENTIALS,
     DATA_INITIAL_IMPORT,
     DATA_INITIAL_ZONES,
@@ -49,7 +49,6 @@ from .const import (
     DEFAULT_EXPIRING_DAYS,
     DEFAULT_FORECAST_DAYS,
     DEFAULT_HOURLY_ANALYSIS_LIMIT,
-    DEFAULT_NON_ADMIN_WRITES,
     DEFAULT_RECORD_PURCHASE_ON_CHECK,
     DEFAULT_SHOPPING_MODE_MINUTES,
     DEFAULT_STALE_ZONE_DAYS,
@@ -132,9 +131,10 @@ OPTIONS_SCHEMA = probatio.Schema(
                 min=1, max=500, step=1, mode=selector.NumberSelectorMode.BOX
             )
         ),
-        probatio.Required(
-            CONF_NON_ADMIN_WRITES, default=DEFAULT_NON_ADMIN_WRITES
-        ): selector.BooleanSelector(),
+        # The user list is filled in by the permissions step.
+        probatio.Optional(CONF_WRITE_USERS): selector.SelectSelector(
+            selector.SelectSelectorConfig(options=[], multiple=True)
+        ),
         probatio.Optional(CONF_TELEGRAM_EVENT): selector.EntitySelector(
             selector.EntitySelectorConfig(domain="event", integration="telegram_bot")
         ),
@@ -446,7 +446,7 @@ OPTION_GROUPS: dict[str, tuple[str, ...]] = {
         CONF_QUIET_HOURS,
         CONF_TELEGRAM_NOTIFY,
     ),
-    "permissions": (CONF_NON_ADMIN_WRITES,),
+    "permissions": (CONF_WRITE_USERS,),
 }
 
 
@@ -482,7 +482,10 @@ class QuartermasterOptionsFlow(OptionsFlowWithReload):
         return self.async_show_menu(step_id="init", menu_options=list(OPTION_GROUPS))
 
     async def _async_group(
-        self, group: str, user_input: dict[str, Any] | None
+        self,
+        group: str,
+        user_input: dict[str, Any] | None,
+        schema: probatio.Schema | None = None,
     ) -> ConfigFlowResult:
         if user_input is not None:
             # Fields left empty in this group are removed from the options.
@@ -495,7 +498,7 @@ class QuartermasterOptionsFlow(OptionsFlowWithReload):
         return self.async_show_form(
             step_id=group,
             data_schema=self.add_suggested_values_to_schema(
-                _group_schema(group), self.config_entry.options
+                schema or _group_schema(group), self.config_entry.options
             ),
         )
 
@@ -538,5 +541,20 @@ class QuartermasterOptionsFlow(OptionsFlowWithReload):
     async def async_step_permissions(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Write permission options."""
-        return await self._async_group("permissions", user_input)
+        """Choose the non-admin users who may change the inventory."""
+        users = [
+            selector.SelectOptionDict(value=user.id, label=user.name or user.id)
+            for user in await self.hass.auth.async_get_users()
+            if user.is_active and not user.system_generated and not user.is_admin
+        ]
+        schema = probatio.Schema(
+            {
+                probatio.Optional(CONF_WRITE_USERS): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=sorted(users, key=lambda option: option["label"]),
+                        multiple=True,
+                    )
+                )
+            }
+        )
+        return await self._async_group("permissions", user_input, schema)
