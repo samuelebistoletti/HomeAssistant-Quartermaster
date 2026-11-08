@@ -87,7 +87,7 @@ async def _settle(hass: HomeAssistant) -> None:
 
 async def test_fallback_and_events(hass: HomeAssistant, notified: Any) -> None:
     """The first available entity gets the message; events become texts."""
-    entry, notify = notified
+    _entry, notify = notified
     hass.bus.async_fire(
         f"{DOMAIN}_photo_request",
         {"zone": "Frigo", "reason": "low_confidence", "reminder": False},
