@@ -340,8 +340,15 @@ async def test_confirm_with_corrections_learns_aliases(
     assert "Kefir" in (await inventory.async_find_product("kefir drink")).aliases
     originals, _ = await inventory.async_undo_last(channel=Channel.SERVICE)
     assert len(originals) == 2
-    assert hass.states.get("sensor.quartermaster_pending_proposals").state == "0"  # type: ignore[union-attr]
-
+    # The item not chosen (Yoghurt) stays pending in the same proposal.
+    [pending] = await entry.runtime_data.proposals.async_pending()
+    assert [row["seen_as"] for row in pending.payload["items"]] == ["Yoghurt"]
+    await hass.services.async_call(
+        DOMAIN,
+        "confirm_pending",
+        {"proposal_id": result["proposal_id"], "decision": "reject"},
+        blocking=True,
+    )
     with pytest.raises(ServiceValidationError) as err:
         await hass.services.async_call(
             DOMAIN,
@@ -546,6 +553,9 @@ async def test_confirm_tool(
     milk = next(item for item in pending["items"] if item["seen_as"] == "Milk")
     confirmed = await call(proposal_id=pending["proposal_id"], items=[milk["key"]])
     assert confirmed["status"] == "confirmed"
+    [rest] = (await call())["pending"]
+    assert milk["key"] not in [item["key"] for item in rest["items"]]
+    await call(proposal_id=rest["proposal_id"], decision="reject")
     assert (await call())["pending"] == []
 
     other = photo.parent / "other.jpg"

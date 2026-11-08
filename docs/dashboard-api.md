@@ -21,8 +21,9 @@ Writers: administrators, or every user when the `non_admin_writes` option is on 
 {
   "api_version": 1,
   "entry_id": "...",
-  "entities": {"shopping_list": "todo.…", "to_buy": "sensor.…", "suggestions": "sensor.…", "expiring": "sensor.…", "pending_proposals": "sensor.…", "analyses_today": "sensor.…", "start_shopping": "button.…", "undo_last": "button.…", "update_mode": "select.…", "expiry": "calendar.…"},
-  "zones": [{"zone_id", "name", "aliases", "sources": ["camera", "manual"], "updated": "ISO or null"}],
+  "entities": {"shopping_list": "todo.…", "to_buy": "sensor.…", "suggestions": "sensor.…", "expiring": "sensor.…", "pending_proposals": "sensor.…", "analyses_today": "sensor.…", "start_shopping": "button.…", "undo_last": "button.…", "update_mode": "select.…", "expiry": "calendar.…", "photo_requests": "sensor.…"},
+  "zones": [{"zone_id", "name", "aliases", "sources": ["camera", "manual"], "updated": "ISO or null", "last_check": {"ts", "status": "updated|photo_requested|failed", "reason", "overall_confidence", "...": "..."} , "in_error": false, "show_armed_until": "ISO or null", "last_show": {"product", "action", "quantity", "confidence", "status", "ts"}}],
+  "photo_requests": [{"request_id", "zone_id", "reason", "created"}],
   "products": [{"product_id", "name", "aliases", "category", "unit", "default_zone_id", "essential", "min_stock", "target_stock", "total", "stock": [{"zone_id", "quantity", "best_before", "updated"}]}],
   "to_buy": [{"product_id", "have", "quantity"}],
   "suggestions": [{"product_id", "have", "reason": "below_target|stale_zone|finished_recently", "...details": "have, target | zone, days | date"}],
@@ -38,5 +39,7 @@ Writers: administrators, or every user when the `non_admin_writes` option is on 
 Entity ids depend on the user's language at creation time: always take them from `entities`.
 
 ## Writes (actions)
+
+Per-zone entities (last check sensor, zone error, check button, show mode switch, last shown sensor) are not listed in `entities`; zones are checked with the `check_zone` action and show mode with `arm_show_mode`. `confirm_pending` with `items` confirms those items and leaves the others pending in the same proposal. An accepted below-target suggestion without quantity buys up to the target.
 
 Cards write through the `quartermaster` actions (no `config_entry_id` needed): `adjust_stock` (product, operation consume|purchase|finish, quantity, zone), `set_stock` (product, quantity, zone, best_before), `add_product`, `set_essential` (product, essential, min_stock, target_stock), `add_to_shopping_list` (product or text, quantity, from_suggestion), `confirm_pending` (proposal_id, decision confirm|reject, items, corrections [{key, product, quantity}]), `undo_last` (operation_id), `start_shopping`, `add_zone`, `remove_zone`, `analyze_image`. The shopping list itself is the todo entity (`todo.*` actions). Actions refuse writes from users who are not writers (`Unauthorized`).

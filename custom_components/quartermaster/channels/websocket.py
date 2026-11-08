@@ -24,6 +24,7 @@ from custom_components.quartermaster.const import (
     DOMAIN,
 )
 from custom_components.quartermaster.core.inventory import InventoryError
+from custom_components.quartermaster.core.zones import ZONE_ERROR_FAILURES
 from custom_components.quartermaster.storage.models import Channel, ShoppingStatus
 from custom_components.quartermaster.vision.analyze import async_photo_pipeline
 from custom_components.quartermaster.vision.quality import MAX_UPLOAD_BYTES
@@ -63,6 +64,7 @@ ENTITY_KEYS: tuple[tuple[str, str], ...] = (
     ("button", "undo_last"),
     ("select", "update_mode"),
     ("calendar", "expiry"),
+    ("sensor", "photo_requests"),
 )
 
 
@@ -80,6 +82,7 @@ def snapshot(runtime: QuartermasterRuntimeData) -> dict[str, Any]:
     data = runtime.coordinator.data
     analysis = data.analysis
     entry = runtime.coordinator.config_entry
+    show = runtime.show
     return {
         "api_version": API_VERSION,
         "entry_id": entry.entry_id,
@@ -93,8 +96,23 @@ def snapshot(runtime: QuartermasterRuntimeData) -> dict[str, Any]:
                 "updated": data.zone_updates[zone.id].isoformat()
                 if zone.id in data.zone_updates
                 else None,
+                "last_check": data.zone_checks.get(zone.id),
+                "in_error": data.zone_failures.get(zone.id, 0) >= ZONE_ERROR_FAILURES,
+                "show_armed_until": show.armed_until[zone.id].isoformat()
+                if show.is_armed(zone.id)
+                else None,
+                "last_show": show.last_show.get(zone.id),
             }
             for zone in data.zones.values()
+        ],
+        "photo_requests": [
+            {
+                "request_id": request.id,
+                "zone_id": request.zone_id,
+                "reason": request.reason,
+                "created": request.created.isoformat(),
+            }
+            for request in data.photo_requests
         ],
         "products": [
             {

@@ -277,6 +277,14 @@ class ProposalService:
             await self._inventory.async_apply_counts(
                 counts, channel=channel, user_id=user_id
             )
-        proposal.status = ProposalStatus.CONFIRMED
+        chosen_keys = {row["key"] for row in chosen}
+        remaining = [
+            row for row in proposal.payload["items"] if row["key"] not in chosen_keys
+        ]
+        if remaining:
+            # Items not chosen stay pending in the same proposal.
+            proposal.payload = {**proposal.payload, "items": remaining}
+        else:
+            proposal.status = ProposalStatus.CONFIRMED
         await self._backend.async_update_proposal(proposal)
         return applied

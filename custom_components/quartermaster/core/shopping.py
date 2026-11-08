@@ -166,6 +166,18 @@ class ShoppingService:
             if not text:
                 raise InventoryError("invalid_name")
             product = await self._async_match_product(text)
+        if (
+            product is not None
+            and quantity is None
+            and origin is ShoppingOrigin.SUGGESTION
+            and product.essential
+            and product.target_stock is not None
+        ):
+            # An accepted "below target" suggestion buys up to the target.
+            levels = await self._inventory.async_get_stock(product_id=product.id)
+            have = sum(level.quantity for level in levels)
+            if have < product.target_stock:
+                quantity = round(product.target_stock - have, 3)
         if product is not None:
             for item in await self._backend.async_list_shopping_items():
                 if (

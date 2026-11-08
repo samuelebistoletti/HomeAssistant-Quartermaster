@@ -494,3 +494,15 @@ async def test_options_flow(
     await hass.async_block_till_done()
     assert init_integration.options["shopping_mode_minutes"] == 30
     assert init_integration.state is ConfigEntryState.LOADED
+
+
+async def test_suggestion_accepted_up_to_target(
+    hass: HomeAssistant, inventory: InventoryService
+) -> None:
+    """An accepted below-target suggestion without quantity buys up to the target."""
+    await _qm(hass, "set_essential", product="coffee", min_stock=1, target_stock=4)
+    await inventory.async_set_stock("coffee", 1, channel=Channel.SERVICE)
+    item = await _qm(
+        hass, "add_to_shopping_list", product="coffee", from_suggestion=True
+    )
+    assert item["quantity"] == 3
