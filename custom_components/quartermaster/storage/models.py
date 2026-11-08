@@ -98,9 +98,10 @@ class StockChange:
 
 @dataclass(slots=True, kw_only=True)
 class JournalEntry:
-    """One recorded movement."""
+    """One recorded movement; `operation_id` groups the movements of one request."""
 
     id: int
+    operation_id: str
     ts: datetime
     product_id: int
     zone_id: str

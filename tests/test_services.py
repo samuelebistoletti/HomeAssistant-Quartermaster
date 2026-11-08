@@ -93,8 +93,8 @@ async def test_product_and_stock_actions(
     assert (counted["kind"], counted["delta"]) == ("inventory", 3)
 
     undone = await _call(hass, entry, "undo_last", context=context)
-    assert undone["undone"]["journal_id"] == counted["journal_id"]
-    assert undone["undo"]["quantity"] == 2
+    assert [m["journal_id"] for m in undone["undone"]] == [counted["journal_id"]]
+    assert [m["quantity"] for m in undone["undo"]] == [2]
 
     journal = await entry.runtime_data.inventory.async_list_journal()
     assert journal[0].user_id == hass_admin_user.id
@@ -118,6 +118,8 @@ async def test_actions_without_response(
         ("set_stock", {"product": "salt", "quantity": 1}),
         ("adjust_stock", {"product": "salt"}),
         ("undo_last", {}),
+        ("add_zone", {"name": "Cellar"}),
+        ("remove_zone", {"zone": "cellar"}),
         ("set_essential", {"product": "salt", "min_stock": 1}),
         ("export_data", {}),
     ):
@@ -240,3 +242,30 @@ async def test_no_loaded_entry(
     with pytest.raises(ServiceValidationError) as err:
         await hass.services.async_call(DOMAIN, "undo_last", {}, blocking=True)
     assert err.value.translation_key == "service_config_entry_not_loaded"
+
+
+async def test_zone_actions(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """Zones are added and removed through actions."""
+    zone = await _call(
+        hass, init_integration, "add_zone", name="Garage shelf", aliases=["garage"]
+    )
+    assert zone == {
+        "zone_id": "garage_shelf",
+        "name": "Garage shelf",
+        "aliases": ["garage"],
+    }
+    own_id = await _call(
+        hass, init_integration, "add_zone", name="Cellar", zone_id="cl"
+    )
+    assert own_id["zone_id"] == "cl"
+
+    removed = await _call(hass, init_integration, "remove_zone", zone="garage")
+    assert removed["zone_id"] == "garage_shelf"
+    zones = await init_integration.runtime_data.inventory.async_list_zones()
+    assert [z.id for z in zones] == ["cl"]
+
+    with pytest.raises(ServiceValidationError) as err:
+        await _call(hass, init_integration, "remove_zone", zone="garage")
+    assert err.value.translation_key == "zone_not_found"

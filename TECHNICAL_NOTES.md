@@ -171,8 +171,10 @@ Started at the author's request while the Phase 0 practical checks are still ope
 | Database | `<config>/quartermaster/pantry.db`, WAL, foreign keys on, one connection used only from the executor and serialized by a lock, explicit `BEGIN IMMEDIATE` transactions | Spec §4 |
 | Migrations | Numbered modules in `storage/migrations/`; the version is in `settings.schema_version`; each migration runs in its own transaction; a database from a newer version stops the setup (`ConfigEntryError`, `database_too_new`) | Spec §4 |
 | Schema v1 | All tables of spec §4 are created now, including those used from Phase 2 onwards, to avoid early migrations | — |
+| Schema v2 | `journal.operation_id` (not in spec §4), index on it; existing movements get one random id each. JSON export format version 2 (adds `operation_id`); version 1 files are refused, none were ever released | Author decision 2026-11-08 |
+| Zone actions | `add_zone` (name, aliases, optional slug `zone_id`) and `remove_zone` (only when the zone holds no stock; its movements stay in the journal). Not in spec §6.7 | Author decision 2026-11-08 |
 | Quantities | Decimal, rounded to 3 digits, never below zero (a consumption larger than the stock records the delta actually applied), at most 100,000 | Spec §4 and §8 (plausible values) |
-| Undo | An undo applies the opposite of the journaled delta (so later movements by other channels stay), is journaled as `undo` with `undoes_id`, and is never undone itself; repeating undo walks back through older movements. The `undo_last` action takes the newest movement from any channel (like the spec's button); `only_channel` + user and the 10-minute window are ready for the LLM tool (Phase 3) | Spec §4, §6.1 |
+| Undo | Works per **operation**: every `async_apply_changes` call is one operation and its journal entries share an `operation_id` (ULID). Undo reverts every movement of the newest operation that is not undone, applying the opposite of each journaled delta in reverse order, as one new operation of kind `undo` with `undoes_id` on each entry; undo entries are never undone themselves, and repeating undo walks back through older operations. The `undo_last` action takes the newest operation from any channel (like the spec's button); `only_channel` + user and the 10-minute window are ready for the LLM tool (Phase 3). A CSV import is still one operation per row | Spec §4, §6.1; author decision 2026-11-08 |
 | Product names | Unique among active products, compared ignoring case and spaces; aliases may overlap and then resolve as ambiguous with the candidates | Spec §6.2 |
 | Turning off `essential` | Clears `min_stock` and `target_stock` | — |
 | Export/import location | `<config>/quartermaster/exports/`; `import_data` takes a plain file name in that folder, any path is refused | Spec §4; no path traversal |
@@ -187,5 +189,5 @@ CSV import (2 zones, 2 products), consumption by alias, finish, undo, unknown-pr
 ### Open questions for the author
 
 1. ~~Required `config_entry_id`~~: made optional (author, 2026-11-08), see the table.
-2. The spec lists no zone actions. Zones can be created only through `import_data` until the options flow or the dashboard (later phases). Add `add_zone` / `remove_zone` actions?
-3. The journal has no operation id. A photo proposal applying several changes is undone one movement at a time. Add an `operation_id` column (new migration) in Phase 4?
+2. ~~Zone actions~~: added (author, 2026-11-08).
+3. ~~Operation id~~: added in schema v2 (author, 2026-11-08).

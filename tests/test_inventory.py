@@ -12,7 +12,11 @@ from custom_components.quartermaster.core.inventory import (
     InventoryService,
     StockOperation,
 )
-from custom_components.quartermaster.storage.models import Channel, MovementKind
+from custom_components.quartermaster.storage.models import (
+    Channel,
+    MovementKind,
+    StockChange,
+)
 
 
 async def _quantity(inventory: InventoryService, product: str, zone: str) -> float:
@@ -304,7 +308,7 @@ async def test_every_movement_can_be_undone(inventory: InventoryService) -> None
     expected = [0.5, 0, 10, 3, 4]
     after_undo = [0, 10, 3, 4, 0]
     for before, after in zip(expected, after_undo, strict=True):
-        original, undo = await inventory.async_undo_last(channel=Channel.SERVICE)
+        [original], [undo] = await inventory.async_undo_last(channel=Channel.SERVICE)
         assert original.entry.quantity_after == before
         assert undo.entry.kind is MovementKind.UNDO
         assert undo.entry.undoes_id == original.entry.id
@@ -325,7 +329,7 @@ async def test_undo_by_channel_and_user(inventory: InventoryService) -> None:
     await inventory.async_set_stock("milk", 2, channel=Channel.TELEGRAM, user_id="a")
     await inventory.async_set_stock("milk", 5, channel=Channel.ALEXA, user_id="b")
 
-    original, undo = await inventory.async_undo_last(
+    [original], [undo] = await inventory.async_undo_last(
         channel=Channel.TELEGRAM, only_channel=True, user_id="a"
     )
     assert original.entry.channel is Channel.TELEGRAM
@@ -364,3 +368,41 @@ async def test_undo_after_zone_removed(inventory: InventoryService) -> None:
     with pytest.raises(InventoryError) as err:
         await inventory.async_undo_last(channel=Channel.SERVICE)
     assert _key(err) == "undo_zone_missing"
+
+
+async def test_undo_reverts_a_whole_operation(inventory: InventoryService) -> None:
+    """A multi-product operation is undone at once, in a single undo operation."""
+    await _kitchen(inventory)
+    milk = await inventory.async_find_product("milk")
+    parmesan = await inventory.async_find_product("parmesan")
+    await inventory.async_set_stock("milk", 1, channel=Channel.SERVICE)
+    await inventory.backend.async_apply_changes(
+        [
+            StockChange(
+                product_id=milk.id,
+                zone_id="fridge",
+                kind=MovementKind.PURCHASE,
+                delta=2,
+                channel=Channel.TELEGRAM,
+            ),
+            StockChange(
+                product_id=parmesan.id,
+                zone_id="pantry",
+                kind=MovementKind.PURCHASE,
+                delta=1,
+                channel=Channel.TELEGRAM,
+            ),
+        ]
+    )
+
+    originals, undos = await inventory.async_undo_last(channel=Channel.SERVICE)
+    assert [m.product.name for m in originals] == ["Milk", "Parmesan"]
+    assert [m.product.name for m in undos] == ["Parmesan", "Milk"]
+    assert len({m.entry.operation_id for m in undos}) == 1
+    assert undos[0].entry.operation_id != originals[0].entry.operation_id
+    assert await _quantity(inventory, "milk", "fridge") == 1
+    assert await _quantity(inventory, "parmesan", "pantry") == 0
+
+    # The next undo reaches the earlier, single-product operation.
+    [original], _ = await inventory.async_undo_last(channel=Channel.SERVICE)
+    assert original.entry.kind is MovementKind.INVENTORY

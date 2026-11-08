@@ -34,6 +34,33 @@ adjust_stock:
       selector:
         date:
 
+add_zone:
+  fields:
+    config_entry_id: *config_entry
+    name:
+      required: true
+      example: "Fridge"
+      selector:
+        text:
+    aliases:
+      example: "frigo"
+      selector:
+        text:
+          multiple: true
+    zone_id:
+      example: "fridge"
+      selector:
+        text:
+
+remove_zone:
+  fields:
+    config_entry_id: *config_entry
+    zone:
+      required: true
+      example: "Fridge"
+      selector:
+        text:
+
 undo_last:
   fields:
     config_entry_id: *config_entry

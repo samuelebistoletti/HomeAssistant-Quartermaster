@@ -77,7 +77,7 @@ async def test_json_round_trip(inventory: InventoryService) -> None:
         "shopping_items": 0,
     }
     # The restored journal still undoes correctly.
-    original, _ = await inventory.async_undo_last(channel=Channel.SERVICE)
+    [original], _ = await inventory.async_undo_last(channel=Channel.SERVICE)
     assert original.product.name == "Coffee"
 
 

@@ -103,14 +103,15 @@ class InventoryService:
             await self.backend.async_save_zone(zone)
         return zone
 
-    async def async_remove_zone(self, zone_ref: str) -> None:
-        """Delete a zone that holds no stock."""
+    async def async_remove_zone(self, zone_ref: str) -> Zone:
+        """Delete a zone that holds no stock and return it."""
         async with self._write_lock:
             zone = await self.async_find_zone(zone_ref)
             stock = await self.backend.async_list_stock(zone_id=zone.id)
             if any(level.quantity > 0 for level in stock):
                 raise InventoryError("zone_not_empty", zone=zone.name)
             await self.backend.async_delete_zone(zone.id)
+        return zone
 
     async def async_find_zone(self, ref: str) -> Zone:
         """Resolve a zone by id, name or alias."""
@@ -359,24 +360,25 @@ class InventoryService:
         only_channel: bool = False,
         user_id: str | None = None,
         within: timedelta | None = None,
-    ) -> tuple[Movement, Movement]:
-        """Revert the newest movement that is not undone yet.
+    ) -> tuple[list[Movement], list[Movement]]:
+        """Revert the newest operation that is not undone yet, as a whole.
 
         With `only_channel` the search is limited to that channel and user;
-        otherwise any movement qualifies. The undo is journaled with `channel`
-        and `user_id`. Returns the original movement and the undo.
+        otherwise any movement qualifies. The undo is one operation journaled
+        with `channel` and `user_id`. Returns the original movements and the
+        undo movements.
         """
         since = dt_util.utcnow() - within if within is not None else None
         async with self._write_lock:
-            original = await self.backend.async_last_undoable(
+            originals = await self.backend.async_last_undoable(
                 channel=channel if only_channel else None,
                 user_id=user_id if only_channel else None,
                 since=since,
             )
-            if original is None:
+            if not originals:
                 raise InventoryError("nothing_to_undo")
             zones = {zone.id: zone for zone in await self.backend.async_list_zones()}
-            if original.zone_id not in zones:
+            if any(original.zone_id not in zones for original in originals):
                 raise InventoryError("undo_zone_missing")
             products = {
                 product.id: product
@@ -384,7 +386,7 @@ class InventoryService:
                     include_archived=True
                 )
             }
-            [entry] = await self.backend.async_apply_changes(
+            undos = await self.backend.async_apply_changes(
                 [
                     StockChange(
                         product_id=original.product_id,
@@ -395,11 +397,14 @@ class InventoryService:
                         user_id=user_id,
                         undoes_id=original.id,
                     )
+                    for original in reversed(originals)
                 ]
             )
-        product = products[original.product_id]
-        zone = zones[original.zone_id]
-        return Movement(original, product, zone), Movement(entry, product, zone)
+
+        def movement(entry: JournalEntry) -> Movement:
+            return Movement(entry, products[entry.product_id], zones[entry.zone_id])
+
+        return [movement(e) for e in originals], [movement(e) for e in undos]
 
     async def async_list_journal(
         self, *, limit: int = 50, product_id: int | None = None

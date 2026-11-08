@@ -7,6 +7,9 @@ append it to `MIGRATIONS`.
 
 from __future__ import annotations
 
-from . import m001_initial
+from . import m001_initial, m002_operation_id
 
-MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = ((1, m001_initial.STATEMENTS),)
+MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
+    (1, m001_initial.STATEMENTS),
+    (2, m002_operation_id.STATEMENTS),
+)

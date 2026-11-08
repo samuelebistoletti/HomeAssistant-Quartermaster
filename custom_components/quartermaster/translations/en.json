@@ -118,9 +118,45 @@
         }
       }
     },
+    "add_zone": {
+      "name": "Add zone",
+      "description": "Creates a zone where products are kept, such as the fridge or a shelf.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
+        },
+        "name": {
+          "name": "Name",
+          "description": "Zone name, unique in the inventory."
+        },
+        "aliases": {
+          "name": "Aliases",
+          "description": "Other names the zone is called by."
+        },
+        "zone_id": {
+          "name": "Zone ID",
+          "description": "Optional ID (lowercase letters, digits and underscores). Derived from the name if omitted."
+        }
+      }
+    },
+    "remove_zone": {
+      "name": "Remove zone",
+      "description": "Deletes a zone that holds no products. Its movements stay in the journal.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
+        },
+        "zone": {
+          "name": "Zone",
+          "description": "Zone name, alias or ID."
+        }
+      }
+    },
     "undo_last": {
-      "name": "Undo last movement",
-      "description": "Reverts the most recent stock movement that is not undone yet.",
+      "name": "Undo last operation",
+      "description": "Reverts the most recent operation that is not undone yet. An operation can change several products.",
       "fields": {
         "config_entry_id": {
           "name": "Quartermaster entry",

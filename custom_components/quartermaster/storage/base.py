@@ -60,7 +60,10 @@ class StorageBackend(ABC):
     async def async_apply_changes(
         self, changes: list[StockChange]
     ) -> list[JournalEntry]:
-        """Apply stock changes and journal them in one transaction."""
+        """Apply stock changes and journal them in one transaction.
+
+        The changes form one operation: their entries share an `operation_id`.
+        """
 
     @abstractmethod
     async def async_list_journal(
@@ -75,8 +78,13 @@ class StorageBackend(ABC):
         channel: Channel | None = None,
         user_id: str | None = None,
         since: datetime | None = None,
-    ) -> JournalEntry | None:
-        """Return the newest movement that is not an undo and is not undone."""
+    ) -> list[JournalEntry]:
+        """Return the movements of the newest operation that is not undone.
+
+        The newest movement matching the filters picks the operation; every
+        movement of that operation that is not undone is returned, oldest
+        first. An empty list means there is nothing to undo.
+        """
 
     @abstractmethod
     async def async_dump(self) -> dict[str, list[dict[str, Any]]]:

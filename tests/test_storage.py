@@ -168,25 +168,28 @@ async def test_failed_batch_is_rolled_back(backend: SQLiteBackend) -> None:
 
 
 async def test_journal_and_last_undoable(backend: SQLiteBackend) -> None:
-    """The newest movement that is not an undo and not undone is found."""
+    """The newest operation that is not undone is found, filtered as asked."""
     product = await _seed(backend)
-    first, second = await backend.async_apply_changes(
+    [first] = await backend.async_apply_changes(
+        [_change(product_id=product.id, delta=1, user_id="alice")]
+    )
+    [second] = await backend.async_apply_changes(
         [
-            _change(product_id=product.id, delta=1, user_id="alice"),
             _change(
                 product_id=product.id,
                 delta=1,
                 channel=Channel.TELEGRAM,
                 user_id="bob",
-            ),
+            )
         ]
     )
-    assert await backend.async_last_undoable() == second
-    assert await backend.async_last_undoable(channel=Channel.SERVICE) == first
-    assert await backend.async_last_undoable(user_id="bob") == second
+    assert first.operation_id != second.operation_id
+    assert await backend.async_last_undoable() == [second]
+    assert await backend.async_last_undoable(channel=Channel.SERVICE) == [first]
+    assert await backend.async_last_undoable(user_id="bob") == [second]
     assert (
         await backend.async_last_undoable(since=dt_util.utcnow() + timedelta(minutes=1))
-        is None
+        == []
     )
 
     await backend.async_apply_changes(
@@ -199,7 +202,7 @@ async def test_journal_and_last_undoable(backend: SQLiteBackend) -> None:
             )
         ]
     )
-    assert await backend.async_last_undoable() == first
+    assert await backend.async_last_undoable() == [first]
     journal = await backend.async_list_journal(limit=10)
     assert [entry.kind for entry in journal] == [
         MovementKind.UNDO,
@@ -208,6 +211,64 @@ async def test_journal_and_last_undoable(backend: SQLiteBackend) -> None:
     ]
     assert await backend.async_list_journal(limit=10, product_id=999) == []
     assert len(await backend.async_list_journal(limit=10, product_id=product.id)) == 3
+
+
+async def test_operations_group_movements(backend: SQLiteBackend) -> None:
+    """Changes applied together share an operation and are returned together."""
+    product = await _seed(backend)
+    await backend.async_save_zone(Zone(id="pantry", name="Pantry"))
+    first, second = await backend.async_apply_changes(
+        [
+            _change(product_id=product.id, delta=1),
+            _change(product_id=product.id, zone_id="pantry", delta=2),
+        ]
+    )
+    assert first.operation_id == second.operation_id
+    assert await backend.async_last_undoable() == [first, second]
+
+    # A movement of the operation already undone is left out.
+    await backend.async_apply_changes(
+        [
+            _change(
+                product_id=product.id,
+                kind=MovementKind.UNDO,
+                delta=-1,
+                undoes_id=first.id,
+            )
+        ]
+    )
+    assert await backend.async_last_undoable() == [second]
+
+
+async def test_migration_from_version_1(hass: HomeAssistant, tmp_path: Path) -> None:
+    """A version 1 database gets operation ids, one per existing movement."""
+    path = tmp_path / "pantry.db"
+    conn = sqlite3.connect(path)
+    with conn:
+        for statement in MIGRATIONS[0][1]:
+            conn.execute(statement)
+        conn.executescript(
+            """
+            INSERT INTO settings VALUES ('schema_version', '1');
+            INSERT INTO zones (id, name) VALUES ('fridge', 'Fridge');
+            INSERT INTO products (id, name) VALUES (1, 'Milk');
+            INSERT INTO journal (ts, product_id, zone_id, kind, delta,
+                quantity_after, channel)
+            VALUES ('2026-11-01T10:00:00+00:00', 1, 'fridge', 'purchase', 2, 2,
+                'service'),
+                ('2026-11-01T11:00:00+00:00', 1, 'fridge', 'consume', -1, 1,
+                'service');
+            """
+        )
+    conn.close()
+
+    store = SQLiteBackend(hass, path)
+    await store.async_open()
+    journal = await store.async_list_journal(limit=10)
+    assert len({entry.operation_id for entry in journal}) == 2
+    assert all(entry.operation_id for entry in journal)
+    assert await store.async_last_undoable() == [journal[0]]
+    await store.async_close()
 
 
 async def test_dump_and_restore(backend: SQLiteBackend) -> None:

@@ -118,9 +118,45 @@
         }
       }
     },
+    "add_zone": {
+      "name": "Aggiungi zona",
+      "description": "Crea una zona in cui si tengono i prodotti, come il frigorifero o uno scaffale.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
+        },
+        "name": {
+          "name": "Nome",
+          "description": "Nome della zona, unico nell'inventario."
+        },
+        "aliases": {
+          "name": "Alias",
+          "description": "Altri nomi con cui si chiama la zona."
+        },
+        "zone_id": {
+          "name": "ID della zona",
+          "description": "ID facoltativo (lettere minuscole, cifre e trattini bassi). Se manca si ricava dal nome."
+        }
+      }
+    },
+    "remove_zone": {
+      "name": "Rimuovi zona",
+      "description": "Elimina una zona senza prodotti. I suoi movimenti restano nello storico.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
+        },
+        "zone": {
+          "name": "Zona",
+          "description": "Nome, alias o ID della zona."
+        }
+      }
+    },
     "undo_last": {
-      "name": "Annulla ultimo movimento",
-      "description": "Annulla il movimento di scorta più recente non ancora annullato.",
+      "name": "Annulla ultima operazione",
+      "description": "Annulla l'operazione più recente non ancora annullata. Un'operazione può modificare più prodotti.",
       "fields": {
         "config_entry_id": {
           "name": "Voce di Quartermaster",

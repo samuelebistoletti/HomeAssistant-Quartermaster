@@ -33,9 +33,11 @@ from .core.transfer import (
     export_filename,
     resolve_transfer_file,
 )
-from .storage.models import Channel, Product
+from .storage.models import Channel, Product, Zone
 
 SERVICE_ADJUST_STOCK = "adjust_stock"
+SERVICE_ADD_ZONE = "add_zone"
+SERVICE_REMOVE_ZONE = "remove_zone"
 SERVICE_UNDO_LAST = "undo_last"
 SERVICE_SET_STOCK = "set_stock"
 SERVICE_ADD_PRODUCT = "add_product"
@@ -61,6 +63,7 @@ ATTR_BARCODE = "barcode"
 ATTR_SHELF_LIFE_DAYS = "shelf_life_days"
 ATTR_FORMAT = "format"
 ATTR_FILENAME = "filename"
+ATTR_ZONE_ID = "zone_id"
 
 FORMAT_JSON = "json"
 FORMAT_CSV = "csv"
@@ -83,6 +86,17 @@ ADJUST_STOCK_SCHEMA = probatio.Schema(
     }
 )
 UNDO_LAST_SCHEMA = probatio.Schema(ENTRY)
+ADD_ZONE_SCHEMA = probatio.Schema(
+    {
+        **ENTRY,
+        probatio.Required(ATTR_NAME): cv.string,
+        probatio.Optional(ATTR_ALIASES, default=list): probatio.All(
+            cv.ensure_list, [cv.string]
+        ),
+        probatio.Optional(ATTR_ZONE_ID): cv.slug,
+    }
+)
+REMOVE_ZONE_SCHEMA = probatio.Schema({**ENTRY, probatio.Required(ATTR_ZONE): cv.string})
 SET_STOCK_SCHEMA = probatio.Schema(
     {
         **ENTRY,
@@ -155,6 +169,10 @@ def _movement(movement: Movement) -> dict[str, Any]:
     }
 
 
+def _zone(zone: Zone) -> dict[str, Any]:
+    return {"zone_id": zone.id, "name": zone.name, "aliases": zone.aliases}
+
+
 def _product(product: Product) -> dict[str, Any]:
     return {
         "product_id": product.id,
@@ -196,12 +214,15 @@ async def _async_adjust_stock(call: ServiceCall) -> ServiceResponse:
 
 
 async def _async_undo_last(call: ServiceCall) -> ServiceResponse:
-    original, undo = await _inventory(call).async_undo_last(
+    originals, undos = await _inventory(call).async_undo_last(
         channel=Channel.SERVICE, user_id=call.context.user_id
     )
     if not call.return_response:
         return None
-    return {"undone": _movement(original), "undo": _movement(undo)}
+    return {
+        "undone": [_movement(movement) for movement in originals],
+        "undo": [_movement(movement) for movement in undos],
+    }
 
 
 async def _async_set_stock(call: ServiceCall) -> ServiceResponse:
@@ -214,6 +235,20 @@ async def _async_set_stock(call: ServiceCall) -> ServiceResponse:
         user_id=call.context.user_id,
     )
     return _movement(movement) if call.return_response else None
+
+
+async def _async_add_zone(call: ServiceCall) -> ServiceResponse:
+    zone = await _inventory(call).async_add_zone(
+        call.data[ATTR_NAME],
+        aliases=call.data[ATTR_ALIASES],
+        zone_id=call.data.get(ATTR_ZONE_ID),
+    )
+    return _zone(zone) if call.return_response else None
+
+
+async def _async_remove_zone(call: ServiceCall) -> ServiceResponse:
+    zone = await _inventory(call).async_remove_zone(call.data[ATTR_ZONE])
+    return _zone(zone) if call.return_response else None
 
 
 async def _async_add_product(call: ServiceCall) -> ServiceResponse:
@@ -277,6 +312,8 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_ADJUST_STOCK, _async_adjust_stock, ADJUST_STOCK_SCHEMA),
         (SERVICE_UNDO_LAST, _async_undo_last, UNDO_LAST_SCHEMA),
         (SERVICE_SET_STOCK, _async_set_stock, SET_STOCK_SCHEMA),
+        (SERVICE_ADD_ZONE, _async_add_zone, ADD_ZONE_SCHEMA),
+        (SERVICE_REMOVE_ZONE, _async_remove_zone, REMOVE_ZONE_SCHEMA),
         (SERVICE_ADD_PRODUCT, _async_add_product, ADD_PRODUCT_SCHEMA),
         (SERVICE_SET_ESSENTIAL, _async_set_essential, SET_ESSENTIAL_SCHEMA),
     ):

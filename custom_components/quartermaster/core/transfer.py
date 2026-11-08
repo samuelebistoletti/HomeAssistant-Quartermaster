@@ -23,7 +23,7 @@ from custom_components.quartermaster.storage.models import Channel, MovementKind
 from .inventory import MAX_QUANTITY, InventoryError, InventoryService, normalize
 
 FORMAT_NAME: Final = "quartermaster"
-FORMAT_VERSION: Final = 1
+FORMAT_VERSION: Final = 2
 CSV_COLUMNS: Final = (
     "product",
     "aliases",
@@ -98,6 +98,7 @@ TABLES_SCHEMA = probatio.Schema(
                 probatio.Required("confidence"): _OPT_NUM,
                 probatio.Required("image_ref"): _OPT_STR,
                 probatio.Required("undoes_id"): _OPT_INT,
+                probatio.Required("operation_id"): str,
             }
         ],
         probatio.Required("shopping_items"): [

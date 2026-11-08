@@ -13,6 +13,7 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
+from homeassistant.util.ulid import ulid_now
 
 from .base import StorageBackend
 from .migrations import MIGRATIONS
@@ -122,6 +123,7 @@ def _journal(row: sqlite3.Row) -> JournalEntry:
     assert ts is not None
     return JournalEntry(
         id=row["id"],
+        operation_id=row["operation_id"],
         ts=ts,
         product_id=row["product_id"],
         zone_id=row["zone_id"],
@@ -372,6 +374,7 @@ class SQLiteBackend(StorageBackend):
 
     def _apply_changes(self, changes: list[StockChange]) -> list[JournalEntry]:
         now = dt_util.utcnow()
+        operation_id = ulid_now()
         ids: list[int] = []
         with self._transaction() as conn:
             for change in changes:
@@ -406,8 +409,8 @@ class SQLiteBackend(StorageBackend):
                     """
                     INSERT INTO journal (ts, product_id, zone_id, kind, delta,
                         quantity_after, channel, user_id, confidence, image_ref,
-                        undoes_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        undoes_id, operation_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         now.isoformat(),
@@ -421,6 +424,7 @@ class SQLiteBackend(StorageBackend):
                         change.confidence,
                         change.image_ref,
                         change.undoes_id,
+                        operation_id,
                     ),
                 )
                 assert cursor.lastrowid is not None
@@ -456,13 +460,13 @@ class SQLiteBackend(StorageBackend):
         channel: Channel | None = None,
         user_id: str | None = None,
         since: datetime | None = None,
-    ) -> JournalEntry | None:
-        """Return the newest movement that is not an undo and is not undone."""
+    ) -> list[JournalEntry]:
+        """Return the movements of the newest operation that is not undone."""
         return await self._run(self._last_undoable, channel, user_id, since)
 
     def _last_undoable(
         self, channel: Channel | None, user_id: str | None, since: datetime | None
-    ) -> JournalEntry | None:
+    ) -> list[JournalEntry]:
         clauses = [
             "j.kind != ?",
             "NOT EXISTS (SELECT 1 FROM journal u WHERE u.undoes_id = j.id)",
@@ -482,7 +486,18 @@ class SQLiteBackend(StorageBackend):
             "ORDER BY j.id DESC LIMIT 1",
             params,
         ).fetchone()
-        return _journal(row) if row else None
+        if row is None:
+            return []
+        rows = self._db.execute(
+            """
+            SELECT j.* FROM journal j
+            WHERE j.operation_id = ? AND j.kind != ?
+                AND NOT EXISTS (SELECT 1 FROM journal u WHERE u.undoes_id = j.id)
+            ORDER BY j.id
+            """,
+            (row["operation_id"], MovementKind.UNDO.value),
+        ).fetchall()
+        return [_journal(row) for row in rows]
 
     # Export and import
 
