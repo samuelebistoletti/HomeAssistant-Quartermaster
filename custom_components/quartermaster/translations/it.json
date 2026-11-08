@@ -70,6 +70,12 @@
     },
     "product_in_many_zones": {
       "message": "{product} è in più zone: {candidates}. Indica quale."
+    },
+    "item_not_found": {
+      "message": "Nessuna voce {item} nella lista della spesa."
+    },
+    "todo_unreadable": {
+      "message": "Impossibile leggere le voci di {entity}."
     }
   },
   "selector": {
@@ -84,6 +90,13 @@
       "options": {
         "json": "JSON (tutto)",
         "csv": "CSV (prodotti e scorte)"
+      }
+    },
+    "import_target": {
+      "options": {
+        "products": "Prodotti",
+        "essentials": "Essenziali",
+        "shopping": "Lista della spesa"
       }
     }
   },
@@ -295,6 +308,149 @@
         "filename": {
           "name": "Nome del file",
           "description": "Nome del file nella cartella quartermaster/exports."
+        }
+      }
+    },
+    "get_suggestions": {
+      "name": "Ottieni suggerimenti",
+      "description": "Restituisce gli essenziali da comprare, i suggerimenti di acquisto con il motivo e le voci aperte della lista.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
+        }
+      }
+    },
+    "refresh_shopping_list": {
+      "name": "Aggiorna lista della spesa",
+      "description": "Ricalcola essenziali da comprare e suggerimenti e aggiorna la lista della spesa.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
+        }
+      }
+    },
+    "start_shopping": {
+      "name": "Vado a fare la spesa",
+      "description": "Aggiorna la lista e attiva la modalità spesa: spuntare una voce registra l'acquisto.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
+        }
+      }
+    },
+    "add_to_shopping_list": {
+      "name": "Aggiungi alla lista della spesa",
+      "description": "Aggiunge un prodotto o un testo libero alla lista. Un prodotto già in lista non viene aggiunto due volte.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
+        },
+        "product": {
+          "name": "Prodotto",
+          "description": "Nome, alias o ID del prodotto. In alternativa al testo."
+        },
+        "text": {
+          "name": "Testo",
+          "description": "Testo libero per qualcosa che non è un prodotto. In alternativa al prodotto."
+        },
+        "quantity": {
+          "name": "Quantità",
+          "description": "Quantità da comprare."
+        },
+        "from_suggestion": {
+          "name": "Da un suggerimento",
+          "description": "La voce viene da un suggerimento accettato."
+        }
+      }
+    },
+    "import_from_todo": {
+      "name": "Importa da lista todo",
+      "description": "Legge un'altra lista todo e trasforma le voci in prodotti, essenziali o voci della lista della spesa. Senza applica restituisce solo l'anteprima.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
+        },
+        "entity_id": {
+          "name": "Lista todo",
+          "description": "La lista da leggere."
+        },
+        "target": {
+          "name": "Importa come",
+          "description": "Cosa diventano le voci."
+        },
+        "min_stock": {
+          "name": "Scorta minima",
+          "description": "Scorta minima dei nuovi essenziali."
+        },
+        "apply": {
+          "name": "Applica",
+          "description": "Esegue l'importazione; altrimenti mostra solo l'anteprima."
+        }
+      }
+    }
+  },
+  "entity": {
+    "todo": {
+      "shopping_list": {
+        "name": "Lista della spesa"
+      }
+    },
+    "sensor": {
+      "to_buy": {
+        "name": "Da comprare"
+      },
+      "suggestions": {
+        "name": "Suggerimenti spesa"
+      },
+      "expiring": {
+        "name": "Prodotti in scadenza"
+      }
+    },
+    "button": {
+      "start_shopping": {
+        "name": "Vado a fare la spesa"
+      },
+      "undo_last": {
+        "name": "Annulla ultima operazione"
+      }
+    },
+    "select": {
+      "update_mode": {
+        "name": "Modalità aggiornamento",
+        "state": {
+          "confirm": "Conferma",
+          "automatic": "Automatica"
+        }
+      }
+    },
+    "calendar": {
+      "expiry": {
+        "name": "Scadenze"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opzioni di Quartermaster",
+        "data": {
+          "external_todo": "Copia la lista della spesa in",
+          "record_purchase_on_check": "Registra l'acquisto quando si spunta una voce",
+          "shopping_mode_minutes": "Durata della modalità spesa",
+          "stale_zone_days": "Suggerisci di controllare le zone non aggiornate da",
+          "expiring_days": "Soglia dei prodotti in scadenza"
+        },
+        "data_description": {
+          "external_todo": "Lista todo facoltativa (Bring!, Todoist, lista locale) che riceve una copia unidirezionale delle voci aperte. Le voci aggiunte a mano lì non vengono mai toccate.",
+          "record_purchase_on_check": "In modalità spesa la spunta registra sempre l'acquisto; questa opzione vale fuori dalla modalità spesa.",
+          "shopping_mode_minutes": "Per quanto resta attiva la modalità spesa dopo Vado a fare la spesa.",
+          "stale_zone_days": "Un essenziale in una zona non aggiornata da più giorni di questi viene suggerito.",
+          "expiring_days": "I prodotti con scadenza entro questi giorni compaiono tra quelli in scadenza."
         }
       }
     }

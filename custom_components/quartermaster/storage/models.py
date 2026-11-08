@@ -113,3 +113,34 @@ class JournalEntry:
     confidence: float | None = None
     image_ref: str | None = None
     undoes_id: int | None = None
+
+
+class ShoppingStatus(StrEnum):
+    """Status of a shopping list item (same values as the todo platform)."""
+
+    NEEDS_ACTION = "needs_action"
+    COMPLETED = "completed"
+
+
+class ShoppingOrigin(StrEnum):
+    """Why an item is on the shopping list."""
+
+    AUTO = "auto"
+    SUGGESTION = "suggestion"
+    MANUAL = "manual"
+
+
+@dataclass(slots=True, kw_only=True)
+class ShoppingItem:
+    """One shopping list item; `id` is 0 until stored."""
+
+    id: int
+    text: str
+    status: ShoppingStatus
+    origin: ShoppingOrigin
+    product_id: int | None = None
+    quantity: float | None = None
+    note: str | None = None
+    position: int = 0
+    completed_at: datetime | None = None
+    external_uid: str | None = None

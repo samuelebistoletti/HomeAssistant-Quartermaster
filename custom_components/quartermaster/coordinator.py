@@ -1,0 +1,162 @@
+"""Coordinator: recomputes the shopping list, suggestions and expiring stock.
+
+It refreshes after every inventory write (debounced) and every hour, so
+time-based reasons (stale zones, expiry dates) stay current; the work is a
+few local SQLite reads.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+import logging
+from typing import TYPE_CHECKING
+
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.debounce import Debouncer
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.util import dt as dt_util
+
+from custom_components.quartermaster.const import (
+    CONF_EXPIRING_DAYS,
+    CONF_SHOPPING_MODE_MINUTES,
+    CONF_STALE_ZONE_DAYS,
+    DEFAULT_EXPIRING_DAYS,
+    DEFAULT_SHOPPING_MODE_MINUTES,
+    DEFAULT_STALE_ZONE_DAYS,
+    DOMAIN,
+)
+from custom_components.quartermaster.core.inventory import InventoryService
+from custom_components.quartermaster.core.shopping import ShoppingService
+from custom_components.quartermaster.core.suggestions import (
+    FINISHED_LOOKBACK,
+    Analysis,
+    analyze,
+    zone_last_updates,
+)
+from custom_components.quartermaster.storage.models import (
+    Product,
+    ShoppingItem,
+    ShoppingStatus,
+    StockLevel,
+    Zone,
+)
+
+if TYPE_CHECKING:
+    from custom_components.quartermaster import QuartermasterConfigEntry
+
+_LOGGER = logging.getLogger(__name__)
+
+UPDATE_INTERVAL = timedelta(hours=1)
+REFRESH_COOLDOWN = 1.0
+JOURNAL_LIMIT = 5000
+
+
+@dataclass(slots=True)
+class QuartermasterData:
+    """Snapshot shared by the entities."""
+
+    analysis: Analysis
+    products: dict[int, Product]
+    zones: dict[str, Zone]
+    stock: list[StockLevel]
+    shopping_items: list[ShoppingItem]
+    shopping_until: datetime | None = None
+    zone_updates: dict[str, datetime] = field(default_factory=dict)
+
+    @property
+    def shopping_mode(self) -> bool:
+        """Whether shopping mode is on."""
+        return (
+            self.shopping_until is not None and dt_util.utcnow() < self.shopping_until
+        )
+
+
+class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
+    """Keeps the derived shopping data current."""
+
+    config_entry: QuartermasterConfigEntry
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: QuartermasterConfigEntry,
+        inventory: InventoryService,
+        shopping: ShoppingService,
+    ) -> None:
+        """Set up the coordinator."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            config_entry=entry,
+            name=DOMAIN,
+            update_interval=UPDATE_INTERVAL,
+            # Short cooldown so the list follows a burst of writes quickly.
+            request_refresh_debouncer=Debouncer(
+                hass, _LOGGER, cooldown=REFRESH_COOLDOWN, immediate=True
+            ),
+        )
+        self.inventory = inventory
+        self.shopping = shopping
+        self.shopping_until: datetime | None = None
+
+    @callback
+    def async_inventory_changed(self) -> None:
+        """Schedule a debounced refresh after an inventory write."""
+        self.hass.async_create_task(self.async_request_refresh())
+
+    def option(self, key: str, default: int) -> int:
+        """Return an integer option."""
+        return int(self.config_entry.options.get(key, default))
+
+    async def async_start_shopping(self) -> None:
+        """Turn shopping mode on for the configured time and recompute."""
+        minutes = self.option(CONF_SHOPPING_MODE_MINUTES, DEFAULT_SHOPPING_MODE_MINUTES)
+        self.shopping_until = dt_util.utcnow() + timedelta(minutes=minutes)
+        await self.async_refresh()
+
+    async def _async_update_data(self) -> QuartermasterData:
+        """Recompute everything from the store and sync the list."""
+        now = dt_util.utcnow()
+        backend = self.inventory.backend
+        products = await backend.async_list_products(include_archived=False)
+        zones = await backend.async_list_zones()
+        stock = await backend.async_list_stock()
+        journal = await backend.async_list_journal(
+            limit=JOURNAL_LIMIT, since=now - FINISHED_LOOKBACK
+        )
+        updates = zone_last_updates(stock)
+
+        def compute(items: list[ShoppingItem]) -> Analysis:
+            return analyze(
+                products=products,
+                zones=zones,
+                stock=stock,
+                journal=journal,
+                listed_product_ids={
+                    item.product_id
+                    for item in items
+                    if item.product_id is not None
+                    and item.status is ShoppingStatus.NEEDS_ACTION
+                },
+                zone_updates=updates,
+                now=now,
+                stale_days=self.option(CONF_STALE_ZONE_DAYS, DEFAULT_STALE_ZONE_DAYS),
+                expiring_days=self.option(CONF_EXPIRING_DAYS, DEFAULT_EXPIRING_DAYS),
+            )
+
+        analysis = compute(await self.shopping.async_items())
+        if await self.shopping.async_sync_auto(analysis.to_buy):
+            analysis = compute(await self.shopping.async_items())
+        await self.shopping.async_sync_external()
+        if self.shopping_until is not None and now >= self.shopping_until:
+            self.shopping_until = None
+        return QuartermasterData(
+            analysis=analysis,
+            products={product.id: product for product in products},
+            zones={zone.id: zone for zone in zones},
+            stock=stock,
+            shopping_items=await self.shopping.async_items(),
+            shopping_until=self.shopping_until,
+            zone_updates=updates,
+        )

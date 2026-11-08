@@ -7,6 +7,8 @@ transaction as the stock change.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator, Callable
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import date, timedelta
 from enum import StrEnum
@@ -77,6 +79,19 @@ class InventoryService:
         self.backend = backend
         # Serializes read-then-write sequences (resolution, undo).
         self._write_lock = asyncio.Lock()
+        self._listeners: list[Callable[[], None]] = []
+
+    def async_add_listener(self, listener: Callable[[], None]) -> Callable[[], None]:
+        """Call `listener` after every successful write; return the remover."""
+        self._listeners.append(listener)
+        return lambda: self._listeners.remove(listener)
+
+    @asynccontextmanager
+    async def _writing(self) -> AsyncIterator[None]:
+        async with self._write_lock:
+            yield
+        for listener in list(self._listeners):
+            listener()
 
     # Zones
 
@@ -92,7 +107,7 @@ class InventoryService:
         if not name:
             raise InventoryError("invalid_name")
         zone_id = zone_id or slugify(name)
-        async with self._write_lock:
+        async with self._writing():
             zones = await self.backend.async_list_zones()
             if any(
                 zone.id == zone_id or normalize(zone.name) == normalize(name)
@@ -105,7 +120,7 @@ class InventoryService:
 
     async def async_remove_zone(self, zone_ref: str) -> Zone:
         """Delete a zone that holds no stock and return it."""
-        async with self._write_lock:
+        async with self._writing():
             zone = await self.async_find_zone(zone_ref)
             stock = await self.backend.async_list_stock(zone_id=zone.id)
             if any(level.quantity > 0 for level in stock):
@@ -189,7 +204,7 @@ class InventoryService:
         if not name:
             raise InventoryError("invalid_name")
         _check_essential(name, essential, min_stock, target_stock)
-        async with self._write_lock:
+        async with self._writing():
             zone_id = (
                 (await self.async_find_zone(default_zone)).id if default_zone else None
             )
@@ -222,7 +237,7 @@ class InventoryService:
         target_stock: float | None = None,
     ) -> Product:
         """Mark a product as essential with its stock levels, or unmark it."""
-        async with self._write_lock:
+        async with self._writing():
             product = await self.async_find_product(product_ref)
             if essential:
                 min_stock = product.min_stock if min_stock is None else min_stock
@@ -260,7 +275,7 @@ class InventoryService:
         """Consume, buy or finish a product in one zone."""
         if quantity is not None:
             _check_quantity(quantity)
-        async with self._write_lock:
+        async with self._writing():
             product = await self.async_find_product(product_ref)
             zone = await self._movement_zone(product, operation, zone_ref)
             if operation is StockOperation.PURCHASE:
@@ -332,7 +347,7 @@ class InventoryService:
     ) -> Movement:
         """Set the counted quantity of a product in a zone."""
         _check_quantity(quantity)
-        async with self._write_lock:
+        async with self._writing():
             product = await self.async_find_product(product_ref)
             if zone_ref:
                 zone = await self.async_find_zone(zone_ref)
@@ -369,7 +384,7 @@ class InventoryService:
         undo movements.
         """
         since = dt_util.utcnow() - within if within is not None else None
-        async with self._write_lock:
+        async with self._writing():
             originals = await self.backend.async_last_undoable(
                 channel=channel if only_channel else None,
                 user_id=user_id if only_channel else None,
@@ -420,7 +435,7 @@ class InventoryService:
 
     async def async_restore(self, tables: dict[str, list[dict[str, Any]]]) -> None:
         """Replace the whole inventory."""
-        async with self._write_lock:
+        async with self._writing():
             await self.backend.async_restore(tables)
 
 

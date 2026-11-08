@@ -26,6 +26,57 @@
     },
     "remove_zone": {
       "service": "mdi:delete-outline"
+    },
+    "get_suggestions": {
+      "service": "mdi:lightbulb-on-outline"
+    },
+    "refresh_shopping_list": {
+      "service": "mdi:refresh"
+    },
+    "start_shopping": {
+      "service": "mdi:cart-arrow-right"
+    },
+    "add_to_shopping_list": {
+      "service": "mdi:cart-plus"
+    },
+    "import_from_todo": {
+      "service": "mdi:clipboard-arrow-down-outline"
+    }
+  },
+  "entity": {
+    "todo": {
+      "shopping_list": {
+        "default": "mdi:cart"
+      }
+    },
+    "sensor": {
+      "to_buy": {
+        "default": "mdi:cart-alert"
+      },
+      "suggestions": {
+        "default": "mdi:lightbulb-on-outline"
+      },
+      "expiring": {
+        "default": "mdi:calendar-alert"
+      }
+    },
+    "button": {
+      "start_shopping": {
+        "default": "mdi:cart-arrow-right"
+      },
+      "undo_last": {
+        "default": "mdi:undo"
+      }
+    },
+    "select": {
+      "update_mode": {
+        "default": "mdi:check-decagram-outline"
+      }
+    },
+    "calendar": {
+      "expiry": {
+        "default": "mdi:calendar-clock"
+      }
     }
   }
 }

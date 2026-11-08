@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from homeassistant.const import ATTR_CONFIG_ENTRY_ID
+from homeassistant.const import ATTR_CONFIG_ENTRY_ID, ATTR_ENTITY_ID
 from homeassistant.core import (
     HomeAssistant,
     ServiceCall,
@@ -15,6 +15,9 @@ from homeassistant.core import (
 )
 from homeassistant.helpers import config_validation as cv, service
 from homeassistant.util.json import JsonValueType
+
+if TYPE_CHECKING:
+    from . import QuartermasterRuntimeData
 import probatio
 
 from .const import DOMAIN, TRANSFER_DIR
@@ -25,6 +28,7 @@ from .core.inventory import (
     Movement,
     StockOperation,
 )
+from .core.shopping import ImportTarget
 from .core.transfer import (
     async_export_csv,
     async_export_json,
@@ -33,7 +37,7 @@ from .core.transfer import (
     export_filename,
     resolve_transfer_file,
 )
-from .storage.models import Channel, Product, Zone
+from .storage.models import Channel, Product, ShoppingOrigin, ShoppingStatus, Zone
 
 SERVICE_ADJUST_STOCK = "adjust_stock"
 SERVICE_ADD_ZONE = "add_zone"
@@ -44,6 +48,11 @@ SERVICE_ADD_PRODUCT = "add_product"
 SERVICE_SET_ESSENTIAL = "set_essential"
 SERVICE_EXPORT_DATA = "export_data"
 SERVICE_IMPORT_DATA = "import_data"
+SERVICE_GET_SUGGESTIONS = "get_suggestions"
+SERVICE_REFRESH_SHOPPING_LIST = "refresh_shopping_list"
+SERVICE_START_SHOPPING = "start_shopping"
+SERVICE_ADD_TO_SHOPPING_LIST = "add_to_shopping_list"
+SERVICE_IMPORT_FROM_TODO = "import_from_todo"
 
 ATTR_PRODUCT = "product"
 ATTR_OPERATION = "operation"
@@ -64,6 +73,10 @@ ATTR_SHELF_LIFE_DAYS = "shelf_life_days"
 ATTR_FORMAT = "format"
 ATTR_FILENAME = "filename"
 ATTR_ZONE_ID = "zone_id"
+ATTR_TEXT = "text"
+ATTR_FROM_SUGGESTION = "from_suggestion"
+ATTR_TARGET = "target"
+ATTR_APPLY = "apply"
 
 FORMAT_JSON = "json"
 FORMAT_CSV = "csv"
@@ -141,17 +154,43 @@ EXPORT_DATA_SCHEMA = probatio.Schema(
         ),
     }
 )
+ENTRY_ONLY_SCHEMA = probatio.Schema(ENTRY)
+ADD_TO_SHOPPING_LIST_SCHEMA = probatio.All(
+    probatio.Schema(
+        {
+            **ENTRY,
+            probatio.Exclusive(ATTR_PRODUCT, "item"): cv.string,
+            probatio.Exclusive(ATTR_TEXT, "item"): cv.string,
+            probatio.Optional(ATTR_QUANTITY): QUANTITY,
+            probatio.Optional(ATTR_FROM_SUGGESTION, default=False): cv.boolean,
+        }
+    ),
+    cv.has_at_least_one_key(ATTR_PRODUCT, ATTR_TEXT),
+)
+IMPORT_FROM_TODO_SCHEMA = probatio.Schema(
+    {
+        **ENTRY,
+        probatio.Required(ATTR_ENTITY_ID): cv.entity_domain("todo"),
+        probatio.Required(ATTR_TARGET): probatio.Coerce(ImportTarget),
+        probatio.Optional(ATTR_MIN_STOCK, default=1.0): QUANTITY,
+        probatio.Optional(ATTR_APPLY, default=False): cv.boolean,
+    }
+)
 IMPORT_DATA_SCHEMA = probatio.Schema(
     {**ENTRY, probatio.Required(ATTR_FILENAME): cv.string}
 )
 
 
-def _inventory(call: ServiceCall) -> InventoryService:
+def _runtime(call: ServiceCall) -> QuartermasterRuntimeData:
     entry = service.async_get_config_entry(
         call.hass, DOMAIN, call.data.get(ATTR_CONFIG_ENTRY_ID)
     )
-    inventory: InventoryService = entry.runtime_data.inventory
-    return inventory
+    runtime: QuartermasterRuntimeData = entry.runtime_data
+    return runtime
+
+
+def _inventory(call: ServiceCall) -> InventoryService:
+    return _runtime(call).inventory
 
 
 def _movement(movement: Movement) -> dict[str, Any]:
@@ -305,6 +344,112 @@ async def _async_import_data(call: ServiceCall) -> ServiceResponse:
     return {"imported": imported} if call.return_response else None
 
 
+def _shopping_response(runtime: QuartermasterRuntimeData) -> dict[str, Any]:
+    data = runtime.coordinator.data
+    return {
+        "to_buy": [
+            {
+                "product_id": entry.product.id,
+                "product": entry.product.name,
+                "have": entry.total,
+                "quantity": entry.quantity,
+                "unit": entry.product.unit,
+            }
+            for entry in data.analysis.to_buy
+        ],
+        "suggestions": [
+            {
+                "product_id": entry.product.id,
+                "product": entry.product.name,
+                "have": entry.total,
+                "unit": entry.product.unit,
+                "reason": entry.reason.value,
+                **entry.details,
+            }
+            for entry in data.analysis.suggestions
+        ],
+        "shopping_list": [
+            {
+                "item_id": item.id,
+                "text": item.text,
+                "product_id": item.product_id,
+                "quantity": item.quantity,
+                "origin": item.origin.value,
+            }
+            for item in data.shopping_items
+            if item.status is ShoppingStatus.NEEDS_ACTION
+        ],
+        "shopping_mode_until": data.shopping_until.isoformat()
+        if data.shopping_mode and data.shopping_until
+        else None,
+    }
+
+
+async def _async_get_suggestions(call: ServiceCall) -> ServiceResponse:
+    runtime = _runtime(call)
+    await runtime.coordinator.async_refresh()
+    return _shopping_response(runtime)
+
+
+async def _async_refresh_shopping_list(call: ServiceCall) -> ServiceResponse:
+    runtime = _runtime(call)
+    await runtime.coordinator.async_refresh()
+    return _shopping_response(runtime) if call.return_response else None
+
+
+async def _async_start_shopping(call: ServiceCall) -> ServiceResponse:
+    runtime = _runtime(call)
+    await runtime.coordinator.async_start_shopping()
+    return _shopping_response(runtime) if call.return_response else None
+
+
+async def _async_add_to_shopping_list(call: ServiceCall) -> ServiceResponse:
+    runtime = _runtime(call)
+    item = await runtime.shopping.async_add(
+        text=call.data.get(ATTR_TEXT),
+        product_ref=call.data.get(ATTR_PRODUCT),
+        quantity=call.data.get(ATTR_QUANTITY),
+        origin=ShoppingOrigin.SUGGESTION
+        if call.data[ATTR_FROM_SUGGESTION]
+        else ShoppingOrigin.MANUAL,
+    )
+    await runtime.coordinator.async_refresh()
+    if not call.return_response:
+        return None
+    return {
+        "item_id": item.id,
+        "text": item.text,
+        "product_id": item.product_id,
+        "quantity": item.quantity,
+        "origin": item.origin.value,
+    }
+
+
+async def _async_import_from_todo(call: ServiceCall) -> ServiceResponse:
+    runtime = _runtime(call)
+    steps = await runtime.shopping.async_import_from_todo(
+        call.data[ATTR_ENTITY_ID],
+        call.data[ATTR_TARGET],
+        min_stock=call.data[ATTR_MIN_STOCK],
+        apply=call.data[ATTR_APPLY],
+    )
+    if call.data[ATTR_APPLY]:
+        await runtime.coordinator.async_refresh()
+    if not call.return_response:
+        return None
+    return {
+        "applied": call.data[ATTR_APPLY],
+        "items": [
+            {
+                "summary": step.summary,
+                "action": step.action.value,
+                "product": step.product,
+            }
+            for step in steps
+        ],
+    }
+
+
 @callback
 def async_setup_services(hass: HomeAssistant) -> None:
     """Register the integration actions."""
@@ -316,6 +461,18 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_REMOVE_ZONE, _async_remove_zone, REMOVE_ZONE_SCHEMA),
         (SERVICE_ADD_PRODUCT, _async_add_product, ADD_PRODUCT_SCHEMA),
         (SERVICE_SET_ESSENTIAL, _async_set_essential, SET_ESSENTIAL_SCHEMA),
+        (
+            SERVICE_REFRESH_SHOPPING_LIST,
+            _async_refresh_shopping_list,
+            ENTRY_ONLY_SCHEMA,
+        ),
+        (SERVICE_START_SHOPPING, _async_start_shopping, ENTRY_ONLY_SCHEMA),
+        (
+            SERVICE_ADD_TO_SHOPPING_LIST,
+            _async_add_to_shopping_list,
+            ADD_TO_SHOPPING_LIST_SCHEMA,
+        ),
+        (SERVICE_IMPORT_FROM_TODO, _async_import_from_todo, IMPORT_FROM_TODO_SCHEMA),
     ):
         hass.services.async_register(
             DOMAIN,
@@ -324,6 +481,13 @@ def async_setup_services(hass: HomeAssistant) -> None:
             schema=schema,
             supports_response=SupportsResponse.OPTIONAL,
         )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_GET_SUGGESTIONS,
+        _async_get_suggestions,
+        schema=ENTRY_ONLY_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
     # Writing and replacing files in the config folder is for admins only.
     for name, handler, schema in (
         (SERVICE_EXPORT_DATA, _async_export_data, EXPORT_DATA_SCHEMA),

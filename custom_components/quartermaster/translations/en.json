@@ -70,6 +70,12 @@
     },
     "product_in_many_zones": {
       "message": "{product} is in more than one zone: {candidates}. Say which one."
+    },
+    "item_not_found": {
+      "message": "No shopping list item {item}."
+    },
+    "todo_unreadable": {
+      "message": "The items of {entity} cannot be read."
     }
   },
   "selector": {
@@ -84,6 +90,13 @@
       "options": {
         "json": "JSON (everything)",
         "csv": "CSV (products and stock)"
+      }
+    },
+    "import_target": {
+      "options": {
+        "products": "Products",
+        "essentials": "Essentials",
+        "shopping": "Shopping list"
       }
     }
   },
@@ -295,6 +308,149 @@
         "filename": {
           "name": "File name",
           "description": "Name of the file in the quartermaster/exports folder."
+        }
+      }
+    },
+    "get_suggestions": {
+      "name": "Get suggestions",
+      "description": "Returns the essentials to buy, the purchase suggestions with their reason and the open shopping list items.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
+        }
+      }
+    },
+    "refresh_shopping_list": {
+      "name": "Refresh shopping list",
+      "description": "Recomputes the essentials to buy and the suggestions and updates the shopping list.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
+        }
+      }
+    },
+    "start_shopping": {
+      "name": "Go shopping",
+      "description": "Refreshes the list and turns shopping mode on: checking an item off records the purchase.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
+        }
+      }
+    },
+    "add_to_shopping_list": {
+      "name": "Add to shopping list",
+      "description": "Adds a product or free text to the shopping list. A product already on the list is not added twice.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
+        },
+        "product": {
+          "name": "Product",
+          "description": "Product name, alias or ID. Use this or text."
+        },
+        "text": {
+          "name": "Text",
+          "description": "Free text for something that is not a product. Use this or product."
+        },
+        "quantity": {
+          "name": "Quantity",
+          "description": "Quantity to buy."
+        },
+        "from_suggestion": {
+          "name": "From a suggestion",
+          "description": "The item comes from an accepted suggestion."
+        }
+      }
+    },
+    "import_from_todo": {
+      "name": "Import from todo list",
+      "description": "Reads another todo list and turns its items into products, essentials or shopping list items. Without apply it only returns a preview.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
+        },
+        "entity_id": {
+          "name": "Todo list",
+          "description": "The list to read."
+        },
+        "target": {
+          "name": "Import as",
+          "description": "What the items become."
+        },
+        "min_stock": {
+          "name": "Minimum stock",
+          "description": "Minimum stock for new essentials."
+        },
+        "apply": {
+          "name": "Apply",
+          "description": "Carry out the import; otherwise only preview it."
+        }
+      }
+    }
+  },
+  "entity": {
+    "todo": {
+      "shopping_list": {
+        "name": "Shopping list"
+      }
+    },
+    "sensor": {
+      "to_buy": {
+        "name": "To buy"
+      },
+      "suggestions": {
+        "name": "Shopping suggestions"
+      },
+      "expiring": {
+        "name": "Expiring products"
+      }
+    },
+    "button": {
+      "start_shopping": {
+        "name": "Go shopping"
+      },
+      "undo_last": {
+        "name": "Undo last operation"
+      }
+    },
+    "select": {
+      "update_mode": {
+        "name": "Update mode",
+        "state": {
+          "confirm": "Confirm",
+          "automatic": "Automatic"
+        }
+      }
+    },
+    "calendar": {
+      "expiry": {
+        "name": "Best-before dates"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Quartermaster options",
+        "data": {
+          "external_todo": "Copy the shopping list to",
+          "record_purchase_on_check": "Record the purchase when an item is checked off",
+          "shopping_mode_minutes": "Shopping mode duration",
+          "stale_zone_days": "Suggest checking zones not updated for",
+          "expiring_days": "Expiring products threshold"
+        },
+        "data_description": {
+          "external_todo": "Optional todo list (Bring!, Todoist, local list) that receives a one-way copy of the open items. Items added there by hand are never touched.",
+          "record_purchase_on_check": "In shopping mode a checked item always records the purchase; this applies outside it.",
+          "shopping_mode_minutes": "How long shopping mode stays on after Go shopping.",
+          "stale_zone_days": "An essential kept in a zone not updated for more days than this is suggested.",
+          "expiring_days": "Products with a best-before date within this many days are listed as expiring."
         }
       }
     }

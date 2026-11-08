@@ -157,3 +157,55 @@ import_data:
       example: "quartermaster-20261108-120000.json"
       selector:
         text:
+
+get_suggestions:
+  fields:
+    config_entry_id: *config_entry
+
+refresh_shopping_list:
+  fields:
+    config_entry_id: *config_entry
+
+start_shopping:
+  fields:
+    config_entry_id: *config_entry
+
+add_to_shopping_list:
+  fields:
+    config_entry_id: *config_entry
+    product:
+      example: "Milk"
+      selector:
+        text:
+    text:
+      example: "Birthday candles"
+      selector:
+        text:
+    quantity: *quantity
+    from_suggestion:
+      default: false
+      selector:
+        boolean:
+
+import_from_todo:
+  fields:
+    config_entry_id: *config_entry
+    entity_id:
+      required: true
+      selector:
+        entity:
+          domain: todo
+    target:
+      required: true
+      selector:
+        select:
+          translation_key: import_target
+          options:
+            - products
+            - essentials
+            - shopping
+    min_stock: *quantity
+    apply:
+      default: false
+      selector:
+        boolean:

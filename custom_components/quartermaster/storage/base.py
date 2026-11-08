@@ -12,7 +12,15 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any
 
-from .models import Channel, JournalEntry, Product, StockChange, StockLevel, Zone
+from .models import (
+    Channel,
+    JournalEntry,
+    Product,
+    ShoppingItem,
+    StockChange,
+    StockLevel,
+    Zone,
+)
 
 
 class StorageBackend(ABC):
@@ -67,7 +75,11 @@ class StorageBackend(ABC):
 
     @abstractmethod
     async def async_list_journal(
-        self, *, limit: int, product_id: int | None = None
+        self,
+        *,
+        limit: int,
+        product_id: int | None = None,
+        since: datetime | None = None,
     ) -> list[JournalEntry]:
         """Return the newest journal entries first."""
 
@@ -85,6 +97,34 @@ class StorageBackend(ABC):
         movement of that operation that is not undone is returned, oldest
         first. An empty list means there is nothing to undo.
         """
+
+    @abstractmethod
+    async def async_list_shopping_items(self) -> list[ShoppingItem]:
+        """Return the shopping list in display order."""
+
+    @abstractmethod
+    async def async_add_shopping_item(self, item: ShoppingItem) -> ShoppingItem:
+        """Append an item at the end of the list and return it with its id."""
+
+    @abstractmethod
+    async def async_update_shopping_items(self, items: list[ShoppingItem]) -> None:
+        """Replace stored items."""
+
+    @abstractmethod
+    async def async_delete_shopping_items(self, item_ids: list[int]) -> None:
+        """Delete items."""
+
+    @abstractmethod
+    async def async_reorder_shopping_items(self, item_ids: list[int]) -> None:
+        """Store this display order (every item id, first to last)."""
+
+    @abstractmethod
+    async def async_get_setting(self, key: str) -> str | None:
+        """Return an internal setting."""
+
+    @abstractmethod
+    async def async_set_setting(self, key: str, value: str) -> None:
+        """Store an internal setting."""
 
     @abstractmethod
     async def async_dump(self) -> dict[str, list[dict[str, Any]]]:

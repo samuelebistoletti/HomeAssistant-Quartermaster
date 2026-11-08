@@ -22,6 +22,9 @@ from .models import (
     JournalEntry,
     MovementKind,
     Product,
+    ShoppingItem,
+    ShoppingOrigin,
+    ShoppingStatus,
     StockChange,
     StockLevel,
     Zone,
@@ -135,6 +138,35 @@ def _journal(row: sqlite3.Row) -> JournalEntry:
         confidence=row["confidence"],
         image_ref=row["image_ref"],
         undoes_id=row["undoes_id"],
+    )
+
+
+def _shopping_item(row: sqlite3.Row) -> ShoppingItem:
+    return ShoppingItem(
+        id=row["id"],
+        text=row["text"],
+        status=ShoppingStatus(row["status"]),
+        origin=ShoppingOrigin(row["origin"]),
+        product_id=row["product_id"],
+        quantity=row["quantity"],
+        note=row["note"],
+        position=row["position"],
+        completed_at=_datetime(row["completed_at"]),
+        external_uid=row["external_uid"],
+    )
+
+
+def _shopping_values(item: ShoppingItem) -> tuple[Any, ...]:
+    return (
+        item.product_id,
+        item.text,
+        item.quantity,
+        item.status.value,
+        item.origin.value,
+        item.external_uid,
+        item.position,
+        _iso(item.completed_at),
+        item.note,
     )
 
 
@@ -437,21 +469,31 @@ class SQLiteBackend(StorageBackend):
         return [_journal(row) for row in rows]
 
     async def async_list_journal(
-        self, *, limit: int, product_id: int | None = None
+        self,
+        *,
+        limit: int,
+        product_id: int | None = None,
+        since: datetime | None = None,
     ) -> list[JournalEntry]:
         """Return the newest journal entries first."""
-        return await self._run(self._list_journal, limit, product_id)
+        return await self._run(self._list_journal, limit, product_id, since)
 
-    def _list_journal(self, limit: int, product_id: int | None) -> list[JournalEntry]:
-        if product_id is None:
-            rows = self._db.execute(
-                "SELECT * FROM journal ORDER BY id DESC LIMIT ?", (limit,)
-            ).fetchall()
-        else:
-            rows = self._db.execute(
-                "SELECT * FROM journal WHERE product_id = ? ORDER BY id DESC LIMIT ?",
-                (product_id, limit),
-            ).fetchall()
+    def _list_journal(
+        self, limit: int, product_id: int | None, since: datetime | None
+    ) -> list[JournalEntry]:
+        clauses = ["1 = 1"]
+        params: list[Any] = []
+        if product_id is not None:
+            clauses.append("product_id = ?")
+            params.append(product_id)
+        if since is not None:
+            clauses.append("ts >= ?")
+            params.append(since.isoformat())
+        rows = self._db.execute(
+            f"SELECT * FROM journal WHERE {' AND '.join(clauses)} "  # noqa: S608  # nosec B608
+            "ORDER BY id DESC LIMIT ?",
+            (*params, limit),
+        ).fetchall()
         return [_journal(row) for row in rows]
 
     async def async_last_undoable(
@@ -498,6 +540,100 @@ class SQLiteBackend(StorageBackend):
             (row["operation_id"], MovementKind.UNDO.value),
         ).fetchall()
         return [_journal(row) for row in rows]
+
+    # Shopping list
+
+    async def async_list_shopping_items(self) -> list[ShoppingItem]:
+        """Return the shopping list in display order."""
+        return await self._run(self._list_shopping_items)
+
+    def _list_shopping_items(self) -> list[ShoppingItem]:
+        rows = self._db.execute(
+            "SELECT * FROM shopping_items ORDER BY position, id"
+        ).fetchall()
+        return [_shopping_item(row) for row in rows]
+
+    async def async_add_shopping_item(self, item: ShoppingItem) -> ShoppingItem:
+        """Append an item and return it with its id and position."""
+        return await self._run(self._add_shopping_item, item)
+
+    def _add_shopping_item(self, item: ShoppingItem) -> ShoppingItem:
+        with self._transaction() as conn:
+            item.position = conn.execute(
+                "SELECT coalesce(max(position), 0) + 1 FROM shopping_items"
+            ).fetchone()[0]
+            cursor = conn.execute(
+                """
+                INSERT INTO shopping_items (product_id, text, quantity, status,
+                    origin, external_uid, position, completed_at, note)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                _shopping_values(item),
+            )
+        assert cursor.lastrowid is not None
+        item.id = cursor.lastrowid
+        return item
+
+    async def async_update_shopping_items(self, items: list[ShoppingItem]) -> None:
+        """Replace stored items."""
+        await self._run(self._update_shopping_items, items)
+
+    def _update_shopping_items(self, items: list[ShoppingItem]) -> None:
+        with self._transaction() as conn:
+            conn.executemany(
+                """
+                UPDATE shopping_items SET product_id = ?, text = ?, quantity = ?,
+                    status = ?, origin = ?, external_uid = ?, position = ?,
+                    completed_at = ?, note = ?
+                WHERE id = ?
+                """,
+                [(*_shopping_values(item), item.id) for item in items],
+            )
+
+    async def async_delete_shopping_items(self, item_ids: list[int]) -> None:
+        """Delete items."""
+        await self._run(self._delete_shopping_items, item_ids)
+
+    def _delete_shopping_items(self, item_ids: list[int]) -> None:
+        with self._transaction() as conn:
+            conn.executemany(
+                "DELETE FROM shopping_items WHERE id = ?",
+                [(item_id,) for item_id in item_ids],
+            )
+
+    async def async_reorder_shopping_items(self, item_ids: list[int]) -> None:
+        """Store the display order."""
+        await self._run(self._reorder_shopping_items, item_ids)
+
+    def _reorder_shopping_items(self, item_ids: list[int]) -> None:
+        with self._transaction() as conn:
+            conn.executemany(
+                "UPDATE shopping_items SET position = ? WHERE id = ?",
+                [(position, item_id) for position, item_id in enumerate(item_ids, 1)],
+            )
+
+    # Settings
+
+    async def async_get_setting(self, key: str) -> str | None:
+        """Return an internal setting."""
+        return await self._run(self._get_setting, key)
+
+    def _get_setting(self, key: str) -> str | None:
+        row = self._db.execute(
+            "SELECT value FROM settings WHERE key = ?", (key,)
+        ).fetchone()
+        return row["value"] if row else None
+
+    async def async_set_setting(self, key: str, value: str) -> None:
+        """Store an internal setting."""
+        await self._run(self._set_setting, key, value)
+
+    def _set_setting(self, key: str, value: str) -> None:
+        with self._transaction() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+                (key, value),
+            )
 
     # Export and import
 

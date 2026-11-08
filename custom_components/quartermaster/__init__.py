@@ -13,12 +13,20 @@ from homeassistant.exceptions import ConfigEntryError
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DATABASE_FILE, DOMAIN
+from .const import CONF_EXTERNAL_TODO, DATABASE_FILE, DOMAIN
+from .coordinator import QuartermasterCoordinator
 from .core.inventory import InventoryService
+from .core.shopping import ShoppingService
 from .services import async_setup_services
 from .storage.sqlite import SchemaTooNewError, SQLiteBackend
 
-PLATFORMS: list[Platform] = []
+PLATFORMS: list[Platform] = [
+    Platform.BUTTON,
+    Platform.CALENDAR,
+    Platform.SELECT,
+    Platform.SENSOR,
+    Platform.TODO,
+]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -28,6 +36,8 @@ class QuartermasterRuntimeData:
     """Runtime objects shared by every platform of the config entry."""
 
     inventory: InventoryService
+    shopping: ShoppingService
+    coordinator: QuartermasterCoordinator
 
 
 type QuartermasterConfigEntry = ConfigEntry[QuartermasterRuntimeData]
@@ -58,8 +68,18 @@ async def async_setup_entry(
             translation_key="database_error",
             translation_placeholders={"error": str(err)},
         ) from err
-    entry.runtime_data = QuartermasterRuntimeData(inventory=InventoryService(backend))
     entry.async_on_unload(backend.async_close)
+    inventory = InventoryService(backend)
+    shopping = ShoppingService(hass, backend, inventory)
+    shopping.external_entity_id = entry.options.get(CONF_EXTERNAL_TODO)
+    coordinator = QuartermasterCoordinator(hass, entry, inventory, shopping)
+    await coordinator.async_config_entry_first_refresh()
+    entry.async_on_unload(
+        inventory.async_add_listener(coordinator.async_inventory_changed)
+    )
+    entry.runtime_data = QuartermasterRuntimeData(
+        inventory=inventory, shopping=shopping, coordinator=coordinator
+    )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
 

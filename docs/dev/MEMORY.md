@@ -12,7 +12,8 @@ Shared state between development sessions and machines. Keep it short and factua
 - Done: CI green on GitHub for both repos (no tags or releases).
 - Done: 0.e practical-checks kit (docs/phase0/CHECKLIST.md, examples/phase0/, scripts/phase0/); Alexa HA-side behaviour verified by simulation.
 - Done (2026-11-08): strategy shows in the New dashboard dialog and renders in it/en at phone and desktop width (dev, headless Chrome). WARP on the author's PC was the TLS inspection; disconnected, outbound HTTPS from the dev container works.
-- Done (2026-11-08): Phase 1 code — SQLite backend with migrations, inventory service, actions add_zone, remove_zone, adjust_stock, undo_last, set_stock, add_product, set_essential, export_data, import_data; 56 tests, 100 % coverage; checked on the dev instance. Author decisions applied (optional config_entry_id, zone actions, operation id). Waiting for the author's OK before Phase 2.
+- Done (2026-11-08): Phase 1 code — SQLite backend with migrations, inventory service, actions add_zone, remove_zone, adjust_stock, undo_last, set_stock, add_product, set_essential, export_data, import_data; 56 tests, 100 % coverage; checked on the dev instance. Author decisions applied (optional config_entry_id, zone actions, operation id). Author approved Phase 2 and asked to keep going through the phases autonomously (2026-11-08), asking only on important doubts.
+- Done (2026-11-08): Phase 2 — coordinator, todo shopping list, sensors, calendar, buttons, select, options flow, Phase 2 actions; 78 tests, 99 % coverage; checked on the dev instance. Next: Phase 3 (LLM tools and quartermaster.ask).
 - Next: run the practical checks with the author (Telegram, Alexa and iOS through a quick tunnel on the second machine; camera on the real instance; Marketplace and Cloudflare on a network without TLS inspection).
 
 ## Decisions from the author (2026-11-07)
@@ -30,10 +31,13 @@ Shared state between development sessions and machines. Keep it short and factua
 - Cloudflare AI Gateway community integration: wait for the upstream fix (open PRs michaeldwan/ha-cloudflare-ai-gateway#4 and #5 add voluptuous-openapi as a requirement; whether it handles probatio schemas must be re-checked after the merge). Cloudflare checks wait for it.
 - Alexa multilingual: one multi-locale skill, one query intent per locale passing `language`, launch reply in the HA language (Amazon best practice; HA drops the locale).
 - Action `config_entry_id` is optional (single entry used when omitted), a documented deviation from `action-setup` (2026-11-08).
+- Phase 2 (2026-11-08): a deleted automatic shopping item comes back while the essential is below minimum; new action add_to_shopping_list; recording the purchase when checking an item outside shopping mode is off by default.
 - Release tags use the `v` prefix (`v1.0.0`), as in OctopusEnergyIT.
 - Work may continue from two different machines: keep this file and `TECHNICAL_NOTES.md` up to date and pushed.
 
 ## Open questions for the author
+
+- Phase 5: corroborating camera for camera_show (author request 2026-11-08, plan in TECHNICAL_NOTES "Planned extensions"); ask about privacy default, time window, thresholds before coding.
 
 
 - Marketplace check needs the author's GitHub device sign-in on the dev instance; and if the Marketplace requires a release, whether a test pre-release is allowed.

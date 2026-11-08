@@ -120,6 +120,9 @@ async def test_json_import_refuses_broken_references(
             "status": "needs_action",
             "origin": "manual",
             "external_uid": None,
+            "position": 1,
+            "completed_at": None,
+            "note": None,
         }
     ]
     with pytest.raises(InventoryError) as err:

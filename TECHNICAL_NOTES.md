@@ -191,3 +191,51 @@ CSV import (2 zones, 2 products), consumption by alias, finish, undo, unknown-pr
 1. ~~Required `config_entry_id`~~: made optional (author, 2026-11-08), see the table.
 2. ~~Zone actions~~: added (author, 2026-11-08).
 3. ~~Operation id~~: added in schema v2 (author, 2026-11-08).
+
+## Phase 2 — entities, shopping list and suggestions (2026-11-08)
+
+### Decisions
+
+| Topic | Decision | Source or reason |
+| --- | --- | --- |
+| Recalculation | A `DataUpdateCoordinator` recomputes to-buy, suggestions and expiring stock after every inventory write (debounced, 1 s cooldown) and every hour; the hour keeps time-based reasons current. **Deviation:** the spec asks for list and suggestions to update "in the same transaction" as the movement; here they follow within about a second, in a separate step, because the list is derived data and can always be rebuilt | Spec §4, §6.8; contributors.home-assistant.io (coordinator) |
+| Automatic items | One per essential below minimum, quantity kept current, removed when no longer needed. Deleted by hand, it comes back while still below minimum | Spec §6.8; author decision 2026-11-08 |
+| Manual items | Never removed automatically; text matched to a product by name or unique alias, so checking it can record the purchase | Spec §6.8 |
+| Checking off | Records the purchase (quantity of the item, default 1, channel `dashboard`) in shopping mode; outside it only with the option, **off by default**. Without a zone to buy into, the item is checked and no purchase is recorded | Spec §6.8; author decision 2026-11-08 |
+| `add_to_shopping_list` | New action (not in spec §6.7): product or free text, quantity, `from_suggestion`. A product already open on the list is not added twice; its quantity is updated | Author decision 2026-11-08 |
+| Stale zones | Until zone checks exist (Phase 5), a zone's last update is its newest stock change | Spec §6.8 |
+| Expiry | Expiring sensor uses the option threshold (default 3 days, expired stock included); the calendar shows one all-day event per product and zone with stock | Spec §6.6; contributors.home-assistant.io (calendar) |
+| External copy | One-way, through the documented `todo.get_items`, `add_item`, `update_item`, `remove_item` actions; uid of a new external item found by summary among uids not seen before; items deleted on the external side are not re-added; failures only log a warning | Spec §6.8 |
+| Import from todo | Action `import_from_todo` with targets products, essentials, shopping list; without `apply` it returns the preview only | Spec §4, §6.8 |
+| Options | Options flow (`OptionsFlowWithReload`): external todo, record purchase on check, shopping mode minutes (120), stale zone days (7), expiring days (3) | contributors.home-assistant.io (options flow) |
+| Update mode | `select` stored in the database `settings` table; used from Phase 4 | Spec §6.6 |
+| Entities | One service device per entry; `has_entity_name` with translation keys | Quality scale (has-entity-name, entity-unique-id) |
+| Deferred entities | Last check and zone error per zone, zone check buttons, show mode switches, photo requests, pending proposals, analyses of the day: they need Phases 4 and 5 | Spec §6.6 |
+| Notification on "Go shopping" | Phase 8 (notifications); today the button and action refresh and turn shopping mode on, and the action returns the list and suggestions | Spec §6.5 |
+| Schema v3 | `shopping_items.position`, `completed_at`, `note`; JSON export format 3 | — |
+
+### Acceptance criteria
+
+- An essential below minimum is listed once: tested (also after a manual delete and quantity changes).
+- An essential between minimum and target is only suggested: tested.
+- A stale zone gives the suggestion with the right reason: tested (with the stock-based zone update, see above).
+- An accepted suggestion enters the list: tested (`add_to_shopping_list` with `from_suggestion`).
+- Manual items stay intact: tested.
+- Import from a test todo list with preview: tested with Home Assistant's own shopping list.
+- Dev instance: entities created with Italian names; an essential below minimum appears on the list and in "Da comprare".
+
+## Planned extensions (author requests)
+
+### Corroborating camera for camera_show (requested 2026-11-08, Phase 5)
+
+A zone's `camera_show` detection can be uncertain. Another camera on the way into or out of the house (for example a yard or entrance that every trip passes through) can confirm or reject it:
+
+- a `camera_show` source may list one or more corroborating cameras, each with its own motion trigger and region of interest;
+- after a detection in the zone, frames from the corroborating cameras within a time window are analyzed for the same product;
+- agreement raises the confidence (automatic mode can apply it); disagreement or no sighting keeps it as a proposal to confirm;
+- the same camera may also hint at purchases (someone carrying shopping in), always as a proposal, never as an automatic write.
+
+To decide with the author before coding, because the spec has no rule for them:
+- privacy: these frames show people, so only the crop goes to the provider and nothing is stored. Is the source off by default, as `camera_show` is?
+- time window and thresholds;
+- whether to count battery-camera limits per source.
