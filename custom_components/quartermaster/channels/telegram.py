@@ -61,6 +61,7 @@ CB_REJECT = "/qm_no"
 CB_ZONE = "/qm_zone"
 CB_UNDO = "/qm_undo"
 CB_ADD = "/qm_add"
+CB_UNDO_CAMERA = "/qm_undo_camera"
 
 
 @dataclass(slots=True)
@@ -254,7 +255,7 @@ class TelegramChannel:
             )
             await self.async_send(chat_id, "\n".join([text, *items]))
         elif name in ("shopping", "spesa"):
-            await runtime.coordinator.async_start_shopping()
+            await runtime.coordinator.async_start_shopping(notify=False)
             await self.async_send_suggestions(chat_id)
         elif name in ("undo", "annulla"):
             await self._async_undo(chat_id, None)
@@ -388,6 +389,9 @@ class TelegramChannel:
         elif command == CB_UNDO:
             await self._async_undo(chat_id, query_id)
             return
+        elif command == CB_UNDO_CAMERA:
+            await self._async_undo(chat_id, query_id, Channel.CAMERA)
+            return
         elif command == CB_ADD and args:
             await runtime.shopping.async_add(
                 product_ref=int(args[0]),
@@ -397,10 +401,12 @@ class TelegramChannel:
         await runtime.coordinator.async_refresh()
         await self._async_answer(query_id, answer)
 
-    async def _async_undo(self, chat_id: int, query_id: Any) -> None:
+    async def _async_undo(
+        self, chat_id: int, query_id: Any, channel: Channel = Channel.TELEGRAM
+    ) -> None:
         try:
             await self._runtime.inventory.async_undo_last(
-                channel=Channel.TELEGRAM,
+                channel=channel,
                 within=timedelta(minutes=10),
                 only_channel=True,
             )

@@ -19,7 +19,31 @@
     "telegram_error": "I couldn't do that: {error}",
     "button_confirm": "Confirm",
     "button_reject": "Reject",
-    "button_undo": "Undo"
+    "button_undo": "Undo",
+    "notify_photo_request": "Please send a photo of {zone}: {reason}.",
+    "notify_photo_reminder": "Reminder: a photo of {zone} is still needed ({reason}).",
+    "notify_show_taken": "Recorded {quantity} {product} less in {zone}.",
+    "notify_show_returned": "Recorded {quantity} {product} put back in {zone}.",
+    "notify_check_result": "{zone} checked: {applied} changes applied, proposal waiting: {proposed}.",
+    "notify_essential": "{product} is running out: I put it on the shopping list.",
+    "notify_expiring": "Expiring soon:",
+    "notify_weekly": "This week: {consumed} consumptions, {bought} purchases. To buy: {to_buy}, suggestions: {suggestions}.",
+    "reason_below_target": "you have {have}, you usually keep {target}",
+    "reason_stale_zone": "{zone} was not updated for {days} days",
+    "reason_finished_recently": "you finished it on {date}",
+    "reason_low_confidence": "the camera image was not clear enough",
+    "reason_camera_unavailable": "the camera is not available",
+    "reason_daily_limit": "the camera's daily limit is reached",
+    "reason_reminder": "it was not updated for a while",
+    "reason_check": "a check was asked",
+    "reason_too_dark": "the camera image is too dark",
+    "reason_blurred": "the camera image is blurred",
+    "reason_too_small": "the camera image is too small",
+    "reason_unreadable": "the camera image cannot be read",
+    "reason_analysis_failed": "the analysis failed",
+    "reason_ai_task_missing": "no AI Task entity is set",
+    "reason_media_dir_missing": "there is no media folder",
+    "date_format": "{month}/{day}"
   },
   "config": {
     "step": {
@@ -719,7 +743,17 @@
           "telegram_event_entity": "Telegram bot event entity",
           "telegram_bot_entry": "Telegram bot",
           "telegram_chats": "Allowed Telegram chats",
-          "telegram_groups": "Answer in Telegram groups"
+          "telegram_groups": "Answer in Telegram groups",
+          "notify_photo_request": "Photo requests",
+          "notify_check_result": "Zone check results",
+          "notify_expiring": "Expiring products",
+          "notify_camera": "Products recognized by cameras",
+          "notify_essential_finished": "Essentials running out",
+          "notify_shopping": "Shopping list and suggestions",
+          "notify_weekly": "Weekly summary",
+          "notify_voice_reply": "Late voice replies",
+          "quiet_hours": "Quiet hours",
+          "telegram_notify": "Also notify Telegram chats, with buttons"
         },
         "data_description": {
           "agent_id": "Agent used by quartermaster.ask (Alexa, Telegram, dashboard). Attach the Assist API to it so it can use the Quartermaster tools.",
@@ -738,7 +772,10 @@
           "telegram_event_entity": "The update event entity of your Telegram bot (Polling or Webhooks). Leave empty to turn the Telegram channel off.",
           "telegram_bot_entry": "The bot used for replies; taken from the events when empty.",
           "telegram_chats": "Chat IDs Quartermaster answers, in addition to the bot's own allowlist. Group IDs are negative.",
-          "telegram_groups": "Group messages are ignored unless this is on."
+          "telegram_groups": "Group messages are ignored unless this is on.",
+          "notify_photo_request": "Notify entities in order: the first available one is used.",
+          "quiet_hours": "For example 22:00-07:00; messages wait until the end.",
+          "telegram_notify": "Sends every notification to the allowed private Telegram chats, with buttons. Do not also select the Telegram notify entities."
         }
       }
     }

@@ -19,3 +19,5 @@
 - Passage cameras: products carried in or out are proposed, and corroborate zone camera sightings without double counting.
 - Confirming only some items of a proposal keeps the others pending; an accepted below-target suggestion buys up to the target; the dashboard snapshot includes zone checks, errors, show mode and photo requests.
 - Telegram channel through the Telegram bot integration: texts to the agent per chat, photos to the vision pipeline with zone from the caption or buttons, proposal and suggestion buttons, undo, commands, allowed chats, group option and rate limit.
+- Notifications per message type with fallback entities, quiet hours and optional Telegram copies with buttons: photo requests, zone checks, expiring products (daily), camera recognitions with Undo, essentials running out, shopping list and suggestions, weekly summary, late voice replies.
+- Alexa guide (`docs/alexa.md`) and examples: multilingual interaction models and `intent_script` for `quartermaster.ask`.

@@ -334,6 +334,20 @@ Implemented from the documentation before the Phase 0 practical check, as decide
 
 Criteria: a chat that is not allowed is ignored (tested); a photo captioned "frigo" gives a proposal with working buttons (tested with a simulated bot). Real bot check pending (Phase 0).
 
+## Phase 8 — notifications and Alexa (2026-11-08)
+
+| Topic | Decision | Source or reason |
+| --- | --- | --- |
+| Routing | Option per message type (photo requests, check results, expiring, camera, essentials running out, shopping, weekly, late voice replies) with notify entities in order: the first available one gets the message (fallback); sent with the documented `notify.send_message` | Spec §6.9 |
+| Quiet hours | Option "HH:MM-HH:MM"; messages wait in memory and go out when it ends (lost on restart) | Spec §6.9 |
+| Buttons | Only on Telegram: option `telegram_notify` copies every message to the allowed private chats with buttons (Undo for camera, confirm/reject for checks, add for suggestions) | Author decision (Phase 0) |
+| Timings | Expiring products daily at 9:00, weekly summary on Monday at 9:00; essentials announced when they newly go below minimum; list and suggestions on Go shopping | Spec §6.5, §6.9 |
+| Texts | From `common` translations (reasons, dates as day/month or month/day per language) | Author decision on async_get_translations |
+| Alexa | `docs/alexa.md` and `examples/alexa/` (interaction models from Phase 0, per-locale intents passing `language`, launch reply in the home language, help/stop/cancel/session end); late replies through the "late voice replies" notify entities | Phase 0 findings and author decisions |
+| `notify.py` | Holds the router; Quartermaster provides no notify entities | Spec §3.2 module name |
+
+Criteria (spec Phase 8): Alexa dialogs with a real skill and a real agent are **to be tried on the author's instance**; the tool and session behaviour behind them is tested (Phase 3).
+
 ## Planned extensions (author requests)
 
 ### Cameras as observation points (requested 2026-11-08, Phase 5; author answers the same day)

@@ -19,7 +19,31 @@
     "telegram_error": "Non ci sono riuscito: {error}",
     "button_confirm": "Conferma",
     "button_reject": "Rifiuta",
-    "button_undo": "Annulla"
+    "button_undo": "Annulla",
+    "notify_photo_request": "Mandami una foto di {zone}: {reason}.",
+    "notify_photo_reminder": "Promemoria: serve ancora una foto di {zone} ({reason}).",
+    "notify_show_taken": "Ho segnato {quantity} {product} in meno in {zone}.",
+    "notify_show_returned": "Ho segnato {quantity} {product} rimesso in {zone}.",
+    "notify_check_result": "Controllo di {zone} fatto: {applied} variazioni applicate, proposta in attesa: {proposed}.",
+    "notify_essential": "{product} sta finendo: l'ho messo in lista.",
+    "notify_expiring": "In scadenza:",
+    "notify_weekly": "Questa settimana: {consumed} consumi, {bought} acquisti. Da comprare: {to_buy}, suggerimenti: {suggestions}.",
+    "reason_below_target": "ne hai {have}, di solito ne tieni {target}",
+    "reason_stale_zone": "{zone} non è aggiornato da {days} giorni",
+    "reason_finished_recently": "l'hai finito il {date}",
+    "reason_low_confidence": "l'immagine della telecamera non era abbastanza chiara",
+    "reason_camera_unavailable": "la telecamera non è disponibile",
+    "reason_daily_limit": "la telecamera ha raggiunto il limite del giorno",
+    "reason_reminder": "non è aggiornata da un po'",
+    "reason_check": "è stato chiesto un controllo",
+    "reason_too_dark": "l'immagine della telecamera è troppo scura",
+    "reason_blurred": "l'immagine della telecamera è sfocata",
+    "reason_too_small": "l'immagine della telecamera è troppo piccola",
+    "reason_unreadable": "l'immagine della telecamera non si legge",
+    "reason_analysis_failed": "l'analisi non è riuscita",
+    "reason_ai_task_missing": "manca l'entità AI Task",
+    "reason_media_dir_missing": "manca la cartella media",
+    "date_format": "{day}/{month}"
   },
   "config": {
     "step": {
@@ -719,7 +743,17 @@
           "telegram_event_entity": "Entità evento del bot Telegram",
           "telegram_bot_entry": "Bot Telegram",
           "telegram_chats": "Chat Telegram consentite",
-          "telegram_groups": "Rispondi nei gruppi Telegram"
+          "telegram_groups": "Rispondi nei gruppi Telegram",
+          "notify_photo_request": "Richieste di foto",
+          "notify_check_result": "Esito dei controlli",
+          "notify_expiring": "Prodotti in scadenza",
+          "notify_camera": "Prodotti riconosciuti dalle telecamere",
+          "notify_essential_finished": "Essenziali in esaurimento",
+          "notify_shopping": "Lista e suggerimenti della spesa",
+          "notify_weekly": "Riepilogo settimanale",
+          "notify_voice_reply": "Risposte vocali in ritardo",
+          "quiet_hours": "Silenzio notturno",
+          "telegram_notify": "Notifica anche le chat Telegram, con pulsanti"
         },
         "data_description": {
           "agent_id": "Agente usato da quartermaster.ask (Alexa, Telegram, dashboard). Collegagli l'API Assist perché possa usare gli strumenti di Quartermaster.",
@@ -738,7 +772,10 @@
           "telegram_event_entity": "L'entità evento degli aggiornamenti del tuo bot Telegram (Polling o Webhooks). Vuota per disattivare il canale Telegram.",
           "telegram_bot_entry": "Il bot usato per rispondere; se vuoto si ricava dagli eventi.",
           "telegram_chats": "ID delle chat a cui Quartermaster risponde, oltre all'elenco del bot. Gli ID dei gruppi sono negativi.",
-          "telegram_groups": "I messaggi di gruppo vengono ignorati se questa opzione è spenta."
+          "telegram_groups": "I messaggi di gruppo vengono ignorati se questa opzione è spenta.",
+          "notify_photo_request": "Entità notify in ordine: si usa la prima disponibile.",
+          "quiet_hours": "Per esempio 22:00-07:00; i messaggi aspettano la fine.",
+          "telegram_notify": "Manda ogni notifica alle chat private Telegram consentite, con pulsanti. Non selezionare anche le entità notify di Telegram."
         }
       }
     }

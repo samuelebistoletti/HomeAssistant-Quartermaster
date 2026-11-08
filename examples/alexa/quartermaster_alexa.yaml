@@ -1,0 +1,80 @@
+# Alexa custom skill for Quartermaster (package for configuration.yaml).
+#
+# 1. Set up the skill as in https://www.home-assistant.io/integrations/alexa.intent/
+#    (forwarding Lambda, account linking) and import the interaction models of
+#    this folder for each locale.
+# 2. Replace REPLACE_WITH_SKILL_ID (amzn1.ask.skill.<...>) below.
+# 3. Put this file in your packages folder, or merge it into configuration.yaml,
+#    and restart Home Assistant.
+#
+# Home Assistant does not pass the request locale to intent_script, so each
+# locale has its own query intent that tells quartermaster.ask the language.
+# The launch reply ("Alexa, <invocation name>") cannot know the locale: it uses
+# the main language of your home; change the two texts if needed.
+alexa:
+
+intent_script:
+  # "Alexa, dispensa" / "Alexa, open pantry": opens the skill and listens.
+  REPLACE_WITH_SKILL_ID:
+    speech:
+      text: "Dimmi"
+    reprompt:
+      text: "Cosa devo fare?"
+
+  # Session end: nothing to say; kept so Home Assistant does not log an
+  # unknown intent.
+  REPLACE_WITH_SKILL_ID.SessionEndedRequest:
+    speech:
+      text: ""
+
+  QuartermasterQueryIT:
+    action:
+      - action: quartermaster.ask
+        data:
+          text: "{{ query | default('') }}"
+          channel: alexa
+          language: it
+        response_variable: qm
+      - stop: ""
+        response_variable: qm
+    speech:
+      text: "{{ action_response.speech }}"
+    # A reprompt only when the agent asks something keeps the microphone open
+    # for the answer; an empty one ends the session (verified in Phase 0).
+    reprompt:
+      text: >-
+        {{ action_response.reprompt
+           if action_response.continue_conversation else '' }}
+
+  QuartermasterQueryEN:
+    action:
+      - action: quartermaster.ask
+        data:
+          text: "{{ query | default('') }}"
+          channel: alexa
+          language: en
+        response_variable: qm
+      - stop: ""
+        response_variable: qm
+    speech:
+      text: "{{ action_response.speech }}"
+    reprompt:
+      text: >-
+        {{ action_response.reprompt
+           if action_response.continue_conversation else '' }}
+
+  AMAZON.StopIntent:
+    speech:
+      text: "Va bene"
+
+  AMAZON.CancelIntent:
+    speech:
+      text: "Va bene"
+
+  AMAZON.HelpIntent:
+    speech:
+      text: >-
+        Puoi dirmi cosa hai finito o comprato, chiedermi cosa manca o cosa
+        comprare. Per esempio: ho finito il latte.
+    reprompt:
+      text: "Cosa devo fare?"

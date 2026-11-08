@@ -50,6 +50,7 @@ from custom_components.quartermaster.storage.models import (
 if TYPE_CHECKING:
     from custom_components.quartermaster import QuartermasterConfigEntry
     from custom_components.quartermaster.core.zones import ZoneManager
+    from custom_components.quartermaster.notify import NotificationRouter
     from custom_components.quartermaster.vision.analyze import VisionService
     from custom_components.quartermaster.vision.show import ShowManager
 
@@ -118,6 +119,7 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
         self.vision: VisionService | None = None
         self.zones: ZoneManager | None = None
         self.show: ShowManager | None = None
+        self.notifier: NotificationRouter | None = None
         self._watch_signature: str | None = None
         self._zone_names: dict[str, str] | None = None
 
@@ -141,11 +143,13 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
         """Return an integer option."""
         return int(self.config_entry.options.get(key, default))
 
-    async def async_start_shopping(self) -> None:
-        """Turn shopping mode on for the configured time and recompute."""
+    async def async_start_shopping(self, *, notify: bool = True) -> None:
+        """Turn shopping mode on, recompute and send list and suggestions."""
         minutes = self.option(CONF_SHOPPING_MODE_MINUTES, DEFAULT_SHOPPING_MODE_MINUTES)
         self.shopping_until = dt_util.utcnow() + timedelta(minutes=minutes)
         await self.async_refresh()
+        if notify and self.notifier is not None:
+            await self.notifier.async_send_shopping()
 
     async def _async_update_data(self) -> QuartermasterData:
         """Recompute everything from the store and sync the list."""

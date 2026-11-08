@@ -39,6 +39,7 @@ from .core.inventory import InventoryService
 from .core.shopping import ShoppingService
 from .core.voice import VoiceSessions
 from .core.zones import ZoneManager
+from .notify import NotificationRouter
 from .services import async_setup_services
 from .storage.sqlite import SchemaTooNewError, SQLiteBackend
 from .vision.analyze import VisionService
@@ -72,6 +73,7 @@ class QuartermasterRuntimeData:
     zones: ZoneManager = field(init=False)
     show: ShowManager = field(init=False)
     telegram: TelegramChannel | None = None
+    notifier: NotificationRouter = field(init=False)
 
 
 type QuartermasterConfigEntry = ConfigEntry[QuartermasterRuntimeData]
@@ -164,6 +166,11 @@ async def async_setup_entry(
         entry.runtime_data.telegram = telegram
         telegram.async_start()
         entry.async_on_unload(telegram.async_stop)
+    notifier = NotificationRouter(hass, entry.runtime_data)
+    entry.runtime_data.notifier = notifier
+    coordinator.notifier = notifier
+    notifier.async_start()
+    entry.async_on_unload(notifier.async_stop)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
 

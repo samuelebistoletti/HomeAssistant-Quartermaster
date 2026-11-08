@@ -48,6 +48,7 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 EVENT_PHOTO_REQUEST = f"{DOMAIN}_photo_request"
+EVENT_ZONE_CHECKED = f"{DOMAIN}_zone_checked"
 REQUEST_REMINDER_AFTER = timedelta(hours=12)
 REQUEST_LIFETIME = timedelta(hours=24)
 ZONE_ERROR_FAILURES = 3
@@ -238,6 +239,7 @@ class ZoneManager:
         await self._backend.async_set_setting(
             f"failures:{outcome.zone_id}", str(failures)
         )
+        self._hass.bus.async_fire(EVENT_ZONE_CHECKED, outcome.as_dict())
 
     async def _async_source_quota(self, zone_id: str, index: int, limit: int) -> bool:
         """Count a camera read against the source's daily limit."""

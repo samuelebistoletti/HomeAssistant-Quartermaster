@@ -44,6 +44,7 @@ from .const import (
     DEFAULT_STRUCTURE_MODE,
     DOMAIN,
 )
+from .notify import CONF_QUIET_HOURS, CONF_TELEGRAM_NOTIFY, MessageType, option_key
 
 
 def _days(maximum: int) -> selector.NumberSelector:
@@ -113,6 +114,16 @@ OPTIONS_SCHEMA = probatio.Schema(
         ),
         probatio.Required(
             CONF_TELEGRAM_GROUPS, default=False
+        ): selector.BooleanSelector(),
+        **{
+            probatio.Optional(option_key(kind)): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="notify", multiple=True)
+            )
+            for kind in MessageType
+        },
+        probatio.Optional(CONF_QUIET_HOURS): selector.TextSelector(),
+        probatio.Required(
+            CONF_TELEGRAM_NOTIFY, default=False
         ): selector.BooleanSelector(),
         probatio.Optional(CONF_EXTERNAL_TODO): selector.EntitySelector(
             selector.EntitySelectorConfig(domain="todo")
