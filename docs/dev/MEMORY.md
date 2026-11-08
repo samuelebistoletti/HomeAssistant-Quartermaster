@@ -40,7 +40,7 @@ Shared state between development sessions and machines. Keep it short and factua
 - Minimum HA 2026.11.0 (Python >= 3.14.2); no legacy-HACS install section.
 - Action buttons only on Telegram and in the dashboard; other notify entities get plain text.
 - Everything user-facing is multilingual, Alexa included (models and intent_script per language).
-- Cloudflare AI Gateway community integration: wait for the upstream fix (open PRs michaeldwan/ha-cloudflare-ai-gateway#4 and #5 add voluptuous-openapi as a requirement; whether it handles probatio schemas must be re-checked after the merge). Cloudflare checks wait for it.
+- Cloudflare AI Gateway community integration: patched copy of upstream main installed on the dev instance only (see TECHNICAL_NOTES); the author enters account ID, gateway and token in the dev UI. Before: wait for the upstream fix (open PRs michaeldwan/ha-cloudflare-ai-gateway#4 and #5 add voluptuous-openapi as a requirement; whether it handles probatio schemas must be re-checked after the merge). Cloudflare checks wait for it.
 - Alexa multilingual: one multi-locale skill, one query intent per locale passing `language`, launch reply in the HA language (Amazon best practice; HA drops the locale).
 - Cameras as observation points (2026-11-08): off by default; zone cameras + passage cameras; positive-only corroboration; passage cameras only propose; no double counting; window default 5 min (TECHNICAL_NOTES "Planned extensions").
 - Python-side translated phrases via async_get_translations (documented deviation, 2026-11-08).
