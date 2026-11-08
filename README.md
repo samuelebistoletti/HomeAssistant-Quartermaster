@@ -4,36 +4,96 @@
 
 # Quartermaster
 
-An AI agent for Home Assistant that keeps track of your pantry, fridge, freezer and shelves, and fills in the shopping list for you. You talk to it through Assist, Alexa, Telegram, the Home Assistant app and automations; it reads photos and camera snapshots through the AI provider you already use in Home Assistant.
+An AI agent for Home Assistant that keeps track of your pantry, fridge, freezer and shelves, and fills in the shopping list for you. You talk to it through Assist, Alexa, Telegram, the Home Assistant app and automations; it reads photos and camera frames through the AI provider you already use in Home Assistant.
 
 > [!WARNING]
-> Quartermaster is under development and not usable yet. There is no release; the first one will be 1.0.0. The design is in [docs/SPEC.md](docs/SPEC.md).
+> Quartermaster is under development. There is no release yet; the first one will be 1.0.0. The design is in [docs/SPEC.md](docs/SPEC.md).
+
+## What it does
+
+- **Inventory by zone.** Products, quantities per zone, best-before dates and a journal of every change, each one undoable.
+- **Essentials and shopping list.** Products that must always be at home go on the shopping list by themselves when they run low. While shopping you get suggestions with a reason ("you have 1, you usually keep 4"). Checking an item off can record the purchase.
+- **Talk to it.** "I finished the milk", "do I still have coffee?", "what should I buy?". Through Assist, Alexa, Telegram or the dashboard. With two cheeses in the fridge it asks which one.
+- **Photos and cameras.** Send a photo of the fridge or let a camera check a shelf: Quartermaster proposes the changes and you confirm them, or applies them in automatic mode above a confidence threshold. With **show mode**, a product shown to a zone's camera is recorded as taken. A camera at the entrance can confirm what the zone camera saw.
+- **Notifications.** Photo requests, expiring products, essentials running out, the list when you go shopping. Sent to the notify entities you choose, with quiet hours, and to Telegram with buttons.
+
+Everything is in English and Italian, voice included.
 
 ## Requirements
 
 - Home Assistant 2026.11.0 or later.
-- An AI Task entity and a conversation agent from any provider configured in Home Assistant (cloud or local).
+- A **conversation agent** with an LLM for Telegram, Alexa and `quartermaster.ask`, from any provider in Home Assistant. Since 2026.11 an administrator must attach the **Assist** API to it, so it can use the Quartermaster tools.
+- An **AI Task** entity with a vision model for photos and cameras.
+- Optional: the Telegram bot integration (Polling or Webhooks), cameras with a motion event or binary sensor, an Alexa custom skill ([guide](docs/alexa.md)).
 
 ## Installation
 
-Once 1.0.0 is released, Quartermaster will be installable from the Marketplace (**Settings** → **Marketplace**). Until it is in the default catalog, add this repository as a custom repository there.
+Once 1.0.0 is released, Quartermaster can be installed from the Marketplace (**Settings** → **Marketplace**). Until it is in the default catalog, add this repository there as a custom repository of type **Integration**.
 
-The dashboard strategy and cards live in a separate repository, [HomeAssistant-Quartermaster-Dashboard](https://github.com/samuelebistoletti/HomeAssistant-Quartermaster-Dashboard), installed from the Marketplace as a dashboard.
+Then go to **Settings** → **Devices & services** → **Add integration** → **Quartermaster**.
+
+The dashboard comes from a separate repository, [HomeAssistant-Quartermaster-Dashboard](https://github.com/samuelebistoletti/HomeAssistant-Quartermaster-Dashboard). Install it from the Marketplace as a **Dashboard**, then create a dashboard from **Settings** → **Dashboards** → **Add dashboard** → **Quartermaster**. Home Assistant offers no documented way for the integration to check that the dashboard is installed, so do not skip this step.
 
 ### Domain conflict
 
 Another custom integration, [quartermaster-app/ha-quartermaster](https://github.com/quartermaster-app/ha-quartermaster), uses the same `quartermaster` domain. Home Assistant can load only one integration per domain, so the two cannot be installed together.
 
+## Configuration
+
+Everything is in **Settings** → **Devices & services** → **Quartermaster** → **Configure**, grouped in:
+
+| Group | What you set |
+| --- | --- |
+| AI models | Conversation agent, AI Task entity for images, structured or text output, confidence threshold for automatic mode, image analyses per day |
+| Voice and Alexa | How long `quartermaster.ask` keeps a conversation, read-only Alexa |
+| Shopping list | Copy to another todo list (Bring!, Todoist, local list…), purchase on check-off, shopping mode duration, stale zone days, expiring threshold |
+| Telegram | The bot's event entity, the bot, allowed chats, groups |
+| Notifications | Notify entities per message type (first available wins), quiet hours, Telegram copies with buttons |
+| Permissions | Whether non-admin users can change data (reading is open to all) |
+
+Zones, their cameras and schedules are set with the `quartermaster.set_zone` action or from the dashboard. See the [user guide](docs/user-guide.md).
+
+## Actions
+
+All actions are in the `quartermaster` domain. `config_entry_id` is optional: Quartermaster has one entry.
+
+| Action | Purpose |
+| --- | --- |
+| `ask` | Send a sentence to the agent with the Quartermaster tools; returns speech, whether to keep listening and a reprompt (used by Alexa) |
+| `adjust_stock`, `set_stock`, `undo_last` | Consume, buy, finish, count, undo (the last operation or a given one) |
+| `add_product`, `set_essential`, `add_zone`, `remove_zone`, `set_zone` | Products, essentials, zones and their sources |
+| `get_suggestions`, `refresh_shopping_list`, `start_shopping`, `add_to_shopping_list` | Shopping list and suggestions |
+| `analyze_image`, `confirm_pending`, `check_zone`, `arm_show_mode` | Photos, proposals, zone checks, show mode |
+| `import_from_todo`, `export_data`, `import_data` | Import from a todo list, JSON backup, CSV stock list |
+
+Reading and analysis actions return response data, so you can use them in scripts and automations.
+
+## Entities
+
+Shopping list (todo); sensors for to buy, suggestions, expiring products, pending proposals, photo requests and analyses today; best-before calendar; Go shopping and Undo buttons; update mode select. Per zone: last check sensor, zone error binary sensor and a check button. Zones with show mode also get a show mode switch and a last shown sensor.
+
+## Providers
+
+Quartermaster has no provider client: it uses the AI Task entity and the conversation agent you choose. Any provider integrated in Home Assistant works if it supports AI Task (with image attachments) and LLM tools, local ones included. A table of tested providers and their results will be added with the 1.0 tests.
+
+## Limitations
+
+- In the Home Assistant Android app the photo field of the dashboard opens the gallery only ([home-assistant/android#6055](https://github.com/home-assistant/android/issues/6055)); Telegram is the quickest way to take a photo.
+- Interaction with Alexa without the skill name is not available in Italian: use Alexa routines for fixed phrases.
+- Quantities are not converted between units.
+- Show mode sends camera frames of the show area to your AI provider. It is off by default; enable it per zone only if you accept that.
+
 ## Removal
 
 1. **Settings** → **Devices & services** → **Quartermaster** → **⋮** → **Delete**.
 2. Remove the integration from the Marketplace.
+3. Optional: delete `<config>/quartermaster/` (the inventory database and exports). It is kept so that a reinstall finds your data.
 
 ## Compatibility
 
 | Quartermaster | Quartermaster Dashboard | Home Assistant |
 | --- | --- | --- |
-| unreleased | unreleased | 2026.11.0+ |
+| unreleased (dashboard API 1) | unreleased | 2026.11.0+ |
 
 ## License
 

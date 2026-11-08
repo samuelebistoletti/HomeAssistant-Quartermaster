@@ -21,7 +21,9 @@ Shared state between development sessions and machines. Keep it short and factua
 - Done (2026-11-08): Phase 5 part 2 — camera_show (burst), passage cameras with corroboration, show mode switch, repairs; 168 tests, 97.6 % coverage. Clip mode and real-camera tuning wait for the Phase 0 camera check. 
 - Done (2026-11-08): dashboard frontend built by a background agent (dashboard repo, CI green); integration answers: partial proposal confirm, suggestion quantity, richer snapshot.
 - Done (2026-11-08): Phase 6 Telegram from the docs (author approved implementing before the Phase 0 check); 176 tests. 
-- Done (2026-11-08): Phase 8 — notification router, Alexa guide and examples. Next: Phase 9 (README, user guide, diagnostics).
+- Done (2026-11-08): Phase 8 — notification router, Alexa guide and examples. 
+- Done (2026-11-08): Phase 9 without release — options menu, diagnostics, README, user guide. 184 tests, ~97 % coverage, CI green. Dev instance loads cleanly.
+- Next (with the author): Phase 0 practical checks (Telegram bot, Alexa via tunnel, camera on the real instance, iOS, Marketplace, Cloudflare when upstream is fixed); then real-provider tests (Phase 3 dialogs, Phase 4 recall on 30 photos, Phase 5 cameras, Phase 8 Alexa).
 - Next: run the practical checks with the author (Telegram, Alexa and iOS through a quick tunnel on the second machine; camera on the real instance; Marketplace and Cloudflare on a network without TLS inspection).
 
 ## Decisions from the author (2026-11-07)
@@ -46,6 +48,10 @@ Shared state between development sessions and machines. Keep it short and factua
 - Work may continue from two different machines: keep this file and `TECHNICAL_NOTES.md` up to date and pushed.
 
 ## Open questions for the author
+
+- Config flow: single confirmation step + options menu instead of the multi-step flow of spec §10. Keep, or build the guided multi-step setup?
+- Dashboard (from the frontend build): tile links built from the current URL; Italian stale-zone sentence uses "la zona X" (no gender for user zone names); card picker language follows the page; websocket upload errors translated by the dashboard's own copies (or translate in the integration?); Go shopping button press is not permission-checked for non-writers.
+- Quiet hours queue is in memory (lost on restart); acceptable?
 
 
 

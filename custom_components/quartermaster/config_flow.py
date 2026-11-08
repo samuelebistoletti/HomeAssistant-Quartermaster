@@ -170,18 +170,103 @@ class QuartermasterConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="user")
 
 
+OPTION_GROUPS: dict[str, tuple[str, ...]] = {
+    "models": (
+        CONF_AGENT_ID,
+        CONF_AI_TASK_IMAGE,
+        CONF_STRUCTURE_MODE,
+        CONF_CONFIDENCE_THRESHOLD,
+        CONF_DAILY_ANALYSIS_LIMIT,
+    ),
+    "voice": (CONF_ASK_SESSION_SECONDS, CONF_ALEXA_READ_ONLY),
+    "shopping": (
+        CONF_EXTERNAL_TODO,
+        CONF_RECORD_PURCHASE_ON_CHECK,
+        CONF_SHOPPING_MODE_MINUTES,
+        CONF_STALE_ZONE_DAYS,
+        CONF_EXPIRING_DAYS,
+    ),
+    "telegram": (
+        CONF_TELEGRAM_EVENT,
+        CONF_TELEGRAM_BOT,
+        CONF_TELEGRAM_CHATS,
+        CONF_TELEGRAM_GROUPS,
+    ),
+    "notifications": (
+        *(option_key(kind) for kind in MessageType),
+        CONF_QUIET_HOURS,
+        CONF_TELEGRAM_NOTIFY,
+    ),
+    "permissions": (CONF_NON_ADMIN_WRITES,),
+}
+
+
+def _group_schema(group: str) -> probatio.Schema:
+    keys = OPTION_GROUPS[group]
+    return probatio.Schema(
+        {key: value for key, value in OPTIONS_SCHEMA.schema.items() if str(key) in keys}
+    )
+
+
 class QuartermasterOptionsFlow(OptionsFlowWithReload):
-    """Shopping list options; the entry reloads when they change."""
+    """Options grouped in a menu; the entry reloads when they change."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Show and store the options."""
+        """Show the option groups."""
+        return self.async_show_menu(step_id="init", menu_options=list(OPTION_GROUPS))
+
+    async def _async_group(
+        self, group: str, user_input: dict[str, Any] | None
+    ) -> ConfigFlowResult:
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            # Fields left empty in this group are removed from the options.
+            kept = {
+                key: value
+                for key, value in self.config_entry.options.items()
+                if key not in OPTION_GROUPS[group]
+            }
+            return self.async_create_entry(data=kept | user_input)
         return self.async_show_form(
-            step_id="init",
+            step_id=group,
             data_schema=self.add_suggested_values_to_schema(
-                OPTIONS_SCHEMA, self.config_entry.options
+                _group_schema(group), self.config_entry.options
             ),
         )
+
+    async def async_step_models(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Agent, AI Task and image analysis options."""
+        return await self._async_group("models", user_input)
+
+    async def async_step_voice(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """quartermaster.ask and Alexa options."""
+        return await self._async_group("voice", user_input)
+
+    async def async_step_shopping(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Shopping list and suggestion options."""
+        return await self._async_group("shopping", user_input)
+
+    async def async_step_telegram(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Telegram channel options."""
+        return await self._async_group("telegram", user_input)
+
+    async def async_step_notifications(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Notification options."""
+        return await self._async_group("notifications", user_input)
+
+    async def async_step_permissions(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Write permission options."""
+        return await self._async_group("permissions", user_input)

@@ -348,6 +348,16 @@ Criteria: a chat that is not allowed is ignored (tested); a photo captioned "fri
 
 Criteria (spec Phase 8): Alexa dialogs with a real skill and a real agent are **to be tried on the author's instance**; the tool and session behaviour behind them is tested (Phase 3).
 
+## Phase 9 — documentation and diagnostics (2026-11-08, no release)
+
+| Topic | Decision | Source or reason |
+| --- | --- | --- |
+| Options | Menu of groups (`async_show_menu`), one form per group; a submitted group replaces only its own keys, so emptied fields are removed | contributors.home-assistant.io flow steps |
+| Config flow | Still a single confirmation step; everything is set in the options and zones by action or dashboard. **Deviation** from the multi-step flow of spec §10, kept simple until the author decides | Spec §10 |
+| Diagnostics | Options with entity ids, chats and agent redacted; only counts, source types and statuses; no names, images or paths | Spec §8 |
+| Docs | README (features, requirements, install, configuration, actions, entities, limitations, removal, compatibility), `docs/user-guide.md`, `docs/alexa.md`, `docs/dashboard-api.md` | Spec Phase 9 |
+| Release | Not done: no version bump, tag or release (author rule) | — |
+
 ## Planned extensions (author requests)
 
 ### Cameras as observation points (requested 2026-11-08, Phase 5; author answers the same day)

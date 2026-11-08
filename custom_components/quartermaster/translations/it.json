@@ -726,24 +726,78 @@
     "step": {
       "init": {
         "title": "Opzioni di Quartermaster",
+        "menu_options": {
+          "models": "Modelli AI",
+          "voice": "Voce e Alexa",
+          "shopping": "Lista della spesa",
+          "telegram": "Telegram",
+          "notifications": "Notifiche",
+          "permissions": "Permessi"
+        }
+      },
+      "models": {
+        "title": "Modelli AI",
         "data": {
           "agent_id": "Agente di conversazione",
+          "ai_task_image": "AI Task per le immagini",
+          "structure_mode": "Come chiedere l'elenco dei prodotti",
+          "confidence_threshold": "Soglia di affidabilità della modalità automatica",
+          "daily_analysis_limit": "Analisi di immagini al giorno"
+        },
+        "data_description": {
+          "agent_id": "Agente usato da quartermaster.ask (Alexa, Telegram, dashboard). Collegagli l'API Assist perché possa usare gli strumenti di Quartermaster.",
+          "ai_task_image": "Entità AI Task con un modello con visione che analizza foto delle zone e fotogrammi delle telecamere.",
+          "structure_mode": "Usa il ripiego se il provider gestisce male le strutture annidate.",
+          "confidence_threshold": "In modalità automatica le variazioni riconosciute con affidabilità pari o superiore vengono applicate; le altre proposte. Una zona può avere la sua soglia.",
+          "daily_analysis_limit": "Oltre questo numero le chiamate al modello per le immagini si fermano fino al giorno dopo."
+        }
+      },
+      "voice": {
+        "title": "Voce e Alexa",
+        "data": {
           "ask_session_seconds": "Memoria della conversazione di quartermaster.ask",
-          "alexa_read_only": "Alexa può solo leggere",
+          "alexa_read_only": "Alexa può solo leggere"
+        },
+        "data_description": {
+          "ask_session_seconds": "Per quanto una risposta continua la stessa conversazione, per esempio dopo una domanda.",
+          "alexa_read_only": "Le richieste da Alexa non possono modificare l'inventario né la lista."
+        }
+      },
+      "shopping": {
+        "title": "Lista della spesa",
+        "data": {
           "external_todo": "Copia la lista della spesa in",
           "record_purchase_on_check": "Registra l'acquisto quando si spunta una voce",
           "shopping_mode_minutes": "Durata della modalità spesa",
           "stale_zone_days": "Suggerisci di controllare le zone non aggiornate da",
-          "expiring_days": "Soglia dei prodotti in scadenza",
-          "ai_task_image": "AI Task per le immagini",
-          "structure_mode": "Come chiedere l'elenco dei prodotti",
-          "confidence_threshold": "Soglia di affidabilità della modalità automatica",
-          "daily_analysis_limit": "Analisi di immagini al giorno",
-          "non_admin_writes": "Gli utenti non amministratori possono modificare l'inventario",
+          "expiring_days": "Soglia dei prodotti in scadenza"
+        },
+        "data_description": {
+          "external_todo": "Lista todo facoltativa (Bring!, Todoist, lista locale) che riceve una copia unidirezionale delle voci aperte. Le voci aggiunte a mano lì non vengono mai toccate.",
+          "record_purchase_on_check": "In modalità spesa la spunta registra sempre l'acquisto; questa opzione vale fuori dalla modalità spesa.",
+          "shopping_mode_minutes": "Per quanto resta attiva la modalità spesa dopo Vado a fare la spesa.",
+          "stale_zone_days": "Un essenziale in una zona non aggiornata da più giorni di questi viene suggerito.",
+          "expiring_days": "I prodotti con scadenza entro questi giorni compaiono tra quelli in scadenza."
+        }
+      },
+      "telegram": {
+        "title": "Telegram",
+        "data": {
           "telegram_event_entity": "Entità evento del bot Telegram",
           "telegram_bot_entry": "Bot Telegram",
           "telegram_chats": "Chat Telegram consentite",
-          "telegram_groups": "Rispondi nei gruppi Telegram",
+          "telegram_groups": "Rispondi nei gruppi Telegram"
+        },
+        "data_description": {
+          "telegram_event_entity": "L'entità evento degli aggiornamenti del tuo bot Telegram (Polling o Webhooks). Vuota per disattivare il canale Telegram.",
+          "telegram_bot_entry": "Il bot usato per rispondere; se vuoto si ricava dagli eventi.",
+          "telegram_chats": "ID delle chat a cui Quartermaster risponde, oltre all'elenco del bot. Gli ID dei gruppi sono negativi.",
+          "telegram_groups": "I messaggi di gruppo vengono ignorati se questa opzione è spenta."
+        }
+      },
+      "notifications": {
+        "title": "Notifiche",
+        "data": {
           "notify_photo_request": "Richieste di foto",
           "notify_check_result": "Esito dei controlli",
           "notify_expiring": "Prodotti in scadenza",
@@ -756,26 +810,18 @@
           "telegram_notify": "Notifica anche le chat Telegram, con pulsanti"
         },
         "data_description": {
-          "agent_id": "Agente usato da quartermaster.ask (Alexa, Telegram, dashboard). Collegagli l'API Assist perché possa usare gli strumenti di Quartermaster.",
-          "ask_session_seconds": "Per quanto una risposta continua la stessa conversazione, per esempio dopo una domanda.",
-          "alexa_read_only": "Le richieste da Alexa non possono modificare l'inventario né la lista.",
-          "external_todo": "Lista todo facoltativa (Bring!, Todoist, lista locale) che riceve una copia unidirezionale delle voci aperte. Le voci aggiunte a mano lì non vengono mai toccate.",
-          "record_purchase_on_check": "In modalità spesa la spunta registra sempre l'acquisto; questa opzione vale fuori dalla modalità spesa.",
-          "shopping_mode_minutes": "Per quanto resta attiva la modalità spesa dopo Vado a fare la spesa.",
-          "stale_zone_days": "Un essenziale in una zona non aggiornata da più giorni di questi viene suggerito.",
-          "expiring_days": "I prodotti con scadenza entro questi giorni compaiono tra quelli in scadenza.",
-          "ai_task_image": "Entità AI Task con un modello con visione che analizza foto delle zone e fotogrammi delle telecamere.",
-          "structure_mode": "Usa il ripiego se il provider gestisce male le strutture annidate.",
-          "confidence_threshold": "In modalità automatica le variazioni riconosciute con affidabilità pari o superiore vengono applicate; le altre proposte. Una zona può avere la sua soglia.",
-          "daily_analysis_limit": "Oltre questo numero le chiamate al modello per le immagini si fermano fino al giorno dopo.",
-          "non_admin_writes": "Altrimenti solo gli amministratori modificano i dati dalla dashboard e dalle azioni; la lettura resta aperta a tutti.",
-          "telegram_event_entity": "L'entità evento degli aggiornamenti del tuo bot Telegram (Polling o Webhooks). Vuota per disattivare il canale Telegram.",
-          "telegram_bot_entry": "Il bot usato per rispondere; se vuoto si ricava dagli eventi.",
-          "telegram_chats": "ID delle chat a cui Quartermaster risponde, oltre all'elenco del bot. Gli ID dei gruppi sono negativi.",
-          "telegram_groups": "I messaggi di gruppo vengono ignorati se questa opzione è spenta.",
           "notify_photo_request": "Entità notify in ordine: si usa la prima disponibile.",
           "quiet_hours": "Per esempio 22:00-07:00; i messaggi aspettano la fine.",
           "telegram_notify": "Manda ogni notifica alle chat private Telegram consentite, con pulsanti. Non selezionare anche le entità notify di Telegram."
+        }
+      },
+      "permissions": {
+        "title": "Permessi",
+        "data": {
+          "non_admin_writes": "Gli utenti non amministratori possono modificare l'inventario"
+        },
+        "data_description": {
+          "non_admin_writes": "Altrimenti solo gli amministratori modificano i dati dalla dashboard e dalle azioni; la lettura resta aperta a tutti."
         }
       }
     }

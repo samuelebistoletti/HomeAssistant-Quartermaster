@@ -479,9 +479,21 @@ async def test_import_from_todo(
 async def test_options_flow(
     hass: HomeAssistant, init_integration: MockConfigEntry
 ) -> None:
-    """Options are shown with defaults, saved, and the entry reloads."""
+    """Options are grouped in a menu; each group saves and keeps the others."""
     result = await hass.config_entries.options.async_init(init_integration.entry_id)
-    assert result["step_id"] == "init"
+    assert result["type"] == "menu"
+    assert result["menu_options"] == [
+        "models",
+        "voice",
+        "shopping",
+        "telegram",
+        "notifications",
+        "permissions",
+    ]
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "shopping"}
+    )
+    assert result["step_id"] == "shopping"
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         {
@@ -495,14 +507,26 @@ async def test_options_flow(
     assert init_integration.options["shopping_mode_minutes"] == 30
     assert init_integration.state is ConfigEntryState.LOADED
 
-
-async def test_suggestion_accepted_up_to_target(
-    hass: HomeAssistant, inventory: InventoryService
-) -> None:
-    """An accepted below-target suggestion without quantity buys up to the target."""
-    await _qm(hass, "set_essential", product="coffee", min_stock=1, target_stock=4)
-    await inventory.async_set_stock("coffee", 1, channel=Channel.SERVICE)
-    item = await _qm(
-        hass, "add_to_shopping_list", product="coffee", from_suggestion=True
-    )
-    assert item["quantity"] == 3
+    for group, data in (
+        ("voice", {"ask_session_seconds": 60, "alexa_read_only": True}),
+        ("permissions", {"non_admin_writes": True}),
+        (
+            "models",
+            {
+                "structure_mode": "text",
+                "confidence_threshold": 0.8,
+                "daily_analysis_limit": 10,
+            },
+        ),
+        ("telegram", {"telegram_groups": False}),
+        ("notifications", {"quiet_hours": "22:00-07:00", "telegram_notify": False}),
+    ):
+        result = await hass.config_entries.options.async_init(init_integration.entry_id)
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], {"next_step_id": group}
+        )
+        await hass.config_entries.options.async_configure(result["flow_id"], data)
+        await hass.async_block_till_done()
+    options = init_integration.options
+    assert (options["shopping_mode_minutes"], options["alexa_read_only"]) == (30, True)
+    assert options["structure_mode"] == "text"

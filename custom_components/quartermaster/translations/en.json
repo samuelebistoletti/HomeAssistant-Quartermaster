@@ -726,24 +726,78 @@
     "step": {
       "init": {
         "title": "Quartermaster options",
+        "menu_options": {
+          "models": "AI models",
+          "voice": "Voice and Alexa",
+          "shopping": "Shopping list",
+          "telegram": "Telegram",
+          "notifications": "Notifications",
+          "permissions": "Permissions"
+        }
+      },
+      "models": {
+        "title": "AI models",
         "data": {
           "agent_id": "Conversation agent",
+          "ai_task_image": "AI Task for images",
+          "structure_mode": "How to ask for the item list",
+          "confidence_threshold": "Confidence threshold for automatic mode",
+          "daily_analysis_limit": "Image analyses per day"
+        },
+        "data_description": {
+          "agent_id": "Agent used by quartermaster.ask (Alexa, Telegram, dashboard). Attach the Assist API to it so it can use the Quartermaster tools.",
+          "ai_task_image": "AI Task entity with a vision model that analyzes zone photos and camera frames.",
+          "structure_mode": "Use the fallback if your provider handles nested structures badly.",
+          "confidence_threshold": "In automatic mode, recognized changes at or above this confidence are applied; the others are proposed. A zone can override it.",
+          "daily_analysis_limit": "Model calls for images stop for the day after this many."
+        }
+      },
+      "voice": {
+        "title": "Voice and Alexa",
+        "data": {
           "ask_session_seconds": "Conversation memory for quartermaster.ask",
-          "alexa_read_only": "Alexa can only read",
+          "alexa_read_only": "Alexa can only read"
+        },
+        "data_description": {
+          "ask_session_seconds": "How long an answer continues the same conversation, for example after a question.",
+          "alexa_read_only": "Requests from Alexa cannot change the inventory or the list."
+        }
+      },
+      "shopping": {
+        "title": "Shopping list",
+        "data": {
           "external_todo": "Copy the shopping list to",
           "record_purchase_on_check": "Record the purchase when an item is checked off",
           "shopping_mode_minutes": "Shopping mode duration",
           "stale_zone_days": "Suggest checking zones not updated for",
-          "expiring_days": "Expiring products threshold",
-          "ai_task_image": "AI Task for images",
-          "structure_mode": "How to ask for the item list",
-          "confidence_threshold": "Confidence threshold for automatic mode",
-          "daily_analysis_limit": "Image analyses per day",
-          "non_admin_writes": "Non-admin users can change the inventory",
+          "expiring_days": "Expiring products threshold"
+        },
+        "data_description": {
+          "external_todo": "Optional todo list (Bring!, Todoist, local list) that receives a one-way copy of the open items. Items added there by hand are never touched.",
+          "record_purchase_on_check": "In shopping mode a checked item always records the purchase; this applies outside it.",
+          "shopping_mode_minutes": "How long shopping mode stays on after Go shopping.",
+          "stale_zone_days": "An essential kept in a zone not updated for more days than this is suggested.",
+          "expiring_days": "Products with a best-before date within this many days are listed as expiring."
+        }
+      },
+      "telegram": {
+        "title": "Telegram",
+        "data": {
           "telegram_event_entity": "Telegram bot event entity",
           "telegram_bot_entry": "Telegram bot",
           "telegram_chats": "Allowed Telegram chats",
-          "telegram_groups": "Answer in Telegram groups",
+          "telegram_groups": "Answer in Telegram groups"
+        },
+        "data_description": {
+          "telegram_event_entity": "The update event entity of your Telegram bot (Polling or Webhooks). Leave empty to turn the Telegram channel off.",
+          "telegram_bot_entry": "The bot used for replies; taken from the events when empty.",
+          "telegram_chats": "Chat IDs Quartermaster answers, in addition to the bot's own allowlist. Group IDs are negative.",
+          "telegram_groups": "Group messages are ignored unless this is on."
+        }
+      },
+      "notifications": {
+        "title": "Notifications",
+        "data": {
           "notify_photo_request": "Photo requests",
           "notify_check_result": "Zone check results",
           "notify_expiring": "Expiring products",
@@ -756,26 +810,18 @@
           "telegram_notify": "Also notify Telegram chats, with buttons"
         },
         "data_description": {
-          "agent_id": "Agent used by quartermaster.ask (Alexa, Telegram, dashboard). Attach the Assist API to it so it can use the Quartermaster tools.",
-          "ask_session_seconds": "How long an answer continues the same conversation, for example after a question.",
-          "alexa_read_only": "Requests from Alexa cannot change the inventory or the list.",
-          "external_todo": "Optional todo list (Bring!, Todoist, local list) that receives a one-way copy of the open items. Items added there by hand are never touched.",
-          "record_purchase_on_check": "In shopping mode a checked item always records the purchase; this applies outside it.",
-          "shopping_mode_minutes": "How long shopping mode stays on after Go shopping.",
-          "stale_zone_days": "An essential kept in a zone not updated for more days than this is suggested.",
-          "expiring_days": "Products with a best-before date within this many days are listed as expiring.",
-          "ai_task_image": "AI Task entity with a vision model that analyzes zone photos and camera frames.",
-          "structure_mode": "Use the fallback if your provider handles nested structures badly.",
-          "confidence_threshold": "In automatic mode, recognized changes at or above this confidence are applied; the others are proposed. A zone can override it.",
-          "daily_analysis_limit": "Model calls for images stop for the day after this many.",
-          "non_admin_writes": "Otherwise only administrators change data from the dashboard and actions; reading stays open to every user.",
-          "telegram_event_entity": "The update event entity of your Telegram bot (Polling or Webhooks). Leave empty to turn the Telegram channel off.",
-          "telegram_bot_entry": "The bot used for replies; taken from the events when empty.",
-          "telegram_chats": "Chat IDs Quartermaster answers, in addition to the bot's own allowlist. Group IDs are negative.",
-          "telegram_groups": "Group messages are ignored unless this is on.",
           "notify_photo_request": "Notify entities in order: the first available one is used.",
           "quiet_hours": "For example 22:00-07:00; messages wait until the end.",
           "telegram_notify": "Sends every notification to the allowed private Telegram chats, with buttons. Do not also select the Telegram notify entities."
+        }
+      },
+      "permissions": {
+        "title": "Permissions",
+        "data": {
+          "non_admin_writes": "Non-admin users can change the inventory"
+        },
+        "data_description": {
+          "non_admin_writes": "Otherwise only administrators change data from the dashboard and actions; reading stays open to every user."
         }
       }
     }
