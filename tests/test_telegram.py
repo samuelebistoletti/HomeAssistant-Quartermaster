@@ -11,6 +11,7 @@ import pytest
 from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.quartermaster.channels.telegram import parse_chat_ids
+from custom_components.quartermaster.const import DOMAIN
 from custom_components.quartermaster.storage.models import Channel
 
 from .test_llm import SCRIPT, ScriptedAgent
@@ -350,12 +351,15 @@ async def test_caption_with_instructions_is_data(hass: HomeAssistant, bot: Any) 
 async def test_photo_request_goes_to_the_asking_chat(
     hass: HomeAssistant, bot: Any
 ) -> None:
-    """A photo request started from Telegram is sent back to that chat."""
+    """A photo request started from a Telegram chat goes back to that chat."""
     entry, fake = bot
-    await _event(hass, event_type="telegram_command", chat_id=CHAT, command="/lista")
     zone = await entry.runtime_data.inventory.async_find_zone("fridge")
     await entry.runtime_data.zones.async_request_photo(
-        zone, "not_recognized", channel=Channel.TELEGRAM, products=["Milk"]
+        zone,
+        "not_recognized",
+        channel=Channel.TELEGRAM,
+        products=["Milk"],
+        chat_id=CHAT,
     )
     await hass.async_block_till_done(wait_background_tasks=True)
     assert fake.sent[-1]["chat_id"] == [CHAT]
@@ -363,3 +367,26 @@ async def test_photo_request_goes_to_the_asking_chat(
         "Mandami una foto di Fridge: alcuni prodotti attesi non sono stati "
         "riconosciuti. Assicurati che si vedano: Milk."
     )
+
+
+async def test_check_from_a_chat_asks_that_chat(hass: HomeAssistant, bot: Any) -> None:
+    """The check tool called in a chat's conversation sends the request there."""
+    from homeassistant.components import conversation
+    from homeassistant.core import Context
+    from homeassistant.helpers import llm
+
+    entry, fake = bot
+    voice = entry.runtime_data.voice
+    context = Context()
+    voice.running[context.id] = voice.session(Channel.TELEGRAM, f"chat:{CHAT}")
+    api = await llm.async_get_api(
+        hass,
+        llm.LLM_API_ASSIST,
+        llm.LLMContext("t", context, "it", conversation.DOMAIN, None),
+    )
+    await api.async_call_tool(
+        llm.ToolInput(tool_name=f"{DOMAIN}__check_zone", tool_args={"zone": "fridge"})
+    )
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert fake.sent[-1]["chat_id"] == [CHAT]
+    assert fake.sent[-1]["message"].startswith("Mandami una foto di Fridge")

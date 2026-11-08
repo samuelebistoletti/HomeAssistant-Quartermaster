@@ -280,9 +280,18 @@ class ZoneManager:
     # The check
 
     async def async_check_zone(
-        self, zone_ref: str, *, channel: Channel, user_id: str | None = None
+        self,
+        zone_ref: str,
+        *,
+        channel: Channel,
+        user_id: str | None = None,
+        chat_id: int | None = None,
     ) -> CheckOutcome:
-        """Run the check algorithm for a zone."""
+        """Run the check algorithm for a zone.
+
+        `chat_id` is the Telegram chat that asked for the check: a photo
+        request goes back to it.
+        """
         runtime = self._runtime
         zone = await runtime.inventory.async_find_zone(zone_ref)
         if zone.id in self._running:
@@ -305,7 +314,11 @@ class ZoneManager:
                     return outcome
                 if kind == SourceType.MANUAL:
                     request = await self.async_request_photo(
-                        zone, reason or "check", channel=channel, products=missing
+                        zone,
+                        reason or "check",
+                        channel=channel,
+                        products=missing,
+                        chat_id=chat_id,
                     )
                     outcome = CheckOutcome(
                         zone.id,
@@ -484,6 +497,7 @@ class ZoneManager:
         *,
         channel: Channel,
         products: list[str] | None = None,
+        chat_id: int | None = None,
     ) -> PhotoRequest:
         """Open a photo request (one per zone at a time) and announce it."""
         for request in await self._backend.async_list_photo_requests(
@@ -502,7 +516,9 @@ class ZoneManager:
                 expires_at=now + REQUEST_LIFETIME,
             )
         )
-        self._announce(request, zone, reminder=False, products=products)
+        self._announce(
+            request, zone, reminder=False, products=products, chat_id=chat_id
+        )
         return request
 
     @callback
@@ -513,6 +529,7 @@ class ZoneManager:
         *,
         reminder: bool,
         products: list[str] | None = None,
+        chat_id: int | None = None,
     ) -> None:
         self._hass.bus.async_fire(
             EVENT_PHOTO_REQUEST,
@@ -524,6 +541,7 @@ class ZoneManager:
                 "channel": request.channel.value,
                 "reminder": reminder,
                 "products": products or [],
+                "chat_id": chat_id,
             },
         )
 

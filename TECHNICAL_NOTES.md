@@ -388,7 +388,7 @@ Cameras, when activated, track product movements as much as possible and raise e
 
 ## Spec audit and §15 evolutions (2026-11-08)
 
-The author asked to close the gaps of a spec audit and to implement §15 now. Author answers (2026-11-08): Grocy and EverShelf adapters dropped ("li lasciamo fuori"); ESPHome scales postponed; receipts and order emails always become a proposal; the forecast also puts essentials on the list.
+The author asked to close the gaps of a spec audit and to implement §15 now. Author answers (2026-11-08): Grocy and EverShelf adapters dropped ("li lasciamo fuori"); ESPHome scales postponed; receipts and order emails always become a proposal; the forecast also puts essentials on the list. Confirmed later the same day: no debug retention option, the analyses tile instead of an AI cost, and a dashboard reload after adding or deleting a zone (zones change rarely).
 
 | Topic | Decision | Source or reason |
 | --- | --- | --- |
@@ -402,7 +402,7 @@ The author asked to close the gaps of a spec audit and to implement §15 now. Au
 | Limits | `hourly_analysis_limit` (default 30) on every model call with images or text; `quartermaster.ask` at most 20 requests per channel and minute; camera reads time out after 15 s | Spec §5, §8 |
 | Tool arguments | Home Assistant 2026.11 `async_call_tool` does not validate arguments: each tool validates them with its own schema and returns `invalid_arguments` | Spec §8; found by a test |
 | Counting | `adjust_stock` tool action `counted` sets the quantity with journal kind `correction` | Spec §6.1, §4 |
-| Photo requests | Missing expected essentials give reason `not_recognized` and the products to frame. A request started from Telegram goes back to the chat that wrote in the last 10 minutes (the tool call does not carry the chat id) | Spec §5 step 6 |
+| Photo requests | Missing expected essentials give reason `not_recognized` and the products to frame. A check started in a Telegram conversation sends its photo request back to that chat: Quartermaster passes the chat's messages to the agent in a session keyed by the chat id, and the check tool reads it from that session | Spec §5 step 6 |
 | Announcements | camera_show and passage sources take `announce` (notify entities, for example the zone's Echo); the camera message also says when an essential went on the list | Spec §5.1 steps 6–7 |
 | Failed checks | Announced as a check result with the reason | Phase 8 criteria |
 | Text fallback | camera_show and passage honour `structure_mode`: text mode asks for the whole result as JSON in `result_json` | Spec §4.2 |

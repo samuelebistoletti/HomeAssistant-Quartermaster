@@ -30,7 +30,10 @@ from custom_components.quartermaster.core.inventory import (
     StockOperation,
     normalize,
 )
-from custom_components.quartermaster.core.voice import PendingClarification
+from custom_components.quartermaster.core.voice import (
+    TELEGRAM_SESSION_PREFIX,
+    PendingClarification,
+)
 from custom_components.quartermaster.storage.models import (
     Channel,
     MovementKind,
@@ -943,10 +946,18 @@ class CheckZoneTool(QuartermasterTool):
         llm_context: llm.LLMContext,
     ) -> llm.ToolResult:
         zone = await runtime.inventory.async_find_zone(args["zone"])
+        # A request that came from a Telegram chat keeps its chat id in the
+        # session key, so a photo request goes back to that chat.
+        session = runtime.voice.for_context(llm_context.context)
+        chat_id = None
+        if session is not None and session.key.startswith(TELEGRAM_SESSION_PREFIX):
+            chat_id = int(session.key.removeprefix(TELEGRAM_SESSION_PREFIX))
         entry = runtime.coordinator.config_entry
         entry.async_create_background_task(
             runtime.coordinator.hass,
-            runtime.zones.async_check_zone(zone.id, channel=channel, user_id=user_id),
+            runtime.zones.async_check_zone(
+                zone.id, channel=channel, user_id=user_id, chat_id=chat_id
+            ),
             f"{DOMAIN} check {zone.id}",
         )
         return _result({"status": "started", "zone": zone.name})

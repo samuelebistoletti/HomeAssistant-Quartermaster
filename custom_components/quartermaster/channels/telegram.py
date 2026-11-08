@@ -42,7 +42,10 @@ from custom_components.quartermaster.core.phrases import (
     async_phrase,
     configured_language,
 )
-from custom_components.quartermaster.core.voice import EVENT_ASK_RESULT
+from custom_components.quartermaster.core.voice import (
+    EVENT_ASK_RESULT,
+    TELEGRAM_SESSION_PREFIX,
+)
 from custom_components.quartermaster.storage.models import (
     Channel,
     ShoppingOrigin,
@@ -64,7 +67,6 @@ CB_REJECT = "/qm_no"
 CB_ZONE = "/qm_zone"
 # Zone ids are slugs, so this can never be one.
 RECEIPT = "@receipt"
-RECENT_CHAT_SECONDS = 600
 CB_UNDO = "/qm_undo"
 CB_ADD = "/qm_add"
 CB_UNDO_CAMERA = "/qm_undo_camera"
@@ -127,7 +129,6 @@ class TelegramChannel:
         self._recent: dict[int, deque[float]] = {}
         self.held: dict[str, HeldPhoto] = {}
         # Last chat that wrote, so replies to its requests go back there.
-        self.last_chat: tuple[int, float] | None = None
 
     @callback
     def async_start(self) -> None:
@@ -190,7 +191,6 @@ class TelegramChannel:
             return
         if not self._within_rate(chat_id):
             return
-        self.last_chat = (chat_id, time.monotonic())
         bot = data.get("bot")
         if (
             isinstance(bot, dict)
@@ -225,7 +225,7 @@ class TelegramChannel:
         reply = await self._runtime.voice.async_ask(
             text,
             channel=Channel.TELEGRAM,
-            key=f"chat:{chat_id}",
+            key=f"{TELEGRAM_SESSION_PREFIX}{chat_id}",
             language=None,
             context=Context(),
         )
@@ -236,9 +236,9 @@ class TelegramChannel:
         data = event.data
         if data.get("channel") != Channel.TELEGRAM or not str(
             data.get("session_key", "")
-        ).startswith("chat:"):
+        ).startswith(TELEGRAM_SESSION_PREFIX):
             return
-        chat_id = int(str(data["session_key"]).removeprefix("chat:"))
+        chat_id = int(str(data["session_key"]).removeprefix(TELEGRAM_SESSION_PREFIX))
         entry = self._runtime.coordinator.config_entry
         entry.async_create_background_task(
             self._hass,
@@ -314,13 +314,6 @@ class TelegramChannel:
             return await self._hass.async_add_executor_job(_read_and_delete, path)
         except OSError as err:
             raise InventoryError("telegram_download_failed", error=str(err)) from err
-
-    def recent_chat(self) -> int | None:
-        """Return the chat that wrote in the last few minutes, if any."""
-        if self.last_chat is None:
-            return None
-        chat_id, ts = self.last_chat
-        return chat_id if time.monotonic() - ts <= RECENT_CHAT_SECONDS else None
 
     async def _is_receipt(self, caption: str) -> bool:
         words = {

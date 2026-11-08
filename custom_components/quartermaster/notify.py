@@ -212,14 +212,7 @@ class NotificationRouter:
             text += " " + await self._phrase(
                 "notify_photo_frame", products=", ".join(products)
             )
-        chats: list[int] = []
-        telegram = self._runtime.telegram
-        if (
-            data.get("channel") == Channel.TELEGRAM
-            and telegram is not None
-            and (chat := telegram.recent_chat()) is not None
-        ):
-            chats.append(chat)
+        chats = [int(data["chat_id"])] if data.get("chat_id") is not None else []
         await self.async_send(Message(MessageType.PHOTO_REQUEST, text, chats=chats))
 
     @callback
