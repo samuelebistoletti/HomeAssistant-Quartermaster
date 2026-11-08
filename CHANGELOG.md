@@ -14,3 +14,4 @@
 - Image analysis of zones with any AI Task entity: quality checks, crop, resize and metadata removal with Pillow, skip of unchanged images, structured or text output, validation.
 - Proposals of changes with confirmation, corrections and alias learning; automatic mode above a confidence threshold; actions `analyze_image` and `confirm_pending`, LLM tool to confirm; sensors for pending proposals and daily analyses.
 - Websocket commands for the dashboard (snapshot, live updates, journal, photo upload) and a write permission rule for non-admin users; undo of a given operation.
+- Zone manager: sources in priority order (camera with crop and daily limit, manual), zone checks with fallback to a photo request, cron schedules, reminders for zones without camera, photo requests with one reminder and expiry; actions `set_zone` and `check_zone`, LLM tool to check a zone; per-zone last check sensor, zone error binary sensor and check button, photo requests sensor.

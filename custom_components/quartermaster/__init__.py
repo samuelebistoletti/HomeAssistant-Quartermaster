@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
 import sqlite3
@@ -33,12 +33,14 @@ from .core.confirmations import ProposalService, ToolConfirmations
 from .core.inventory import InventoryService
 from .core.shopping import ShoppingService
 from .core.voice import VoiceSessions
+from .core.zones import ZoneManager
 from .services import async_setup_services
 from .storage.sqlite import SchemaTooNewError, SQLiteBackend
 from .vision.analyze import VisionService
 from .vision.schema import StructureMode
 
 PLATFORMS: list[Platform] = [
+    Platform.BINARY_SENSOR,
     Platform.BUTTON,
     Platform.CALENDAR,
     Platform.SELECT,
@@ -60,6 +62,7 @@ class QuartermasterRuntimeData:
     confirmations: ToolConfirmations
     vision: VisionService
     proposals: ProposalService
+    zones: ZoneManager = field(init=False)
 
 
 type QuartermasterConfigEntry = ConfigEntry[QuartermasterRuntimeData]
@@ -130,6 +133,11 @@ async def async_setup_entry(
         vision=vision,
         proposals=proposals,
     )
+    zones = ZoneManager(hass, entry.runtime_data)
+    entry.runtime_data.zones = zones
+    coordinator.zones = zones
+    zones.async_start()
+    entry.async_on_unload(zones.async_stop)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
 

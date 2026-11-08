@@ -10,9 +10,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
@@ -36,6 +37,7 @@ from custom_components.quartermaster.core.suggestions import (
     zone_last_updates,
 )
 from custom_components.quartermaster.storage.models import (
+    PhotoRequest,
     Product,
     Proposal,
     ShoppingItem,
@@ -46,11 +48,14 @@ from custom_components.quartermaster.storage.models import (
 
 if TYPE_CHECKING:
     from custom_components.quartermaster import QuartermasterConfigEntry
+    from custom_components.quartermaster.core.zones import ZoneManager
     from custom_components.quartermaster.vision.analyze import VisionService
 
 _LOGGER = logging.getLogger(__name__)
 
 UPDATE_INTERVAL = timedelta(hours=1)
+# Keys of the entities created once per zone (unique id: entry_key_zone).
+ZONE_ENTITY_KEYS = ("last_check", "zone_error", "check_zone", "show_mode", "last_show")
 REFRESH_COOLDOWN = 1.0
 JOURNAL_LIMIT = 5000
 
@@ -68,6 +73,9 @@ class QuartermasterData:
     zone_updates: dict[str, datetime] = field(default_factory=dict)
     proposals: list[Proposal] = field(default_factory=list)
     analyses_today: int = 0
+    zone_checks: dict[str, dict[str, Any]] = field(default_factory=dict)
+    zone_failures: dict[str, int] = field(default_factory=dict)
+    photo_requests: list[PhotoRequest] = field(default_factory=list)
 
     @property
     def shopping_mode(self) -> bool:
@@ -106,6 +114,19 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
         self.shopping_until: datetime | None = None
         self.proposals: ProposalService | None = None
         self.vision: VisionService | None = None
+        self.zones: ZoneManager | None = None
+        self._zone_names: dict[str, str] | None = None
+
+    @callback
+    def _async_remove_zone_entities(self, zone_id: str) -> None:
+        """Remove the per-zone entities of a deleted zone from the registry."""
+        registry = er.async_get(self.hass)
+        suffixes = tuple(f"_{key}_{zone_id}" for key in ZONE_ENTITY_KEYS)
+        for entry in er.async_entries_for_config_entry(
+            registry, self.config_entry.entry_id
+        ):
+            if entry.unique_id.endswith(suffixes):
+                registry.async_remove(entry.entity_id)
 
     @callback
     def async_inventory_changed(self) -> None:
@@ -133,6 +154,23 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
             limit=JOURNAL_LIMIT, since=now - FINISHED_LOOKBACK
         )
         updates = zone_last_updates(stock)
+        zone_checks: dict[str, dict[str, Any]] = {}
+        zone_failures: dict[str, int] = {}
+        for zone in zones:
+            snapshot = await backend.async_get_snapshot(zone.id)
+            if snapshot is not None and (
+                zone.id not in updates or snapshot.ts > updates[zone.id]
+            ):
+                updates[zone.id] = snapshot.ts
+            if self.zones is not None:
+                if (last := await self.zones.async_last_check(zone.id)) is not None:
+                    zone_checks[zone.id] = last
+                zone_failures[zone.id] = await self.zones.async_failures(zone.id)
+        names = {zone.id: zone.name for zone in zones}
+        if self._zone_names is not None:
+            for zone_id in self._zone_names.keys() - names.keys():
+                self._async_remove_zone_entities(zone_id)
+        self._zone_names = names
 
         def compute(items: list[ShoppingItem]) -> Analysis:
             return analyze(
@@ -170,4 +208,7 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
             analyses_today=await self.vision.async_analyses_today()
             if self.vision
             else 0,
+            zone_checks=zone_checks,
+            zone_failures=zone_failures,
+            photo_requests=await self.zones.async_open_requests() if self.zones else [],
         )

@@ -896,6 +896,36 @@ class ConfirmPendingTool(QuartermasterTool):
         )
 
 
+class CheckZoneTool(QuartermasterTool):
+    """Start a zone check and answer at once that it is running."""
+
+    name = f"{DOMAIN}__check_zone"
+    description = (
+        "Start checking a zone (camera, or a photo request to the user). It runs "
+        "in the background: say that the check has started."
+    )
+    parameters = probatio.Schema({probatio.Required("zone"): str})
+    annotations = WRITES
+    writes = True
+
+    async def _async_run(
+        self,
+        runtime: QuartermasterRuntimeData,
+        args: dict[str, Any],
+        channel: Channel,
+        user_id: str | None,
+        llm_context: llm.LLMContext,
+    ) -> llm.ToolResult:
+        zone = await runtime.inventory.async_find_zone(args["zone"])
+        entry = runtime.coordinator.config_entry
+        entry.async_create_background_task(
+            runtime.coordinator.hass,
+            runtime.zones.async_check_zone(zone.id, channel=channel, user_id=user_id),
+            f"{DOMAIN} check {zone.id}",
+        )
+        return _result({"status": "started", "zone": zone.name})
+
+
 TOOLS: tuple[type[QuartermasterTool], ...] = (
     ListZonesTool,
     GetStockTool,
@@ -910,6 +940,7 @@ TOOLS: tuple[type[QuartermasterTool], ...] = (
     SetEssentialTool,
     CreateProductTool,
     ConfirmPendingTool,
+    CheckZoneTool,
 )
 
 

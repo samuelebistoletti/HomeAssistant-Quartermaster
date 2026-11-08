@@ -267,5 +267,6 @@ async def async_photo_pipeline(
         automatic=mode == "automatic",
         threshold=threshold,
     )
+    await runtime.zones.async_fulfil(zone.id)
     await runtime.coordinator.async_refresh()
     return as_response(run, outcome)

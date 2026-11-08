@@ -112,6 +112,7 @@ async def test_tools_are_offered(
             "set_essential",
             "create_product",
             "confirm_pending",
+            "check_zone",
         )
     }
     assert all(

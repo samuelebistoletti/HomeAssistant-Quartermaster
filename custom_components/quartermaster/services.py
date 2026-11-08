@@ -23,6 +23,7 @@ import probatio
 
 from .channels.websocket import can_write
 from .const import DOMAIN, TRANSFER_DIR
+from .core.cron import is_valid as cron_is_valid
 from .core.inventory import (
     MAX_QUANTITY,
     InventoryError,
@@ -39,6 +40,7 @@ from .core.transfer import (
     export_filename,
     resolve_transfer_file,
 )
+from .core.zones import validate_sources
 from .storage.models import Channel, Product, ShoppingOrigin, ShoppingStatus, Zone
 from .vision.analyze import async_camera_frame, async_photo_pipeline
 
@@ -57,6 +59,8 @@ SERVICE_START_SHOPPING = "start_shopping"
 SERVICE_ADD_TO_SHOPPING_LIST = "add_to_shopping_list"
 SERVICE_IMPORT_FROM_TODO = "import_from_todo"
 SERVICE_ASK = "ask"
+SERVICE_SET_ZONE = "set_zone"
+SERVICE_CHECK_ZONE = "check_zone"
 SERVICE_ANALYZE_IMAGE = "analyze_image"
 SERVICE_CONFIRM_PENDING = "confirm_pending"
 
@@ -94,6 +98,10 @@ ATTR_DECISION = "decision"
 ATTR_ITEMS = "items"
 ATTR_CORRECTIONS = "corrections"
 ATTR_KEY = "key"
+ATTR_SOURCES = "sources"
+ATTR_CHECK_SCHEDULE = "check_schedule"
+ATTR_REMINDER_DAYS = "reminder_days"
+ATTR_CONFIDENCE_THRESHOLD = "confidence_threshold"
 
 ASK_CHANNELS = {
     "alexa": Channel.ALEXA,
@@ -244,6 +252,31 @@ CONFIRM_PENDING_SCHEMA = probatio.Schema(
                 probatio.Optional(ATTR_QUANTITY): QUANTITY,
             }
         ],
+    }
+)
+SET_ZONE_SCHEMA = probatio.Schema(
+    {
+        **ENTRY,
+        probatio.Required(ATTR_ZONE): cv.string,
+        probatio.Optional(ATTR_NAME): cv.string,
+        probatio.Optional(ATTR_ALIASES): probatio.All(cv.ensure_list, [cv.string]),
+        probatio.Optional(ATTR_SOURCES): [dict],
+        probatio.Optional(ATTR_CHECK_SCHEDULE): probatio.Any("", cv.string),
+        probatio.Optional(ATTR_REMINDER_DAYS): probatio.All(
+            int, probatio.Range(min=0, max=365)
+        ),
+        probatio.Optional(ATTR_CONFIDENCE_THRESHOLD): probatio.All(
+            probatio.Coerce(float), probatio.Range(min=0, max=1)
+        ),
+    }
+)
+CHECK_ZONE_SCHEMA = probatio.Schema(
+    {
+        **ENTRY,
+        probatio.Required(ATTR_ZONE): cv.string,
+        probatio.Optional(ATTR_CHANNEL, default="service"): probatio.In(
+            list(ASK_CHANNELS)
+        ),
     }
 )
 IMPORT_DATA_SCHEMA = probatio.Schema(
@@ -597,6 +630,43 @@ async def _async_confirm_pending(call: ServiceCall) -> ServiceResponse:
     return {"decision": call.data[ATTR_DECISION], "applied": applied}
 
 
+async def _async_set_zone(call: ServiceCall) -> ServiceResponse:
+    await _async_check_writer(call)
+    runtime = _runtime(call)
+    sources = call.data.get(ATTR_SOURCES)
+    schedule = call.data.get(ATTR_CHECK_SCHEDULE)
+    if schedule and not cron_is_valid(schedule):
+        raise InventoryError("invalid_schedule", schedule=schedule)
+    zone = await runtime.inventory.async_update_zone(
+        call.data[ATTR_ZONE],
+        name=call.data.get(ATTR_NAME),
+        aliases=call.data.get(ATTR_ALIASES),
+        sources=validate_sources(sources) if sources is not None else None,
+        check_schedule=schedule,
+        reminder_days=call.data.get(ATTR_REMINDER_DAYS),
+        confidence_threshold=call.data.get(ATTR_CONFIDENCE_THRESHOLD),
+    )
+    await runtime.coordinator.async_refresh()
+    if not call.return_response:
+        return None
+    return _zone(zone) | {
+        "sources": zone.sources,
+        "check_schedule": zone.check_schedule,
+        "reminder_days": zone.reminder_days,
+        "confidence_threshold": zone.confidence_threshold,
+    }
+
+
+async def _async_check_zone(call: ServiceCall) -> ServiceResponse:
+    await _async_check_writer(call)
+    outcome = await _runtime(call).zones.async_check_zone(
+        call.data[ATTR_ZONE],
+        channel=ASK_CHANNELS[call.data[ATTR_CHANNEL]],
+        user_id=call.context.user_id,
+    )
+    return outcome.as_dict() if call.return_response else None
+
+
 @callback
 def async_setup_services(hass: HomeAssistant) -> None:
     """Register the integration actions."""
@@ -621,6 +691,8 @@ def async_setup_services(hass: HomeAssistant) -> None:
         ),
         (SERVICE_IMPORT_FROM_TODO, _async_import_from_todo, IMPORT_FROM_TODO_SCHEMA),
         (SERVICE_ASK, _async_ask, ASK_SCHEMA),
+        (SERVICE_SET_ZONE, _async_set_zone, SET_ZONE_SCHEMA),
+        (SERVICE_CHECK_ZONE, _async_check_zone, CHECK_ZONE_SCHEMA),
         (SERVICE_ANALYZE_IMAGE, _async_analyze_image, ANALYZE_IMAGE_SCHEMA),
         (SERVICE_CONFIRM_PENDING, _async_confirm_pending, CONFIRM_PENDING_SCHEMA),
     ):

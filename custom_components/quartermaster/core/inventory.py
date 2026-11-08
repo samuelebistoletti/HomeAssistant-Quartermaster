@@ -151,6 +151,44 @@ class InventoryService:
             await self.backend.async_save_zone(zone)
         return zone
 
+    async def async_update_zone(
+        self,
+        zone_ref: str,
+        *,
+        name: str | None = None,
+        aliases: list[str] | None = None,
+        sources: list[dict[str, Any]] | None = None,
+        check_schedule: str | None = None,
+        reminder_days: int | None = None,
+        confidence_threshold: float | None = None,
+    ) -> Zone:
+        """Change a zone; `check_schedule=""` or 0 values clear the field."""
+        async with self._writing():
+            zone = await self.async_find_zone(zone_ref)
+            if name is not None:
+                name = " ".join(name.split())
+                if not name:
+                    raise InventoryError("invalid_name")
+                others = await self.backend.async_list_zones()
+                if any(
+                    z.id != zone.id and normalize(z.name) == normalize(name)
+                    for z in others
+                ):
+                    raise InventoryError("zone_exists", zone=name)
+                zone.name = name
+            if aliases is not None:
+                zone.aliases = [" ".join(a.split()) for a in aliases if a.strip()]
+            if sources is not None:
+                zone.sources = sources
+            if check_schedule is not None:
+                zone.check_schedule = check_schedule or None
+            if reminder_days is not None:
+                zone.reminder_days = reminder_days or None
+            if confidence_threshold is not None:
+                zone.confidence_threshold = confidence_threshold or None
+            await self.backend.async_save_zone(zone)
+        return zone
+
     async def async_remove_zone(self, zone_ref: str) -> Zone:
         """Delete a zone that holds no stock and return it."""
         async with self._writing():

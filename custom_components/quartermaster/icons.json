@@ -50,6 +50,12 @@
     },
     "confirm_pending": {
       "service": "mdi:check-all"
+    },
+    "set_zone": {
+      "service": "mdi:shape-outline"
+    },
+    "check_zone": {
+      "service": "mdi:magnify-scan"
     }
   },
   "entity": {
@@ -73,6 +79,12 @@
       },
       "analyses_today": {
         "default": "mdi:robot-outline"
+      },
+      "last_check": {
+        "default": "mdi:clock-check-outline"
+      },
+      "photo_requests": {
+        "default": "mdi:camera-question"
       }
     },
     "button": {
@@ -81,6 +93,9 @@
       },
       "undo_last": {
         "default": "mdi:undo"
+      },
+      "check_zone": {
+        "default": "mdi:magnify-scan"
       }
     },
     "select": {
@@ -91,6 +106,11 @@
     "calendar": {
       "expiry": {
         "default": "mdi:calendar-clock"
+      }
+    },
+    "binary_sensor": {
+      "zone_error": {
+        "default": "mdi:alert-circle-outline"
       }
     }
   }

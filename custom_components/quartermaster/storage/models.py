@@ -177,3 +177,25 @@ class ZoneSnapshot:
     perceptual_hash: str | None
     overall_confidence: float | None
     result: dict[str, Any]
+
+
+class PhotoRequestStatus(StrEnum):
+    """State of a request for a photo."""
+
+    OPEN = "open"
+    FULFILLED = "fulfilled"
+    EXPIRED = "expired"
+
+
+@dataclass(slots=True, kw_only=True)
+class PhotoRequest:
+    """A request to the user for a photo of a zone."""
+
+    id: int
+    zone_id: str
+    reason: str
+    channel: Channel
+    created: datetime
+    expires_at: datetime
+    reminded_at: datetime | None = None
+    status: PhotoRequestStatus = PhotoRequestStatus.OPEN

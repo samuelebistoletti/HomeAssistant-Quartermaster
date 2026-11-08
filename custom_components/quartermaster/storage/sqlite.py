@@ -21,6 +21,8 @@ from .models import (
     Channel,
     JournalEntry,
     MovementKind,
+    PhotoRequest,
+    PhotoRequestStatus,
     Product,
     Proposal,
     ProposalStatus,
@@ -47,7 +49,11 @@ DUMP_TABLES: tuple[str, ...] = (
     "shopping_items",
 )
 # Derived or short-lived tables, emptied by `async_restore`.
-VOLATILE_TABLES: tuple[str, ...] = ("pending_changes", "zone_snapshots")
+VOLATILE_TABLES: tuple[str, ...] = (
+    "pending_changes",
+    "zone_snapshots",
+    "photo_requests",
+)
 JSON_COLUMNS: dict[str, frozenset[str]] = {
     "zones": frozenset({"aliases", "sources"}),
     "products": frozenset({"aliases"}),
@@ -172,6 +178,23 @@ def _proposal(row: sqlite3.Row) -> Proposal:
         payload=json.loads(row["payload"]),
         expires_at=expires,
         status=ProposalStatus(row["status"]),
+    )
+
+
+def _photo_request(row: sqlite3.Row) -> PhotoRequest:
+    created = _datetime(row["created"])
+    expires = _datetime(row["expires_at"])
+    assert created is not None
+    assert expires is not None
+    return PhotoRequest(
+        id=row["id"],
+        zone_id=row["zone_id"],
+        reason=row["reason"],
+        channel=Channel(row["channel"]),
+        created=created,
+        expires_at=expires,
+        reminded_at=_datetime(row["reminded_at"]),
+        status=PhotoRequestStatus(row["status"]),
     )
 
 
@@ -739,6 +762,65 @@ class SQLiteBackend(StorageBackend):
                     snapshot.overall_confidence,
                     json.dumps(snapshot.result),
                 ),
+            )
+
+    # Photo requests
+
+    async def async_add_photo_request(self, request: PhotoRequest) -> PhotoRequest:
+        """Store a photo request and return it with its id."""
+        return await self._run(self._add_photo_request, request)
+
+    def _add_photo_request(self, request: PhotoRequest) -> PhotoRequest:
+        with self._transaction() as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO photo_requests (zone_id, reason, channel, created,
+                    reminded_at, expires_at, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    request.zone_id,
+                    request.reason,
+                    request.channel.value,
+                    request.created.isoformat(),
+                    _iso(request.reminded_at),
+                    request.expires_at.isoformat(),
+                    request.status.value,
+                ),
+            )
+        assert cursor.lastrowid is not None
+        request.id = cursor.lastrowid
+        return request
+
+    async def async_list_photo_requests(
+        self, *, status: PhotoRequestStatus | None = None
+    ) -> list[PhotoRequest]:
+        """Return photo requests, newest first."""
+        return await self._run(self._list_photo_requests, status)
+
+    def _list_photo_requests(
+        self, status: PhotoRequestStatus | None
+    ) -> list[PhotoRequest]:
+        if status is None:
+            rows = self._db.execute(
+                "SELECT * FROM photo_requests ORDER BY id DESC"
+            ).fetchall()
+        else:
+            rows = self._db.execute(
+                "SELECT * FROM photo_requests WHERE status = ? ORDER BY id DESC",
+                (status.value,),
+            ).fetchall()
+        return [_photo_request(row) for row in rows]
+
+    async def async_update_photo_request(self, request: PhotoRequest) -> None:
+        """Store the status and reminder time of a request."""
+        await self._run(self._update_photo_request, request)
+
+    def _update_photo_request(self, request: PhotoRequest) -> None:
+        with self._transaction() as conn:
+            conn.execute(
+                "UPDATE photo_requests SET status = ?, reminded_at = ? WHERE id = ?",
+                (request.status.value, _iso(request.reminded_at), request.id),
             )
 
     # Settings

@@ -104,6 +104,12 @@
     },
     "camera_unavailable": {
       "message": "The camera image cannot be read: {error}"
+    },
+    "invalid_source": {
+      "message": "Source {index} is not valid: {error}"
+    },
+    "invalid_schedule": {
+      "message": "{schedule} is not a valid five-field cron schedule."
     }
   },
   "selector": {
@@ -524,6 +530,62 @@
           "description": "List of items to fix, each with key, product and quantity; the name the model used is learned as an alias."
         }
       }
+    },
+    "set_zone": {
+      "name": "Set zone",
+      "description": "Changes a zone: name, aliases, sources in priority order, check schedule, reminders and confidence threshold.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
+        },
+        "zone": {
+          "name": "Zone",
+          "description": "Zone name, alias or ID."
+        },
+        "name": {
+          "name": "Name",
+          "description": "New name."
+        },
+        "aliases": {
+          "name": "Aliases",
+          "description": "Other names of the zone."
+        },
+        "sources": {
+          "name": "Sources",
+          "description": "List of sources in priority order: camera, camera_show, passage, manual. See the documentation for their fields."
+        },
+        "check_schedule": {
+          "name": "Check schedule",
+          "description": "Cron schedule with five fields, for example 0 19 * * *; empty to remove."
+        },
+        "reminder_days": {
+          "name": "Reminder days",
+          "description": "Ask for a photo when a zone without camera is not updated for this many days; 0 to turn off."
+        },
+        "confidence_threshold": {
+          "name": "Confidence threshold",
+          "description": "Minimum confidence for this zone; 0 uses the general option."
+        }
+      }
+    },
+    "check_zone": {
+      "name": "Check zone",
+      "description": "Checks a zone now with its sources: camera first, then a photo request.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
+        },
+        "zone": {
+          "name": "Zone",
+          "description": "Zone name, alias or ID."
+        },
+        "channel": {
+          "name": "Channel",
+          "description": "Where the request comes from; photo requests go back there."
+        }
+      }
     }
   },
   "entity": {
@@ -547,6 +609,12 @@
       },
       "analyses_today": {
         "name": "Analyses today"
+      },
+      "last_check": {
+        "name": "Last check {zone}"
+      },
+      "photo_requests": {
+        "name": "Photo requests"
       }
     },
     "button": {
@@ -555,6 +623,9 @@
       },
       "undo_last": {
         "name": "Undo last operation"
+      },
+      "check_zone": {
+        "name": "Check {zone}"
       }
     },
     "select": {
@@ -569,6 +640,11 @@
     "calendar": {
       "expiry": {
         "name": "Best-before dates"
+      }
+    },
+    "binary_sensor": {
+      "zone_error": {
+        "name": "Zone error {zone}"
       }
     }
   },

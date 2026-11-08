@@ -15,6 +15,8 @@ from typing import Any
 from .models import (
     Channel,
     JournalEntry,
+    PhotoRequest,
+    PhotoRequestStatus,
     Product,
     Proposal,
     ProposalStatus,
@@ -148,6 +150,20 @@ class StorageBackend(ABC):
     @abstractmethod
     async def async_save_snapshot(self, snapshot: ZoneSnapshot) -> None:
         """Replace the last analysis of a zone."""
+
+    @abstractmethod
+    async def async_add_photo_request(self, request: PhotoRequest) -> PhotoRequest:
+        """Store a photo request and return it with its id."""
+
+    @abstractmethod
+    async def async_list_photo_requests(
+        self, *, status: PhotoRequestStatus | None = None
+    ) -> list[PhotoRequest]:
+        """Return photo requests, newest first."""
+
+    @abstractmethod
+    async def async_update_photo_request(self, request: PhotoRequest) -> None:
+        """Store the status and reminder time of a request."""
 
     @abstractmethod
     async def async_get_setting(self, key: str) -> str | None:
