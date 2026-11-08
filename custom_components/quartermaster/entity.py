@@ -12,6 +12,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from custom_components.quartermaster.const import DOMAIN
 from custom_components.quartermaster.coordinator import QuartermasterCoordinator
+from custom_components.quartermaster.core.zones import SourceType
 
 
 class QuartermasterEntity(CoordinatorEntity[QuartermasterCoordinator]):
@@ -58,17 +59,33 @@ def async_add_zone_entities(
     async_add_entities: AddConfigEntryEntitiesCallback,
     factory: Callable[[str], Iterable[Entity]],
 ) -> None:
-    """Add entities for every zone now and for zones created later."""
-    known: set[str] = set()
+    """Add entities for every zone now and whenever zones or sources change.
+
+    The factory may return different entities as a zone's sources change;
+    each unique id is added once.
+    """
+    added: set[str] = set()
 
     @callback
     def add_new() -> None:
-        new = [zone_id for zone_id in coordinator.data.zones if zone_id not in known]
-        known.intersection_update(coordinator.data.zones)
+        new = [
+            entity
+            for zone_id in coordinator.data.zones
+            for entity in factory(zone_id)
+            if entity.unique_id not in added
+        ]
         if not new:
             return
-        known.update(new)
-        async_add_entities(entity for zone_id in new for entity in factory(zone_id))
+        added.update(str(entity.unique_id) for entity in new)
+        async_add_entities(new)
 
     add_new()
     coordinator.config_entry.async_on_unload(coordinator.async_add_listener(add_new))
+
+
+def has_show(coordinator: QuartermasterCoordinator, zone_id: str) -> bool:
+    """Return whether a zone has a camera_show source."""
+    zone = coordinator.data.zones.get(zone_id)
+    return zone is not None and any(
+        source.get("type") == SourceType.CAMERA_SHOW for source in zone.sources
+    )

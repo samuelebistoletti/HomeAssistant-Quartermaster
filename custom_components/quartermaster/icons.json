@@ -56,6 +56,9 @@
     },
     "check_zone": {
       "service": "mdi:magnify-scan"
+    },
+    "arm_show_mode": {
+      "service": "mdi:hand-front-right-outline"
     }
   },
   "entity": {
@@ -85,6 +88,9 @@
       },
       "photo_requests": {
         "default": "mdi:camera-question"
+      },
+      "last_show": {
+        "default": "mdi:hand-okay"
       }
     },
     "button": {
@@ -111,6 +117,11 @@
     "binary_sensor": {
       "zone_error": {
         "default": "mdi:alert-circle-outline"
+      }
+    },
+    "switch": {
+      "show_mode": {
+        "default": "mdi:hand-front-right-outline"
       }
     }
   }

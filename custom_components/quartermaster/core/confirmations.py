@@ -184,6 +184,28 @@ class ProposalService:
             unknown=analysis.unknown_items,
         )
 
+    async def async_propose(
+        self,
+        zone_id: str,
+        rows: list[dict[str, Any]],
+        *,
+        channel: Channel,
+        user_id: str | None,
+        extra: dict[str, Any] | None = None,
+    ) -> Proposal:
+        """Store a proposal built by a caller (camera observations)."""
+        now = dt_util.utcnow()
+        return await self._backend.async_add_proposal(
+            Proposal(
+                id=0,
+                created=now,
+                channel=channel,
+                zone_id=zone_id,
+                payload={"items": rows, "user_id": user_id, **(extra or {})},
+                expires_at=now + PROPOSAL_TTL,
+            )
+        )
+
     async def async_pending(self) -> list[Proposal]:
         """Return pending proposals, expiring the old ones."""
         now = dt_util.utcnow()

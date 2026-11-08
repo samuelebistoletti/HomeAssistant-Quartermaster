@@ -110,6 +110,9 @@
     },
     "invalid_schedule": {
       "message": "{schedule} is not a valid five-field cron schedule."
+    },
+    "show_not_configured": {
+      "message": "Zone {zone} has no camera_show source."
     }
   },
   "selector": {
@@ -586,6 +589,24 @@
           "description": "Where the request comes from; photo requests go back there."
         }
       }
+    },
+    "arm_show_mode": {
+      "name": "Arm show mode",
+      "description": "Turns on show mode for a zone with camera_show: products shown to the camera are recorded. It turns itself off after the configured time.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Quartermaster entry",
+          "description": "The Quartermaster config entry to act on. If omitted, the only one is used."
+        },
+        "zone": {
+          "name": "Zone",
+          "description": "Zone name, alias or ID."
+        },
+        "minutes": {
+          "name": "Minutes",
+          "description": "How long to stay on; the source setting when omitted."
+        }
+      }
     }
   },
   "entity": {
@@ -615,6 +636,9 @@
       },
       "photo_requests": {
         "name": "Photo requests"
+      },
+      "last_show": {
+        "name": "Last shown {zone}"
       }
     },
     "button": {
@@ -645,6 +669,11 @@
     "binary_sensor": {
       "zone_error": {
         "name": "Zone error {zone}"
+      }
+    },
+    "switch": {
+      "show_mode": {
+        "name": "Show mode {zone}"
       }
     }
   },
@@ -683,6 +712,12 @@
           "non_admin_writes": "Otherwise only administrators change data from the dashboard and actions; reading stays open to every user."
         }
       }
+    }
+  },
+  "issues": {
+    "show_suspended": {
+      "title": "Show mode suspended in {zone}",
+      "description": "Three triggers in a row produced no change in the show area of {zone}, so camera_show is suspended. Check the camera, the trigger entity and the region of interest, then turn show mode on again to resume."
     }
   }
 }

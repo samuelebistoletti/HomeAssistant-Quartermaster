@@ -285,6 +285,38 @@ CSV import (2 zones, 2 products), consumption by alias, finish, undo, unknown-pr
 
 Contract in `docs/dashboard-api.md`. Reading for every authenticated user, writing for administrators (or everyone with the `non_admin_writes` option), checked in the websocket commands and in the write actions when the call carries a user; calls without a user (automations, the integration itself) are allowed. Entity ids are resolved from the entity registry by unique id, because they follow the user's language. Upload limit 2 MB after browser-side resizing (spec §17.2).
 
+## Phase 5 — zones and cameras (2026-11-08)
+
+### Decisions
+
+| Topic | Decision | Source or reason |
+| --- | --- | --- |
+| Zone settings | `set_zone` action (name, aliases, sources, cron schedule, reminder days, threshold). Sources validated per type. An options-flow editor is not built: zones are edited from the dashboard (Phase 7) and by action | Spec §4.1, §10 |
+| Schedules | In-house five-field cron matcher, checked every minute (no dependency) | Spec §4.1 `check_schedule` |
+| Camera frames | Documented `camera.snapshot` action into the temporary media folder, read and deleted; importing the camera component would need stream/numpy | home-assistant.io camera.snapshot |
+| `max_age_minutes` | Accepted but not enforced: snapshot gives no frame time. Stale frames show up as unchanged images (dHash reuse). Revisit after the Phase 0 freshness check | Spec §5 step 2 |
+| Daily camera limits | Every read attempt counts, failed ones too, to protect battery cameras | Spec §4.1 |
+| Insufficient result | Unusable image, confidence under the zone threshold, or an expected essential not seen → next source | Spec §5 step 5 |
+| Zone error | On after 3 consecutive failed checks (camera unavailable or analysis failed); cleared by a success | Spec §6.6 |
+| Photo requests | Table `photo_requests` (schema v4); one open request per zone; event `quartermaster_photo_request` (notifications deliver it in Phase 8); one reminder after 12 h, expiry after 24 h; closed by any successful analysis of the zone. A zone without camera never updated also gets a request | Spec §5 steps 6–8 |
+| Background jobs | Scheduled checks and housekeeping run as config-entry background tasks, cancelled on unload | Avoids jobs on a closed database |
+| Per-zone entities | Added when a zone (or a camera_show source) appears and removed from the entity registry when the zone is deleted, without reloading the entry. Renaming a zone keeps the old name in entity names until restart | contributors.home-assistant.io dynamic entities |
+| camera_show | Burst capture with repeated snapshots for `window_seconds`; frames cut to the area, scored (Laplacian sharpness, mean difference from the reference scene, dHash duplicates); up to `max_frames_to_model` sharpest distinct frames spread in time; one retry with the sharpest frame if the provider refuses several. **Clip** (`camera.record`) waits for the Phase 0 camera check: `clip` and `auto` use burst for now | Spec §5.1 |
+| Reference scene | First frame when none yet; replaced by the last frame after a trigger with no change or nothing shown | Spec §5.1 (approximation of the empty scene) |
+| Actions | taken → consumption on channel `camera` (≥ `min_confidence` with `confirm: auto`), returned → reverts a camera consumption of the same product within 10 minutes or adds the quantity, unclear or unknown product → proposal | Spec §5.1 |
+| Suspension | 3 triggers in a row without change suspend the source and raise a repair issue; arming again resumes and clears it | Spec §5.1 step 8 |
+| Notification and announcement | Event `quartermaster_show_recognized` with the operation id (for the Undo button); delivery in Phase 8 | Spec §5.1 step 6 |
+| Passage cameras | Source type `passage` with its own trigger and area; observations of products carried in or out; alone they only propose (out → consumption in the zone holding the most, in → purchase in the default zone). Corroboration as decided by the author (see "Cameras as observation points"), match window from the source (default 300 s) | Author decisions 2026-11-08 |
+| Arming | `show_mode` switch per zone with camera_show, `arm_show_mode` action and LLM tool, auto-off after `arm_minutes` (default 10) | Spec §5.1 step 1 |
+
+### Acceptance criteria
+
+- Unavailable camera, unusable frame or confidence under the threshold lead to a photo request: tested (unavailable and low confidence; dark/blurred frames use the same path as Phase 4 checks).
+- Daily limits and cooldown respected: tested (per-source reads, camera_show cooldown, daily count, hours).
+- With test frames, no product shown → no writes; a product recognized above the threshold → an undoable consumption: tested (undo by "returned" and by operation id).
+- No frame stays on disk after the analysis: tested (temporary folder empty).
+- Real-camera behaviour (freshness, battery, clip mode, ten products shown): **waits for the Phase 0 camera check** on the author's instance.
+
 ## Planned extensions (author requests)
 
 ### Cameras as observation points (requested 2026-11-08, Phase 5; author answers the same day)

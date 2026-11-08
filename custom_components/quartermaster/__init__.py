@@ -38,6 +38,7 @@ from .services import async_setup_services
 from .storage.sqlite import SchemaTooNewError, SQLiteBackend
 from .vision.analyze import VisionService
 from .vision.schema import StructureMode
+from .vision.show import ShowManager
 
 PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
@@ -45,6 +46,7 @@ PLATFORMS: list[Platform] = [
     Platform.CALENDAR,
     Platform.SELECT,
     Platform.SENSOR,
+    Platform.SWITCH,
     Platform.TODO,
 ]
 
@@ -63,6 +65,7 @@ class QuartermasterRuntimeData:
     vision: VisionService
     proposals: ProposalService
     zones: ZoneManager = field(init=False)
+    show: ShowManager = field(init=False)
 
 
 type QuartermasterConfigEntry = ConfigEntry[QuartermasterRuntimeData]
@@ -138,6 +141,11 @@ async def async_setup_entry(
     coordinator.zones = zones
     zones.async_start()
     entry.async_on_unload(zones.async_stop)
+    show = ShowManager(hass, entry.runtime_data)
+    entry.runtime_data.show = show
+    coordinator.show = show
+    show.async_start(list(coordinator.data.zones.values()))
+    entry.async_on_unload(show.async_shutdown)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
 

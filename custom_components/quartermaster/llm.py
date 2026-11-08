@@ -926,6 +926,42 @@ class CheckZoneTool(QuartermasterTool):
         return _result({"status": "started", "zone": zone.name})
 
 
+class ArmShowModeTool(QuartermasterTool):
+    """Turn on show mode of a zone ("I'm taking things from the garage")."""
+
+    name = f"{DOMAIN}__arm_show_mode"
+    description = (
+        "Turn on show mode for a zone with a camera: products shown to the "
+        "camera are recorded. It turns itself off after a while."
+    )
+    parameters = probatio.Schema(
+        {
+            probatio.Required("zone"): str,
+            probatio.Optional("minutes"): probatio.All(
+                probatio.Coerce(float), probatio.Range(min=1, max=240)
+            ),
+        }
+    )
+    annotations = llm.ToolAnnotations(
+        read_only=False, destructive=False, idempotent=True, open_world=False
+    )
+    writes = True
+
+    async def _async_run(
+        self,
+        runtime: QuartermasterRuntimeData,
+        args: dict[str, Any],
+        channel: Channel,
+        user_id: str | None,
+        llm_context: llm.LLMContext,
+    ) -> llm.ToolResult:
+        zone = await runtime.inventory.async_find_zone(args["zone"])
+        until = runtime.show.async_arm(zone.id, args.get("minutes"))
+        return _result(
+            {"status": "armed", "zone": zone.name, "until": until.isoformat()}
+        )
+
+
 TOOLS: tuple[type[QuartermasterTool], ...] = (
     ListZonesTool,
     GetStockTool,
@@ -941,6 +977,7 @@ TOOLS: tuple[type[QuartermasterTool], ...] = (
     CreateProductTool,
     ConfirmPendingTool,
     CheckZoneTool,
+    ArmShowModeTool,
 )
 
 

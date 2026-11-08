@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+import json
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -50,6 +51,7 @@ if TYPE_CHECKING:
     from custom_components.quartermaster import QuartermasterConfigEntry
     from custom_components.quartermaster.core.zones import ZoneManager
     from custom_components.quartermaster.vision.analyze import VisionService
+    from custom_components.quartermaster.vision.show import ShowManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -115,6 +117,8 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
         self.proposals: ProposalService | None = None
         self.vision: VisionService | None = None
         self.zones: ZoneManager | None = None
+        self.show: ShowManager | None = None
+        self._watch_signature: str | None = None
         self._zone_names: dict[str, str] | None = None
 
     @callback
@@ -166,6 +170,12 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
                 if (last := await self.zones.async_last_check(zone.id)) is not None:
                     zone_checks[zone.id] = last
                 zone_failures[zone.id] = await self.zones.async_failures(zone.id)
+        signature = json.dumps(
+            [[zone.id, zone.sources] for zone in zones], sort_keys=True, default=str
+        )
+        if self.show is not None and signature != self._watch_signature:
+            self.show.async_start(zones)
+        self._watch_signature = signature
         names = {zone.id: zone.name for zone in zones}
         if self._zone_names is not None:
             for zone_id in self._zone_names.keys() - names.keys():

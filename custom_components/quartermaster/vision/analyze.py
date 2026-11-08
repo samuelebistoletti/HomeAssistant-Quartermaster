@@ -91,7 +91,8 @@ class VisionService:
             return 0
         return int(await self._backend.async_get_setting(SETTING_ANALYSES_COUNT) or 0)
 
-    async def _async_count_call(self) -> None:
+    async def async_count_call(self) -> None:
+        """Count one model call against today's limit."""
         count = await self.async_analyses_today()
         await self._backend.async_set_setting(
             SETTING_ANALYSES_DAY, dt_util.now().date().isoformat()
@@ -151,7 +152,7 @@ class VisionService:
         ]
         await self._hass.async_add_executor_job(_write, path, image.jpeg)
         try:
-            await self._async_count_call()
+            await self.async_count_call()
             response = await self._hass.services.async_call(
                 "ai_task",
                 "generate_data",

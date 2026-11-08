@@ -110,6 +110,9 @@
     },
     "invalid_schedule": {
       "message": "{schedule} non è una pianificazione cron valida a cinque campi."
+    },
+    "show_not_configured": {
+      "message": "La zona {zone} non ha una fonte camera_show."
     }
   },
   "selector": {
@@ -586,6 +589,24 @@
           "description": "Da dove arriva la richiesta; le richieste di foto tornano lì."
         }
       }
+    },
+    "arm_show_mode": {
+      "name": "Attiva modalità mostra prodotto",
+      "description": "Accende la modalità mostra prodotto di una zona con camera_show: i prodotti mostrati alla telecamera vengono registrati. Si spegne da sola dopo il tempo configurato.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
+        },
+        "zone": {
+          "name": "Zona",
+          "description": "Nome, alias o ID della zona."
+        },
+        "minutes": {
+          "name": "Minuti",
+          "description": "Per quanto restare accesa; se manca vale l'impostazione della fonte."
+        }
+      }
     }
   },
   "entity": {
@@ -615,6 +636,9 @@
       },
       "photo_requests": {
         "name": "Foto richieste"
+      },
+      "last_show": {
+        "name": "Ultimo prelievo riconosciuto {zone}"
       }
     },
     "button": {
@@ -645,6 +669,11 @@
     "binary_sensor": {
       "zone_error": {
         "name": "Zona in errore {zone}"
+      }
+    },
+    "switch": {
+      "show_mode": {
+        "name": "Modalità mostra prodotto {zone}"
       }
     }
   },
@@ -683,6 +712,12 @@
           "non_admin_writes": "Altrimenti solo gli amministratori modificano i dati dalla dashboard e dalle azioni; la lettura resta aperta a tutti."
         }
       }
+    }
+  },
+  "issues": {
+    "show_suspended": {
+      "title": "Modalità mostra prodotto sospesa in {zone}",
+      "description": "Tre inneschi di fila non hanno prodotto cambiamenti nell'area di presentazione di {zone}, quindi camera_show è sospesa. Controlla la telecamera, l'entità di innesco e l'area, poi riaccendi la modalità mostra prodotto per riprendere."
     }
   }
 }

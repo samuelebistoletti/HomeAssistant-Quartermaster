@@ -113,6 +113,7 @@ async def test_tools_are_offered(
             "create_product",
             "confirm_pending",
             "check_zone",
+            "arm_show_mode",
         )
     }
     assert all(

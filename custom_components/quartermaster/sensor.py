@@ -27,6 +27,7 @@ from custom_components.quartermaster.entity import (
     QuartermasterEntity,
     QuartermasterZoneEntity,
     async_add_zone_entities,
+    has_show,
 )
 
 PARALLEL_UPDATES = 0
@@ -137,7 +138,14 @@ async def async_setup_entry(
     async_add_zone_entities(
         coordinator,
         async_add_entities,
-        lambda zone_id: [LastCheckSensor(coordinator, zone_id)],
+        lambda zone_id: [
+            LastCheckSensor(coordinator, zone_id),
+            *(
+                [LastShowSensor(coordinator, zone_id)]
+                if has_show(coordinator, zone_id)
+                else []
+            ),
+        ],
     )
 
 
@@ -214,3 +222,24 @@ class LastCheckSensor(QuartermasterZoneEntity, SensorEntity):
             "overall_confidence": last.get("overall_confidence"),
             "zone_updated": updated.isoformat() if updated else None,
         }
+
+
+class LastShowSensor(QuartermasterZoneEntity, SensorEntity):
+    """The last product recognized by camera_show in the zone."""
+
+    def __init__(self, coordinator: QuartermasterCoordinator, zone_id: str) -> None:
+        """Set up the sensor."""
+        super().__init__(coordinator, "last_show", zone_id)
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the product name."""
+        show = self.coordinator.config_entry.runtime_data.show
+        last = show.last_show.get(self.zone_id)
+        return last["product"] if last else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return action, quantity, confidence, outcome and time."""
+        show = self.coordinator.config_entry.runtime_data.show
+        return dict(show.last_show.get(self.zone_id) or {})

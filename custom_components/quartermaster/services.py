@@ -61,6 +61,7 @@ SERVICE_IMPORT_FROM_TODO = "import_from_todo"
 SERVICE_ASK = "ask"
 SERVICE_SET_ZONE = "set_zone"
 SERVICE_CHECK_ZONE = "check_zone"
+SERVICE_ARM_SHOW_MODE = "arm_show_mode"
 SERVICE_ANALYZE_IMAGE = "analyze_image"
 SERVICE_CONFIRM_PENDING = "confirm_pending"
 
@@ -98,6 +99,7 @@ ATTR_DECISION = "decision"
 ATTR_ITEMS = "items"
 ATTR_CORRECTIONS = "corrections"
 ATTR_KEY = "key"
+ATTR_MINUTES = "minutes"
 ATTR_SOURCES = "sources"
 ATTR_CHECK_SCHEDULE = "check_schedule"
 ATTR_REMINDER_DAYS = "reminder_days"
@@ -276,6 +278,15 @@ CHECK_ZONE_SCHEMA = probatio.Schema(
         probatio.Required(ATTR_ZONE): cv.string,
         probatio.Optional(ATTR_CHANNEL, default="service"): probatio.In(
             list(ASK_CHANNELS)
+        ),
+    }
+)
+ARM_SHOW_MODE_SCHEMA = probatio.Schema(
+    {
+        **ENTRY,
+        probatio.Required(ATTR_ZONE): cv.string,
+        probatio.Optional(ATTR_MINUTES): probatio.All(
+            probatio.Coerce(float), probatio.Range(min=1, max=240)
         ),
     }
 )
@@ -667,6 +678,18 @@ async def _async_check_zone(call: ServiceCall) -> ServiceResponse:
     return outcome.as_dict() if call.return_response else None
 
 
+async def _async_arm_show_mode(call: ServiceCall) -> ServiceResponse:
+    await _async_check_writer(call)
+    runtime = _runtime(call)
+    zone = await runtime.inventory.async_find_zone(call.data[ATTR_ZONE])
+    until = runtime.show.async_arm(zone.id, call.data.get(ATTR_MINUTES))
+    return (
+        {"zone_id": zone.id, "until": until.isoformat()}
+        if call.return_response
+        else None
+    )
+
+
 @callback
 def async_setup_services(hass: HomeAssistant) -> None:
     """Register the integration actions."""
@@ -693,6 +716,7 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_ASK, _async_ask, ASK_SCHEMA),
         (SERVICE_SET_ZONE, _async_set_zone, SET_ZONE_SCHEMA),
         (SERVICE_CHECK_ZONE, _async_check_zone, CHECK_ZONE_SCHEMA),
+        (SERVICE_ARM_SHOW_MODE, _async_arm_show_mode, ARM_SHOW_MODE_SCHEMA),
         (SERVICE_ANALYZE_IMAGE, _async_analyze_image, ANALYZE_IMAGE_SCHEMA),
         (SERVICE_CONFIRM_PENDING, _async_confirm_pending, CONFIRM_PENDING_SCHEMA),
     ):

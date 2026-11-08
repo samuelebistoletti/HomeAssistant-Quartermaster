@@ -352,3 +352,19 @@ check_zone:
             - telegram
             - dashboard
             - service
+
+arm_show_mode:
+  fields:
+    config_entry_id: *config_entry
+    zone:
+      required: true
+      example: "Garage shelf"
+      selector:
+        text:
+    minutes:
+      selector:
+        number:
+          min: 1
+          max: 240
+          mode: box
+          unit_of_measurement: min

@@ -11,7 +11,14 @@ from dataclasses import dataclass
 from enum import StrEnum
 import io
 
-from PIL import Image, ImageFilter, ImageOps, ImageStat, UnidentifiedImageError
+from PIL import (
+    Image,
+    ImageChops,
+    ImageFilter,
+    ImageOps,
+    ImageStat,
+    UnidentifiedImageError,
+)
 
 from custom_components.quartermaster.vision.phash import dhash
 
@@ -117,4 +124,57 @@ def prepare(data: bytes, roi: Roi | None = None) -> PreparedImage:
         brightness=round(light, 1),
         sharpness=round(sharp, 1),
         perceptual_hash=dhash(image),
+    )
+
+
+@dataclass(slots=True)
+class Frame:
+    """A camera frame cut to the show area, with its scores."""
+
+    index: int
+    jpeg: bytes
+    sharpness: float
+    change: float
+    perceptual_hash: str
+
+
+_CHANGE_SIZE = (64, 48)
+
+
+def change_score(gray: Image.Image, reference: Image.Image | None) -> float:
+    """Return the mean absolute difference (0-255) from the reference scene."""
+    if reference is None:
+        return 0.0
+    small = gray.resize(_CHANGE_SIZE)
+    base = reference.resize(_CHANGE_SIZE)
+    return float(ImageStat.Stat(ImageChops.difference(small, base)).mean[0])
+
+
+def prepare_frame(
+    data: bytes, roi: Roi | None, reference: bytes | None, index: int
+) -> Frame:
+    """Crop a frame to the show area and score it (no size checks)."""
+    try:
+        with Image.open(io.BytesIO(data)) as source:
+            source.load()
+            image = crop(ImageOps.exif_transpose(source).convert("RGB"), roi)
+        ref_gray = None
+        if reference is not None:
+            with Image.open(io.BytesIO(reference)) as ref:
+                ref.load()
+                ref_gray = crop(
+                    ImageOps.exif_transpose(ref).convert("RGB"), roi
+                ).convert("L")
+    except (UnidentifiedImageError, OSError, ValueError) as err:
+        raise ImageRejectedError(ImageIssue.UNREADABLE) from err
+    gray = image.convert("L")
+    image.thumbnail((LONG_SIDE, LONG_SIDE), Image.Resampling.LANCZOS)
+    buffer = io.BytesIO()
+    image.save(buffer, format="JPEG", quality=JPEG_QUALITY, optimize=True)
+    return Frame(
+        index=index,
+        jpeg=buffer.getvalue(),
+        sharpness=round(sharpness(gray), 1),
+        change=round(change_score(gray, ref_gray), 1),
+        perceptual_hash=dhash(gray),
     )
