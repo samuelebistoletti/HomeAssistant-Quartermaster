@@ -317,6 +317,23 @@ Contract in `docs/dashboard-api.md`. Reading for every authenticated user, writi
 - No frame stays on disk after the analysis: tested (temporary folder empty).
 - Real-camera behaviour (freshness, battery, clip mode, ten products shown): **waits for the Phase 0 camera check** on the author's instance.
 
+## Phase 6 — Telegram (2026-11-08)
+
+Implemented from the documentation before the Phase 0 practical check, as decided by the author. Details to confirm on the real bot: event attributes, the download location, keyboard format.
+
+| Topic | Decision | Source or reason |
+| --- | --- | --- |
+| Input | The bot's event entity (option), state changes only; `telegram_text`, `telegram_command`, `telegram_attachment`, `telegram_callback` with the documented attributes | home-assistant.io telegram_bot |
+| Allowed chats | Quartermaster's own list (option, in addition to the bot's allowlist: core accepts a message if the user *or* the chat is allowed); groups (negative ids) only with the option on | Spec §8; Phase 0 docs review |
+| Rate limit | 20 messages per chat per minute | Spec §8 |
+| Texts | `quartermaster.ask` session per chat (`chat:<id>`, channel telegram); late replies (`quartermaster_ask_result`) are sent when ready | Spec §6.3 |
+| Photos | `telegram_bot.download_file` without a directory (writes to `<config>/telegram_bot`, an allowed path), read and deleted at once; caption = zone (name or alias); otherwise inline buttons to pick the zone (photo held 10 minutes in memory); analysis through the same pipeline | Spec §6.3; `services.yaml` of telegram_bot 2026.11 (the page does not document the fields) |
+| Buttons | `inline_keyboard` rows `Label:/command`, labels cleaned of `,` and `:`; commands `/qm_ok`, `/qm_no` (proposal), `/qm_zone`, `/qm_undo`, `/qm_add` (suggestion); answered with `answer_callback_query` | home-assistant.io telegram_bot |
+| Commands | `/list` `/lista`, `/shopping` `/spesa` (shopping mode, list and suggestion buttons), `/undo` `/annulla`, anything else shows help | — |
+| Replies | `send_message` with `chat_id`, the bot's `config_entry_id` (option, or taken from the events) and `parse_mode: plain_text`; texts from the translations in the system language | — |
+
+Criteria: a chat that is not allowed is ignored (tested); a photo captioned "frigo" gives a proposal with working buttons (tested with a simulated bot). Real bot check pending (Phase 0).
+
 ## Planned extensions (author requests)
 
 ### Cameras as observation points (requested 2026-11-08, Phase 5; author answers the same day)

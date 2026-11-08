@@ -1,7 +1,25 @@
 {
   "common": {
     "ask_working": "I'm on it. I'll let you know when it's done.",
-    "ask_error": "Sorry, I couldn't do that. Please try again."
+    "ask_error": "Sorry, I couldn't do that. Please try again.",
+    "telegram_help": "Send me what you used or bought (\"I finished the milk\"), ask what is missing, or send a photo of a zone with the zone name as caption. Commands: /list, /shopping, /undo.",
+    "telegram_list": "Shopping list:",
+    "telegram_list_empty": "The shopping list is empty.",
+    "telegram_choose_zone": "Which zone is in the photo?",
+    "telegram_applied": "Updated:",
+    "telegram_proposal": "I see these changes. Confirm?",
+    "telegram_nothing": "Nothing changed in this zone.",
+    "telegram_confirmed": "Confirmed.",
+    "telegram_rejected": "Rejected.",
+    "telegram_expired": "This photo is no longer waiting; send it again.",
+    "telegram_undone": "Undone.",
+    "telegram_nothing_to_undo": "Nothing to undo.",
+    "telegram_added": "Added to the list.",
+    "telegram_suggestions": "You may also want:",
+    "telegram_error": "I couldn't do that: {error}",
+    "button_confirm": "Confirm",
+    "button_reject": "Reject",
+    "button_undo": "Undo"
   },
   "config": {
     "step": {
@@ -113,6 +131,9 @@
     },
     "show_not_configured": {
       "message": "Zone {zone} has no camera_show source."
+    },
+    "telegram_download_failed": {
+      "message": "The photo could not be downloaded from Telegram: {error}"
     }
   },
   "selector": {
@@ -694,7 +715,11 @@
           "structure_mode": "How to ask for the item list",
           "confidence_threshold": "Confidence threshold for automatic mode",
           "daily_analysis_limit": "Image analyses per day",
-          "non_admin_writes": "Non-admin users can change the inventory"
+          "non_admin_writes": "Non-admin users can change the inventory",
+          "telegram_event_entity": "Telegram bot event entity",
+          "telegram_bot_entry": "Telegram bot",
+          "telegram_chats": "Allowed Telegram chats",
+          "telegram_groups": "Answer in Telegram groups"
         },
         "data_description": {
           "agent_id": "Agent used by quartermaster.ask (Alexa, Telegram, dashboard). Attach the Assist API to it so it can use the Quartermaster tools.",
@@ -709,7 +734,11 @@
           "structure_mode": "Use the fallback if your provider handles nested structures badly.",
           "confidence_threshold": "In automatic mode, recognized changes at or above this confidence are applied; the others are proposed. A zone can override it.",
           "daily_analysis_limit": "Model calls for images stop for the day after this many.",
-          "non_admin_writes": "Otherwise only administrators change data from the dashboard and actions; reading stays open to every user."
+          "non_admin_writes": "Otherwise only administrators change data from the dashboard and actions; reading stays open to every user.",
+          "telegram_event_entity": "The update event entity of your Telegram bot (Polling or Webhooks). Leave empty to turn the Telegram channel off.",
+          "telegram_bot_entry": "The bot used for replies; taken from the events when empty.",
+          "telegram_chats": "Chat IDs Quartermaster answers, in addition to the bot's own allowlist. Group IDs are negative.",
+          "telegram_groups": "Group messages are ignored unless this is on."
         }
       }
     }

@@ -18,7 +18,9 @@ Shared state between development sessions and machines. Keep it short and factua
 - Done (2026-11-08): Phase 4 — vision pipeline, proposals, analyze_image, confirm_pending; 120 tests, 98 % coverage. Recall on 30 real photos pending (needs a vision AI Task and the author's photos). 
 - Done (2026-11-08): websocket API for the dashboard (docs/dashboard-api.md); a background agent builds the dashboard frontend in the dashboard repo.
 - Done (2026-11-08): Phase 5 part 1 — zone manager, schedules, photo requests, per-zone entities; 156 tests. 
-- Done (2026-11-08): Phase 5 part 2 — camera_show (burst), passage cameras with corroboration, show mode switch, repairs; 168 tests, 97.6 % coverage. Clip mode and real-camera tuning wait for the Phase 0 camera check. Next: Phase 6 (Telegram).
+- Done (2026-11-08): Phase 5 part 2 — camera_show (burst), passage cameras with corroboration, show mode switch, repairs; 168 tests, 97.6 % coverage. Clip mode and real-camera tuning wait for the Phase 0 camera check. 
+- Done (2026-11-08): dashboard frontend built by a background agent (dashboard repo, CI green); integration answers: partial proposal confirm, suggestion quantity, richer snapshot.
+- Done (2026-11-08): Phase 6 Telegram from the docs (author approved implementing before the Phase 0 check); 176 tests. Next: Phase 8 (notifications and Alexa docs), then Phase 9 docs.
 - Next: run the practical checks with the author (Telegram, Alexa and iOS through a quick tunnel on the second machine; camera on the real instance; Marketplace and Cloudflare on a network without TLS inspection).
 
 ## Decisions from the author (2026-11-07)

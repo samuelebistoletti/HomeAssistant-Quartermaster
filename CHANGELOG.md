@@ -18,3 +18,4 @@
 - camera_show: products shown to a zone camera recorded as consumption (or returned), burst capture with sharpness, change and duplicate checks, suspension with a repair issue; show mode switch per zone, last shown sensor, `arm_show_mode` action and LLM tool.
 - Passage cameras: products carried in or out are proposed, and corroborate zone camera sightings without double counting.
 - Confirming only some items of a proposal keeps the others pending; an accepted below-target suggestion buys up to the target; the dashboard snapshot includes zone checks, errors, show mode and photo requests.
+- Telegram channel through the Telegram bot integration: texts to the agent per chat, photos to the vision pipeline with zone from the caption or buttons, proposal and suggestion buttons, undo, commands, allowed chats, group option and rate limit.

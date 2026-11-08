@@ -1,7 +1,25 @@
 {
   "common": {
     "ask_working": "Ci sto lavorando, ti avviso quando ho finito.",
-    "ask_error": "Non ci sono riuscito, riprova."
+    "ask_error": "Non ci sono riuscito, riprova.",
+    "telegram_help": "Scrivimi cosa hai usato o comprato (\"ho finito il latte\"), chiedimi cosa manca, oppure mandami la foto di una zona con il nome della zona come didascalia. Comandi: /lista, /spesa, /annulla.",
+    "telegram_list": "Lista della spesa:",
+    "telegram_list_empty": "La lista della spesa è vuota.",
+    "telegram_choose_zone": "Quale zona c'è nella foto?",
+    "telegram_applied": "Aggiornato:",
+    "telegram_proposal": "Vedo queste variazioni. Confermi?",
+    "telegram_nothing": "Nessuna variazione in questa zona.",
+    "telegram_confirmed": "Confermato.",
+    "telegram_rejected": "Rifiutato.",
+    "telegram_expired": "Questa foto non è più in attesa; rimandala.",
+    "telegram_undone": "Annullato.",
+    "telegram_nothing_to_undo": "Non c'è niente da annullare.",
+    "telegram_added": "Aggiunto alla lista.",
+    "telegram_suggestions": "Potrebbe servirti anche:",
+    "telegram_error": "Non ci sono riuscito: {error}",
+    "button_confirm": "Conferma",
+    "button_reject": "Rifiuta",
+    "button_undo": "Annulla"
   },
   "config": {
     "step": {
@@ -113,6 +131,9 @@
     },
     "show_not_configured": {
       "message": "La zona {zone} non ha una fonte camera_show."
+    },
+    "telegram_download_failed": {
+      "message": "Impossibile scaricare la foto da Telegram: {error}"
     }
   },
   "selector": {
@@ -694,7 +715,11 @@
           "structure_mode": "Come chiedere l'elenco dei prodotti",
           "confidence_threshold": "Soglia di affidabilità della modalità automatica",
           "daily_analysis_limit": "Analisi di immagini al giorno",
-          "non_admin_writes": "Gli utenti non amministratori possono modificare l'inventario"
+          "non_admin_writes": "Gli utenti non amministratori possono modificare l'inventario",
+          "telegram_event_entity": "Entità evento del bot Telegram",
+          "telegram_bot_entry": "Bot Telegram",
+          "telegram_chats": "Chat Telegram consentite",
+          "telegram_groups": "Rispondi nei gruppi Telegram"
         },
         "data_description": {
           "agent_id": "Agente usato da quartermaster.ask (Alexa, Telegram, dashboard). Collegagli l'API Assist perché possa usare gli strumenti di Quartermaster.",
@@ -709,7 +734,11 @@
           "structure_mode": "Usa il ripiego se il provider gestisce male le strutture annidate.",
           "confidence_threshold": "In modalità automatica le variazioni riconosciute con affidabilità pari o superiore vengono applicate; le altre proposte. Una zona può avere la sua soglia.",
           "daily_analysis_limit": "Oltre questo numero le chiamate al modello per le immagini si fermano fino al giorno dopo.",
-          "non_admin_writes": "Altrimenti solo gli amministratori modificano i dati dalla dashboard e dalle azioni; la lettura resta aperta a tutti."
+          "non_admin_writes": "Altrimenti solo gli amministratori modificano i dati dalla dashboard e dalle azioni; la lettura resta aperta a tutti.",
+          "telegram_event_entity": "L'entità evento degli aggiornamenti del tuo bot Telegram (Polling o Webhooks). Vuota per disattivare il canale Telegram.",
+          "telegram_bot_entry": "Il bot usato per rispondere; se vuoto si ricava dagli eventi.",
+          "telegram_chats": "ID delle chat a cui Quartermaster risponde, oltre all'elenco del bot. Gli ID dei gruppi sono negativi.",
+          "telegram_groups": "I messaggi di gruppo vengono ignorati se questa opzione è spenta."
         }
       }
     }

@@ -14,6 +14,7 @@ from homeassistant.exceptions import ConfigEntryError
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
+from .channels.telegram import TelegramChannel, parse_chat_ids
 from .channels.websocket import async_setup_websocket
 from .const import (
     CONF_AGENT_ID,
@@ -22,6 +23,10 @@ from .const import (
     CONF_DAILY_ANALYSIS_LIMIT,
     CONF_EXTERNAL_TODO,
     CONF_STRUCTURE_MODE,
+    CONF_TELEGRAM_BOT,
+    CONF_TELEGRAM_CHATS,
+    CONF_TELEGRAM_EVENT,
+    CONF_TELEGRAM_GROUPS,
     DATABASE_FILE,
     DEFAULT_ASK_SESSION_SECONDS,
     DEFAULT_DAILY_ANALYSIS_LIMIT,
@@ -66,6 +71,7 @@ class QuartermasterRuntimeData:
     proposals: ProposalService
     zones: ZoneManager = field(init=False)
     show: ShowManager = field(init=False)
+    telegram: TelegramChannel | None = None
 
 
 type QuartermasterConfigEntry = ConfigEntry[QuartermasterRuntimeData]
@@ -146,6 +152,18 @@ async def async_setup_entry(
     coordinator.show = show
     show.async_start(list(coordinator.data.zones.values()))
     entry.async_on_unload(show.async_shutdown)
+    if event_entity := entry.options.get(CONF_TELEGRAM_EVENT):
+        telegram = TelegramChannel(
+            hass,
+            entry.runtime_data,
+            event_entity=event_entity,
+            bot_entry_id=entry.options.get(CONF_TELEGRAM_BOT),
+            chats=parse_chat_ids(entry.options.get(CONF_TELEGRAM_CHATS, [])),
+            allow_groups=bool(entry.options.get(CONF_TELEGRAM_GROUPS, False)),
+        )
+        entry.runtime_data.telegram = telegram
+        telegram.async_start()
+        entry.async_on_unload(telegram.async_stop)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
 

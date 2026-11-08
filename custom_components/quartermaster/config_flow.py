@@ -28,6 +28,10 @@ from .const import (
     CONF_SHOPPING_MODE_MINUTES,
     CONF_STALE_ZONE_DAYS,
     CONF_STRUCTURE_MODE,
+    CONF_TELEGRAM_BOT,
+    CONF_TELEGRAM_CHATS,
+    CONF_TELEGRAM_EVENT,
+    CONF_TELEGRAM_GROUPS,
     DEFAULT_ALEXA_READ_ONLY,
     DEFAULT_ASK_SESSION_SECONDS,
     DEFAULT_CONFIDENCE_THRESHOLD,
@@ -97,6 +101,18 @@ OPTIONS_SCHEMA = probatio.Schema(
         ),
         probatio.Required(
             CONF_NON_ADMIN_WRITES, default=DEFAULT_NON_ADMIN_WRITES
+        ): selector.BooleanSelector(),
+        probatio.Optional(CONF_TELEGRAM_EVENT): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="event", integration="telegram_bot")
+        ),
+        probatio.Optional(CONF_TELEGRAM_BOT): selector.ConfigEntrySelector(
+            selector.ConfigEntrySelectorConfig(integration="telegram_bot")
+        ),
+        probatio.Optional(CONF_TELEGRAM_CHATS): selector.TextSelector(
+            selector.TextSelectorConfig(multiple=True)
+        ),
+        probatio.Required(
+            CONF_TELEGRAM_GROUPS, default=False
         ): selector.BooleanSelector(),
         probatio.Optional(CONF_EXTERNAL_TODO): selector.EntitySelector(
             selector.EntitySelectorConfig(domain="todo")
