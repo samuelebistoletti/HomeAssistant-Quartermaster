@@ -1,0 +1,2 @@
+# False positive in history: test strings, not secrets (fixed in ec6c0cb).
+1fdb377033772e5a512678912a1c33617c0ef4a4:tests/test_diagnostics.py:generic-api-key:26

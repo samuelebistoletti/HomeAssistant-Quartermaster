@@ -357,10 +357,11 @@ async def test_schedule_runs_checks(
 ) -> None:
     """At the scheduled minute the zone is checked by the scheduler."""
     entry, ai, _ = zoned
+    # Tomorrow at 19:00: timers set up at the real time only fire forward.
+    tomorrow = dt_util.now().date() + timedelta(days=1)
+    local = dt_util.get_default_time_zone()
     freezer.move_to(
-        dt_util.as_utc(
-            datetime(2026, 11, 8, 19, 0, 0, tzinfo=dt_util.get_default_time_zone())
-        )
+        datetime.combine(tomorrow, datetime.min.time(), local).replace(hour=19)
     )
     async_fire_time_changed(hass)
     await hass.async_block_till_done(wait_background_tasks=True)

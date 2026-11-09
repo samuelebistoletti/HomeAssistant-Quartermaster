@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from freezegun.api import FrozenDateTimeFactory
@@ -178,7 +178,9 @@ async def test_quiet_hours_hold_messages(
     """During quiet hours messages wait; they go out when quiet hours end."""
     entry, notify = notified
     local = dt_util.get_default_time_zone()
-    freezer.move_to(datetime(2026, 11, 8, 23, 0, tzinfo=local))
+    # Timers are set up at the real time and only fire forward: stay ahead.
+    day = dt_util.now().date() + timedelta(days=1)
+    freezer.move_to(datetime.combine(day, datetime.min.time(), local).replace(hour=23))
     hass.config_entries.async_update_entry(
         entry, options={**entry.options, "quiet_hours": "22:00-07:00"}
     )
@@ -189,7 +191,11 @@ async def test_quiet_hours_hold_messages(
     await _settle(hass)
     assert notify.messages == []
     assert len(entry.runtime_data.notifier.queue) == 1
-    freezer.move_to(datetime(2026, 11, 9, 7, 1, 30, tzinfo=local))
+    freezer.move_to(
+        datetime.combine(day + timedelta(days=1), datetime.min.time(), local).replace(
+            hour=7, minute=1, second=30
+        )
+    )
     async_fire_time_changed(hass)
     await _settle(hass)
     assert notify.messages[-1][1].startswith(
@@ -204,16 +210,22 @@ async def test_expiring_and_weekly(
     entry, notify = notified
     inventory = entry.runtime_data.inventory
     local = dt_util.get_default_time_zone()
-    freezer.move_to(datetime(2026, 11, 9, 8, 0, tzinfo=local))  # Monday
+    # The next Monday, always ahead of the real time the timers were set up at.
+    today = dt_util.now().date()
+    monday = today + timedelta(days=7 - today.weekday())
+    midnight = datetime.combine(monday, datetime.min.time(), local)
+    freezer.move_to(midnight.replace(hour=8))
+    best_before = monday + timedelta(days=1)
     await inventory.async_set_stock(
-        "milk", 1, channel=Channel.SERVICE, best_before=date(2026, 11, 10)
+        "milk", 1, channel=Channel.SERVICE, best_before=best_before
     )
     await entry.runtime_data.coordinator.async_refresh()
-    freezer.move_to(datetime(2026, 11, 9, 9, 0, 30, tzinfo=local))
+    freezer.move_to(midnight.replace(hour=9, second=30))
     async_fire_time_changed(hass)
     await _settle(hass)
     texts = [t for _, t in notify.messages]
-    assert "In scadenza:\n• Milk (Fridge): 10/11" in texts
+    expected = f"In scadenza:\n• Milk (Fridge): {best_before.day}/{best_before.month}"
+    assert expected in texts
     assert any(t.startswith("Questa settimana:") for t in texts)
 
     # Nothing expiring: no message.
