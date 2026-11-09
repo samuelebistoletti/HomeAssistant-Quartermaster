@@ -8,6 +8,7 @@ return a confirmation id first and only write when called again with it.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -129,9 +130,13 @@ class QuartermasterTool(llm.Tool):
             return _error("read_only")
         user_id = llm_context.context.user_id if llm_context.context else None
         # Home Assistant does not validate tool arguments before calling the
-        # tool (spec §8: arguments validated, quantities plausible).
+        # tool (spec §8: arguments validated, quantities plausible). Some
+        # models send the arguments as a string or a list instead of an object.
+        raw_args: object = tool_input.tool_args
+        if not isinstance(raw_args, Mapping):
+            return _error("invalid_arguments", detail="arguments must be an object")
         try:
-            args = dict(self.parameters(dict(tool_input.tool_args)))
+            args = dict(self.parameters(dict(raw_args)))
         except probatio.Invalid as err:
             return _error("invalid_arguments", detail=str(err))
         try:

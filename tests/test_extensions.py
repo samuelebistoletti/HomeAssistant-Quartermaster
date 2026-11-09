@@ -9,7 +9,8 @@ from pathlib import Path
 from typing import Any
 
 from freezegun.api import FrozenDateTimeFactory
-from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.core import Context, HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.helpers import llm
 from homeassistant.util import dt as dt_util
 from PIL import Image
 import pytest
@@ -596,5 +597,25 @@ async def test_counted_and_bad_arguments(
     assert (await _tool(hass, "adjust_stock", product="yogurt", action="eaten"))[
         "error"
     ] == "invalid_arguments"
+    # Some models send the arguments as a string: an error result, not a crash.
+    api = await llm.async_get_api(
+        hass,
+        llm.LLM_API_ASSIST,
+        llm.LLMContext(
+            platform="test",
+            context=Context(),
+            language="en",
+            assistant="conversation",
+            device_id=None,
+        ),
+    )
+    malformed = await api.async_call_tool(
+        llm.ToolInput(
+            tool_name=f"{DOMAIN}__adjust_stock",
+            tool_args="product=yogurt",  # type: ignore[arg-type]
+        )
+    )
+    assert malformed.error is True
+    assert malformed.data["error"] == "invalid_arguments"
     [entry] = await inventory.async_list_journal(limit=1)
     assert entry.kind is MovementKind.CORRECTION
