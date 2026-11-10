@@ -27,13 +27,13 @@ Steps:
 2. Send to the bot, in order: a text, the command `/start`, a photo with caption `frigo`, a photo without caption, an image sent as a file (document), a text from a group the bot is in but that is not allowlisted, then tap the probe buttons.
 3. Read the result: `docker compose logs homeassistant | grep quartermaster_phase0.telegram`.
 
-Record:
-- [ ] Event types and attributes seen on the **event entity**: `file_id`, `file_mime_type`, caption in `text`, `chat_id`, `user_id`.
-- [ ] Whether the same events arrive on the **bus** (undocumented path), and any differences.
-- [ ] `telegram_bot.download_file` response (`file_path`), the location and size of the file, and whether a photo arrives at its largest size.
-- [ ] Button press: `telegram_callback` data and `answer_callback_query` working.
-- [ ] Group message from an allowlisted user in a non-allowlisted group: accepted or not.
-- [ ] Clean up: delete `config/telegram_bot/` downloads.
+Record (2026-11-10, HA 2026.11.0, polling; details in TECHNICAL_NOTES "Telegram on the dev instance"):
+- [x] Event types and attributes seen on the **event entity**: `file_id`, `file_mime_type`, caption in `text`, `chat_id`, `user_id`.
+- [x] Whether the same events arrive on the **bus** (undocumented path), and any differences.
+- [x] `telegram_bot.download_file` response (`file_path`), the location and size of the file, and whether a photo arrives at its largest size.
+- [x] Button press: `telegram_callback` data and `answer_callback_query` working.
+- [ ] Group message from an allowlisted user in a non-allowlisted group: accepted or not (not run).
+- [x] Clean up: delete `config/telegram_bot/` downloads.
 
 ## 2. Alexa (dev instance through a Cloudflare quick tunnel, on the second machine)
 

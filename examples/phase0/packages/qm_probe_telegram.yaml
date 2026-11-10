@@ -1,6 +1,7 @@
 # Phase 0 probe (dev instance only): what the Telegram bot integration delivers
 # for texts, commands, button presses and photos, and what download_file returns.
 # Replace event.REPLACE_ME_update_event with the event entity of the test bot.
+# Attributes are logged with "string": they hold datetimes, which tojson rejects.
 automation:
   - id: qm_phase0_telegram_entity
     alias: "QM phase 0 - Telegram event entity"
@@ -15,7 +16,7 @@ automation:
           logger: quartermaster_phase0.telegram
           message: >-
             entity {{ trigger.to_state.attributes.event_type }}:
-            {{ trigger.to_state.attributes | tojson }}
+            {{ trigger.to_state.attributes | string }}
       - if: "{{ trigger.to_state.attributes.event_type == 'telegram_attachment' }}"
         then:
           - action: telegram_bot.download_file
@@ -26,7 +27,7 @@ automation:
             data:
               level: warning
               logger: quartermaster_phase0.telegram
-              message: "download_file: {{ downloaded | tojson }}"
+              message: "download_file: {{ downloaded | string }}"
       - if: "{{ trigger.to_state.attributes.event_type == 'telegram_text' }}"
         then:
           - action: telegram_bot.send_message
@@ -54,7 +55,7 @@ automation:
         data:
           level: warning
           logger: quartermaster_phase0.telegram
-          message: "bus {{ trigger.event.event_type }}: {{ trigger.event.data | tojson }}"
+          message: "bus {{ trigger.event.event_type }}: {{ trigger.event.data | string }}"
       - if: "{{ trigger.event.event_type == 'telegram_callback' }}"
         then:
           - action: telegram_bot.answer_callback_query

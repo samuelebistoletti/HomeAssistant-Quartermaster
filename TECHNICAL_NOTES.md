@@ -174,6 +174,26 @@ Dropping the carrier word changes the meaning. On the real `quartermaster.ask`, 
 - **Author decision (2026-11-08):** wait for the upstream fix. Open PRs #4 and #5 add `voluptuous-openapi` to the requirements instead of switching to `probatio.to_openapi`. After the merge, re-check that tool and `structure` schemas (probatio objects) convert correctly, then run checklist section 6.
 - **Author decision (later, 2026-11-08): test now on the dev instance with a local patch.** Upstream `main` (39e94f7, one commit after `v2026.04.0`) with `entity.py` switched from `voluptuous_openapi.convert` to `probatio.to_openapi(..., openapi_version="3.1.0")`, as Home Assistant 2026.11's `openai_conversation` does; PR #5 (adding `voluptuous-openapi` back) is not enough because that library does not convert probatio schemas. Installed only in the dev `config/` (gitignored), not in this repository. Checked offline: every module imports on 2026.11.0; the 15 Quartermaster tools and both structures (nested, text, after `ai_task`'s own field validation) convert to JSON Schema. Still to check with real calls: gateway authentication (chat sends only `Authorization`) and whether Workers AI accepts `strict: true` with optional fields.
 
+### Telegram on the dev instance (2026-11-10)
+
+`examples/phase0/packages/qm_probe_telegram.yaml` on the test bot, polling platform:
+
+| Sent | Event (`event_type`, attributes) |
+| --- | --- |
+| Text | `telegram_text`: `text`, `chat_id`, `user_id`, `date` (a datetime), `message_thread_id`, `bot` |
+| `/start` | `telegram_command`: `command: "/start"`, `args: []` |
+| Photo with caption | `telegram_attachment`: caption in `text` (as typed, capitalised), `file_id`, `file_mime_type: image/jpeg`, `file_size` |
+| Photo without caption | Same, `text: null` |
+| Image sent as a file | Same, `file_mime_type: image/png` and `file_name` |
+| Button press | `telegram_callback`: `id`, `data` (the callback data), `message` (the original message with its keyboard), `chat_id`, `user_id` |
+| Message sent by the bot | `telegram_sent`: `chat_id`, `message_id` |
+
+- The bus carries the same events with the same data (without the entity's `event_types` and `friendly_name`); Quartermaster uses the event entity.
+- `download_file` returns `{"file_path": "/config/telegram_bot/file_0.jpg"}`; a photo arrives at 960×1280 (Telegram's largest size for a compressed photo, 166 KB). Quartermaster reads the file and deletes it.
+- `answer_callback_query` with the event `id` works.
+- Attributes contain a datetime: a template must not pass them to `tojson` (the probe now logs them with `string`).
+- Not run: a message from a group that is not allowlisted.
+
 ### Real calls through the gateway and Workers AI models (dev instance, 2026-11-09/10)
 
 - **Gateway.** Chat through `/compat` with only `Authorization: Bearer` works on an authenticated gateway; the image AI Task (native endpoint) sends `cf-aig-authorization`. The integration verifies the token at `/user/tokens/verify`, so it needs a **user API token**, not an account token. Workers AI accepts `json_schema` with `strict: true` and Quartermaster's optional fields for the models below.
