@@ -31,6 +31,17 @@ _LOGGER = logging.getLogger(__name__)
 REPLY_TIMEOUT = 5.0
 EVENT_ASK_RESULT = f"{DOMAIN}_ask_result"
 _QUESTION = re.compile(r"[^.!?]*\?")
+# Tool calls that some models write into the reply text instead of making
+# them: Llama-style "[tool(arg=...)]", "<tool_call>...</tool_call>",
+# "<|python_tag|>..." and JSON {"name": ..., "parameters": {...}}.
+_TOOL_CALL_TEXT = re.compile(
+    r"<tool_call>.*?</tool_call>"
+    r"|<\|python_tag\|>.*"
+    r"|\[\s*\w+\(.*?\)(?:\s*,\s*\w+\(.*?\))*\s*\]"
+    r"|\b\w+__\w+\s*\(.*?\)"
+    r'|\{\s*"name"\s*:\s*"\w+"\s*,\s*"(?:parameters|arguments)"\s*:\s*\{.*?\}\s*\}',
+    re.DOTALL,
+)
 
 
 # Session key of a Telegram chat: the prefix and the chat id.
@@ -56,6 +67,9 @@ class Session:
     expires: datetime
     conversation_id: str | None = None
     pending: PendingClarification | None = None
+    # One message at a time per conversation (Home Assistant refuses a second
+    # one while the first is running): a new request waits for the last one.
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
 
 @dataclass(slots=True)
@@ -85,6 +99,14 @@ def _dig(data: Any, *keys: str) -> Any:
             return None
         data = data.get(key)
     return data
+
+
+def strip_tool_calls(speech: str) -> tuple[str, bool]:
+    """Remove tool calls written as text; tell whether there were any."""
+    cleaned, count = _TOOL_CALL_TEXT.subn("", speech)
+    if not count:
+        return speech, False
+    return re.sub(r"\s{2,}", " ", cleaned).strip(), True
 
 
 def reprompt_for(speech: str) -> str:
@@ -177,6 +199,15 @@ class VoiceSessions:
     async def _async_process(
         self, text: str, session: Session, language: str | None, context: Context
     ) -> AskReply:
+        try:
+            async with session.lock:
+                return await self._async_converse(text, session, language, context)
+        finally:
+            self.running.pop(context.id, None)
+
+    async def _async_converse(
+        self, text: str, session: Session, language: str | None, context: Context
+    ) -> AskReply:
         data: dict[str, Any] = {"text": text}
         if self.agent_id:
             data["agent_id"] = self.agent_id
@@ -201,8 +232,6 @@ class VoiceSessions:
                 reprompt="",
                 conversation_id=session.conversation_id,
             )
-        finally:
-            self.running.pop(context.id, None)
         if _dig(response, "response", "response_type") == "error":
             _LOGGER.warning(
                 "The conversation agent returned an error: %s",
@@ -214,7 +243,18 @@ class VoiceSessions:
                 reprompt="",
                 conversation_id=session.conversation_id,
             )
-        speech = str(_dig(response, "response", "speech", "plain", "speech") or "")
+        speech, leaked = strip_tool_calls(
+            str(_dig(response, "response", "speech", "plain", "speech") or "")
+        )
+        if leaked:
+            # The model described an action instead of doing it: say so rather
+            # than letting the user believe it happened.
+            _LOGGER.warning(
+                "The conversation agent wrote a tool call as text instead of"
+                " making it; it was not carried out"
+            )
+            incomplete = await async_phrase(self.hass, language, "ask_incomplete")
+            speech = f"{speech} {incomplete}".strip()
         session.conversation_id = _dig(response, "conversation_id") or None
         session.expires = dt_util.utcnow() + self.lifetime
         follow_up = bool(_dig(response, "continue_conversation"))

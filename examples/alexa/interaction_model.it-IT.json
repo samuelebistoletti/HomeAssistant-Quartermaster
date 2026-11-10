@@ -4,7 +4,7 @@
       "invocationName": "dispensa smart",
       "intents": [
         {
-          "name": "QuartermasterQueryIT",
+          "name": "QuartermasterIT_se",
           "slots": [
             {
               "name": "query",
@@ -12,42 +12,558 @@
             }
           ],
           "samples": [
-            "se {query}",
-            "di {query}",
-            "che {query}",
-            "ho {query}",
-            "cosa {query}",
-            "quanto {query}",
-            "quanti {query}",
-            "aggiungi {query}",
-            "segna {query}",
-            "metti {query}",
-            "controlla {query}",
-            "togli {query}",
-            "il {query}",
-            "la {query}",
-            "lo {query}",
-            "i {query}",
-            "gli {query}",
-            "le {query}",
-            "un {query}",
-            "una {query}",
-            "uno {query}",
-            "quello {query}",
-            "quella {query}",
-            "quelli {query}",
-            "quelle {query}",
-            "mi {query}",
-            "puoi {query}",
-            "dimmi {query}",
-            "fammi {query}",
-            "segnare {query}",
-            "aggiungere {query}",
-            "nel {query}",
-            "nella {query}",
-            "in {query}",
-            "sono {query}",
-            "ne {query}",
+            "se {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_che",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "che {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_di",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "di {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_ho",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "ho {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_abbiamo",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "abbiamo {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_non",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "non {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_ci",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "ci {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_c_e",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "c'è {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_devo",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "devo {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_cosa",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "cosa {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_quanto",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "quanto {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_quanta",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "quanta {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_quanti",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "quanti {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_quante",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "quante {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_dove",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "dove {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_aggiungi",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "aggiungi {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_segna",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "segna {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_metti",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "metti {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_togli",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "togli {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_controlla",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "controlla {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_compra",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "compra {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_segnare",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "segnare {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_aggiungere",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "aggiungere {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_togliere",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "togliere {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_il",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "il {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_la",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "la {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_lo",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "lo {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_i",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "i {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_gli",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "gli {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_le",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "le {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_un",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "un {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_una",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "una {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_uno",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "uno {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_quello",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "quello {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_quella",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "quella {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_quelli",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "quelli {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_quelle",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "quelle {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_nel",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "nel {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_nella",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "nella {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_in",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "in {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_sono",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "sono {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_ne",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "ne {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_mi",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "mi {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_puoi",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "puoi {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_dimmi",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "dimmi {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_fammi",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "fammi {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterIT_si",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
             "sì {query}"
           ]
         },
@@ -68,7 +584,7 @@
           "samples": []
         },
         {
-          "name": "QuartermasterYesIT",
+          "name": "QuartermasterIT_reply_yes",
           "samples": [
             "sì",
             "si",
@@ -82,7 +598,7 @@
           ]
         },
         {
-          "name": "QuartermasterNoIT",
+          "name": "QuartermasterIT_reply_no",
           "samples": [
             "no",
             "no grazie",

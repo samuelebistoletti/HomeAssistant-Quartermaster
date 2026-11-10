@@ -4,7 +4,7 @@
       "invocationName": "smart pantry",
       "intents": [
         {
-          "name": "QuartermasterQueryEN",
+          "name": "QuartermasterEN_if",
           "slots": [
             {
               "name": "query",
@@ -12,30 +12,355 @@
             }
           ],
           "samples": [
-            "if {query}",
-            "to {query}",
-            "that {query}",
-            "i {query}",
-            "what {query}",
-            "how much {query}",
-            "how many {query}",
-            "add {query}",
-            "mark {query}",
-            "put {query}",
-            "check {query}",
-            "remove {query}",
-            "the {query}",
-            "a {query}",
-            "an {query}",
-            "some {query}",
-            "my {query}",
-            "yes {query}",
-            "can you {query}",
-            "tell me {query}",
-            "in the {query}",
-            "there are {query}",
-            "we {query}",
+            "if {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_to",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "to {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_that",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "that {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_i",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "i {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_we",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "we {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_is",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "is {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_are",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "are {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_do",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "do {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_does",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "does {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_there",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "there {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_what",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "what {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_how_much",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "how much {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_how_many",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "how many {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_where",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "where {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_add",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "add {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_mark",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "mark {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_put",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "put {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_remove",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "remove {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_check",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "check {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_buy",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "buy {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_the",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "the {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_a",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "a {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_an",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "an {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_some",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "some {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_my",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "my {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_in_the",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "in the {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_can_you",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "can you {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_tell_me",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "tell me {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_please",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
             "please {query}"
+          ]
+        },
+        {
+          "name": "QuartermasterEN_yes",
+          "slots": [
+            {
+              "name": "query",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "yes {query}"
           ]
         },
         {
@@ -55,7 +380,7 @@
           "samples": []
         },
         {
-          "name": "QuartermasterYesEN",
+          "name": "QuartermasterEN_reply_yes",
           "samples": [
             "yes",
             "yeah",
@@ -68,7 +393,7 @@
           ]
         },
         {
-          "name": "QuartermasterNoEN",
+          "name": "QuartermasterEN_reply_no",
           "samples": [
             "no",
             "no thanks",

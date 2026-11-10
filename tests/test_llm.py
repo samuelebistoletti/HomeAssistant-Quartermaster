@@ -18,7 +18,11 @@ from pytest_homeassistant.common import MockConfigEntry, async_capture_events
 
 from custom_components.quartermaster.const import DOMAIN
 from custom_components.quartermaster.core.inventory import InventoryService
-from custom_components.quartermaster.core.voice import EVENT_ASK_RESULT, reprompt_for
+from custom_components.quartermaster.core.voice import (
+    EVENT_ASK_RESULT,
+    reprompt_for,
+    strip_tool_calls,
+)
 from custom_components.quartermaster.storage.models import Channel, MovementKind
 
 
@@ -349,6 +353,8 @@ class ScriptedAgent(conversation.AbstractConversationAgent):
         self.script = script
         self.delay = 0.0
         self.fail = False
+        self.suffix = ""
+        self.busy = False
         self.conversation_ids: list[str | None] = []
 
     @property
@@ -361,7 +367,14 @@ class ScriptedAgent(conversation.AbstractConversationAgent):
         self.conversation_ids.append(user_input.conversation_id)
         if self.fail:
             raise HomeAssistantError("provider down")
-        await asyncio.sleep(self.delay)
+        if self.busy:
+            # Home Assistant processes one message per conversation at a time.
+            raise HomeAssistantError("This conversation is busy with another message")
+        self.busy = True
+        try:
+            await asyncio.sleep(self.delay)
+        finally:
+            self.busy = False
         api = await llm.async_get_api(
             self.hass, llm.LLM_API_ASSIST, user_input.as_llm_context("test")
         )
@@ -380,7 +393,7 @@ class ScriptedAgent(conversation.AbstractConversationAgent):
         else:
             speech, follow_up = str(data), False
         response = intent.IntentResponse(language=user_input.language)
-        response.async_set_speech(speech)
+        response.async_set_speech(speech + self.suffix)
         return conversation.ConversationResult(
             response=response,
             conversation_id=user_input.conversation_id or "conv-1",
@@ -609,3 +622,48 @@ def test_reprompt_for() -> None:
         == "Quale hai finito?"
     )
     assert reprompt_for("Fatto.") == "Fatto."
+
+
+async def test_ask_tool_call_written_as_text(
+    hass: HomeAssistant, init_integration: MockConfigEntry, agent: ScriptedAgent
+) -> None:
+    """A tool call written into the reply is not spoken, and the user is told."""
+    agent.suffix = ' [quartermaster__add_to_shopping_list(item="milk")]'
+    reply = await _ask(hass, "ho finito il latte", language="it")
+    assert reply["speech"] == (
+        "Fatto: Milk. Una parte della richiesta non è stata eseguita:"
+        " controlla e riprova."
+    )
+
+
+async def test_ask_waits_for_the_running_turn(
+    hass: HomeAssistant, init_integration: MockConfigEntry, agent: ScriptedAgent
+) -> None:
+    """A second request in the same session waits instead of failing as busy."""
+    agent.delay = 0.1
+    first, second = await asyncio.gather(
+        _ask(hass, "ho finito il latte"), _ask(hass, "I bought milk")
+    )
+    assert first["speech"] == "Fatto: Milk."
+    assert second["speech"] == "Fatto: Milk."
+    assert agent.conversation_ids == [None, "conv-1"]
+
+
+def test_strip_tool_calls() -> None:
+    """Tool calls written as text in the usual model formats are removed."""
+    assert strip_tool_calls("Fatto.") == ("Fatto.", False)
+    assert strip_tool_calls("Ok. [add_item(name='latte'), undo_last()] Altro?") == (
+        "Ok. Altro?",
+        True,
+    )
+    assert strip_tool_calls('Ok quartermaster__get_stock(product="latte")') == (
+        "Ok",
+        True,
+    )
+    assert strip_tool_calls(
+        'Sì. {"name": "quartermaster__undo_last", "parameters": {}}'
+    ) == ("Sì.", True)
+    assert strip_tool_calls("Ok <tool_call>{}</tool_call>") == ("Ok", True)
+    assert strip_tool_calls("<|python_tag|>undo_last()") == ("", True)
+    # Ordinary parentheses stay.
+    assert strip_tool_calls("Latte (frigo): 2") == ("Latte (frigo): 2", False)
