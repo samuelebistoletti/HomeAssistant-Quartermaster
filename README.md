@@ -138,6 +138,17 @@ Then:
 
 A photo request started from a chat goes back to that chat.
 
+Telegram suggests commands when you type `/` only if the bot has a command list, and Home Assistant cannot set one. Set it once in @BotFather: `/setcommands`, choose the bot and send, for example:
+
+```text
+lista - Lista della spesa
+spesa - Suggerimenti per la spesa
+annulla - Annulla l'ultima operazione
+help - Cosa posso fare
+```
+
+or the English names (`list`, `shopping`, `undo`, `help`): Quartermaster accepts both.
+
 ### Alexa
 
 A private Alexa custom skill sends what you say to `quartermaster.ask`. Setup, interaction models for Italian and English, and the `intent_script` are in [docs/alexa.md](docs/alexa.md).
