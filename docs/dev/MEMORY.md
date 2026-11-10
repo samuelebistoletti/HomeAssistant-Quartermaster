@@ -6,11 +6,10 @@ Shared state between development sessions and machines. Keep it short and factua
 
 1. Read `CLAUDE.md` (rules), this file, then `TECHNICAL_NOTES.md` and `docs/SPEC.md` as needed. The author writes in Italian; answer in Italian, code and docs in English.
 2. Set up the machine as in `CONTRIBUTING.md` → "Working on another computer" (both repos side by side, dashboard built, `.venv`, `docker compose up -d`, `scripts/dev-bootstrap`, then `scripts/dev-cloudflare-gateway`). A new machine has a fresh dev instance: the author enters provider keys again in the dev UI. `docs/ENVIRONMENT.local.md` (author's environment, gitignored) exists only where the author copied it: ask for the details you need instead of guessing.
-3. Current step: **real-provider tests on the dev instance through the Cloudflare AI Gateway.**
-   - Waiting for the author to add the Cloudflare AI Gateway integration in the dev UI (account ID, gateway, token).
-   - Then create a conversation agent, a text AI Task and an image AI Task with the author's chosen Workers AI models (agent `glm-4.7-flash`, text `gpt-oss-20b`, images `gemma-4-26b-a4b-it`), attach the Assist API to the agent, select them in Quartermaster's options.
-   - Check first: gateway authentication (the author's gateway requires it; the integration's chat client sends the token only as `Authorization`, without `cf-aig-authorization`: if refused, add the header in `scripts/dev-cloudflare-gateway`), then whether Workers AI accepts `strict: true` structured output with optional fields (fallback: text structure mode).
-   - Then: Phase 3 dialogs (ten phrases, it/en), receipts and order emails, Phase 4 recall on ≥30 author photos (target 85 %), threshold tuning.
+3. Current step: **choose the voice agent among free Workers AI models.**
+   - Done: gateway, AI Task benchmark (llama-4-scout chosen for images and text), Alexa on a real Echo with Alexa+, carrier-word restoration, tool-call-as-text filter, per-session lock (see TECHNICAL_NOTES "Real calls through the gateway…" and "Voice agent replies").
+   - Next: run the agent comparison (13 phrases with stock checks, scratchpad-style script that drives `quartermaster.ask` and reads the database) on gemma-4-26b, llama-3.3-70b-fast and phonellm-mini-alpha-2 after the daily neuron allocation resets (00:00 UTC). Measure correctness, time and tokens per phrase (gateway logs). gpt-oss-120b needs a patch to the community integration (string `content`, `content` on assistant tool-call messages); Claude Haiku via the official Anthropic integration is the paid alternative the author may consider.
+   - Then: Telegram Phase 0 probe (bot "Quartermaster test" already set up on dev), Phase 4 recall on ≥30 author photos (target 85 %), threshold tuning.
 4. After that, with the author: Telegram bot on dev, cameras on the real instance (read-only, only when asked), Alexa and iOS through a tunnel, Marketplace check, provider table in the README. Release 1.0.0 only when the author asks.
 
 ## Status

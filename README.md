@@ -227,7 +227,7 @@ Per-zone entities appear and disappear with their zone, without a reload.
 
 ## AI providers
 
-Quartermaster works with any provider integrated in Home Assistant, local ones included, as long as its conversation agent supports LLM tools and its AI Task entity supports image attachments. If a provider handles nested structures badly, set **Structured output** to the text fallback. A table of tested providers and their results will be added with the 1.0 tests.
+Quartermaster works with any provider integrated in Home Assistant, local ones included, as long as its conversation agent supports LLM tools and its AI Task entity supports image attachments. If a provider handles nested structures badly, set **Structured output** to the text fallback. Every request to the agent carries the Assist instructions, the tools and the entities exposed to Assist: on a provider that charges per token or has a daily allowance, exposing fewer entities to Assist lowers the cost of each sentence. A table of tested providers and their results will be added with the 1.0 tests.
 
 ## Limitations
 

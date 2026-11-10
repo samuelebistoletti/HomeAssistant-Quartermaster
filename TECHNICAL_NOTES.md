@@ -174,6 +174,26 @@ Dropping the carrier word changes the meaning. On the real `quartermaster.ask`, 
 - **Author decision (2026-11-08):** wait for the upstream fix. Open PRs #4 and #5 add `voluptuous-openapi` to the requirements instead of switching to `probatio.to_openapi`. After the merge, re-check that tool and `structure` schemas (probatio objects) convert correctly, then run checklist section 6.
 - **Author decision (later, 2026-11-08): test now on the dev instance with a local patch.** Upstream `main` (39e94f7, one commit after `v2026.04.0`) with `entity.py` switched from `voluptuous_openapi.convert` to `probatio.to_openapi(..., openapi_version="3.1.0")`, as Home Assistant 2026.11's `openai_conversation` does; PR #5 (adding `voluptuous-openapi` back) is not enough because that library does not convert probatio schemas. Installed only in the dev `config/` (gitignored), not in this repository. Checked offline: every module imports on 2026.11.0; the 15 Quartermaster tools and both structures (nested, text, after `ai_task`'s own field validation) convert to JSON Schema. Still to check with real calls: gateway authentication (chat sends only `Authorization`) and whether Workers AI accepts `strict: true` with optional fields.
 
+### Real calls through the gateway and Workers AI models (dev instance, 2026-11-09/10)
+
+- **Gateway.** Chat through `/compat` with only `Authorization: Bearer` works on an authenticated gateway; the image AI Task (native endpoint) sends `cf-aig-authorization`. The integration verifies the token at `/user/tokens/verify`, so it needs a **user API token**, not an account token. Workers AI accepts `json_schema` with `strict: true` and Quartermaster's optional fields for the models below.
+- **AI Task benchmark** with the real nested structure and prompts (a shelf photo, a receipt photo, an order email with a replacement and a prompt injection):
+
+  | Model | Result | Time |
+  | --- | --- | --- |
+  | llama-4-scout-17b | Zone, receipt and email correct; sets `matched_product_id`; listed a carrier bag on the receipt; `expected_not_seen` partly filled. **Chosen by the author for images and text** | 8–16 s |
+  | gemma-4-26b | Accurate, but split one receipt item, truncated once, rarely set ids | 23–63 s |
+  | granite-4.0-micro (text) | Email correct, no ids | 7 s |
+  | gpt-oss-120b, glm-4.7-flash (text) | Correct | 17–22 s |
+  | llama-3.3-70b | Missed the replacement item | |
+  | mistral-small-3.1 | **Followed the injection** (100 bottles of wine): excluded | |
+  | qwen3.8-27b | Truncated, expensive | |
+  | gpt-oss-20b | Ignores the schema | |
+  | deepseek-v4.1-flash, apertus, llama-3.2-vision | Not available on the free plan (permission denied) | |
+  | eurollm-9b | No `json_schema` support (400) | |
+
+- **Token use.** Gateway logs: an agent call carries about 4,500 input tokens (glm-4.7-flash, granite) to 6,500 (llama-4-scout, up to 20,000 with history), and a voice request takes two or more calls. Of a call, the Assist prompt is about 2,500 characters, the 15 Quartermaster tools about 6,200 (1,500 of descriptions, the rest parameter schemas) and Home Assistant's own tools about 4,500, before any exposed entity. On the free plan (10,000 neurons/day, shared with image analysis) that is roughly 30 voice requests a day with llama-4-scout and over 150 with glm-4.7-flash; the benchmarks of these two days used up the allocation. Exposing fewer entities to Assist is the main lever for the user; trimming the tool schemas would save about a tenth.
+
 ### Dashboard strategy in the "New dashboard" dialog (dev instance, 2026-11-08)
 
 The bundle was loaded with `frontend.extra_module_url` (dev setup) and checked in headless Chrome:
