@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""
+Compare conversation agents on Quartermaster dialogs (dev instance only).
+
+For each agent: set it in the Quartermaster options, reset a known stock,
+send 13 Italian and English phrases through quartermaster.ask and check the
+database after each one (right write, no write for questions, replies that
+are not tool calls written as text). Replies deferred past 5 s are waited for
+in the database. Each phrase costs the provider one or more agent calls.
+
+    python3 scripts/dev-agent-bench config/.dev/ha_token \
+        config/quartermaster/pantry.db results.json \
+        conversation.a,conversation.b <quartermaster entry id> <shopping list todo entity>
+"""
+
+import json
+import sqlite3
+import sys
+import time
+import urllib.error
+import urllib.request
+
+TOKEN = open(sys.argv[1]).read().strip()
+DB = sys.argv[2]
+OUT = sys.argv[3]
+AGENTS = sys.argv[4].split(",")
+ENTRY = sys.argv[5]
+TODO = sys.argv[6]
+BASE = "http://localhost:8123/api"
+
+
+def call(path, body, response=False, timeout=120):
+    url = f"{BASE}/{path}" + ("?return_response" if response else "")
+    req = urllib.request.Request(url, json.dumps(body).encode(), {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"})
+    return json.load(urllib.request.urlopen(req, timeout=timeout))
+
+
+def svc(service, **data):
+    return call(f"services/quartermaster/{service}", {k: v for k, v in data.items() if v is not None})
+
+
+def set_agent(agent):
+    r = call("config/config_entries/options/flow", {"handler": ENTRY})
+    r = call(f"config/config_entries/options/flow/{r['flow_id']}", {"next_step_id": "models"})
+    current = {f["name"]: f.get("default") for f in r["data_schema"]}
+    data = {k: v for k, v in current.items() if v is not None}
+    data["agent_id"] = agent
+    r = call(f"config/config_entries/options/flow/{r['flow_id']}", data)
+    assert r["type"] == "create_entry", r
+    time.sleep(8)  # entry reload
+
+
+PRODUCTS = [
+    ("Latte", "frigorifero", "bottiglia", 2),
+    ("Caffè", "dispensa", "confezione", 2),
+    ("Uova", "frigorifero", "uovo", 6),
+    ("Parmigiano", "frigorifero", "pezzo", 1),
+    ("Mozzarella", "frigorifero", "confezione", 2),
+    ("Yogurt", "frigorifero", "vasetto", 5),
+    ("Spaghetti", "dispensa", "confezione", 1),
+    ("Passata", "dispensa", "bottiglia", 3),
+    ("Piselli surgelati", "freezer", "busta", 1),
+]
+
+
+def seed(first):
+    if first:
+        for name, zone, unit, _ in PRODUCTS[3:]:
+            try:
+                svc("add_product", name=name, default_zone=zone, unit=unit,
+                    category="formaggi" if name in ("Parmigiano", "Mozzarella") else None)
+            except urllib.error.HTTPError:
+                pass
+    for name, zone, _, qty in PRODUCTS:
+        svc("set_stock", product=name, quantity=qty, zone=zone)
+    con = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
+    items = [t for (t,) in con.execute("select text from shopping_items where status != 'done'")]
+    con.close()
+    for item in items:
+        try:
+            call("services/todo/remove_item", {"entity_id": TODO, "item": item})
+        except urllib.error.HTTPError:
+            pass
+
+
+def db():
+    con = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
+    stock = {n: q for n, q in con.execute("select p.name, sum(s.quantity) from stock s join products p on p.id=s.product_id group by p.name")}
+    products = {n for (n,) in con.execute("select name from products where archived=0")}
+    shopping = [t.lower() for (t,) in con.execute("select text from shopping_items where status != 'done'")]
+    pending = con.execute("select count(*) from pending_changes").fetchone()[0]
+    con.close()
+    return {"stock": stock, "products": products, "shopping": shopping, "pending": pending}
+
+
+# (session, text, language, check(before, after, reply) -> bool, kind)
+def unchanged(b, a):
+    return b["stock"] == a["stock"]
+
+
+PHRASES = [
+    ("s1", "se ho ancora del caffè", "it", lambda b, a, r: unchanged(b, a) and a["shopping"] == b["shopping"] and ("2" in r or "due" in r.lower()), "read"),
+    ("s2", "cosa devo comprare", "it", lambda b, a, r: unchanged(b, a) and a["shopping"] == b["shopping"], "read"),
+    ("s3", "se ho finito la mozzarella", "it", lambda b, a, r: unchanged(b, a), "read"),
+    ("s4", "segna i biscotti nella lista della spesa", "it", lambda b, a, r: any("biscott" in t for t in a["shopping"]), "write"),
+    ("s5", "ho finito il latte", "it", lambda b, a, r: a["stock"].get("Latte") == 0, "write"),
+    ("s6", "mi sono rimasti 3 yogurt", "it", lambda b, a, r: a["stock"].get("Yogurt") == 3, "write"),
+    ("s7", "ho comprato 2 confezioni di spaghetti", "it", lambda b, a, r: a["stock"].get("Spaghetti") == 3, "write"),
+    ("s8", "non ho più passata", "it", lambda b, a, r: a["stock"].get("Passata") == 0, "write"),
+    ("s9", "ho finito il formaggio in frigo", "it", lambda b, a, r: unchanged(b, a) and "?" in r, "ask"),
+    ("s9", "la mozzarella", "it", lambda b, a, r: a["stock"].get("Mozzarella") == 0 and a["stock"].get("Parmigiano") == 1, "write"),
+    ("s10", "I used two eggs", "en", lambda b, a, r: a["stock"].get("Uova") == 4, "write"),
+    ("s11", "do I have any peas in the freezer", "en", lambda b, a, r: unchanged(b, a) and ("1" in r or "one" in r.lower() or "bag" in r.lower()), "read"),
+    ("s12", "ho finito il dentifricio", "it", lambda b, a, r: a["products"] == b["products"], "unknown"),
+]
+
+results = []
+for i, agent in enumerate(AGENTS):
+    set_agent(agent)
+    seed(i == 0)
+    for session, text, lang, check, kind in PHRASES:
+        key = f"{agent}-{session}-{int(time.time()) // 3600}"
+        before = db()
+        start = time.monotonic()
+        try:
+            resp = call("services/quartermaster/ask", {"text": text, "language": lang, "channel": "assist", "session_key": key}, response=True)
+            reply = resp.get("service_response", {}).get("speech", "") or json.dumps(resp.get("service_response"))
+            err = None
+        except Exception as e:  # noqa: BLE001
+            reply, err = "", f"{type(e).__name__}: {e} {getattr(e, 'read', lambda: b'')()[:300]!r}"
+        secs = round(time.monotonic() - start, 1)
+        time.sleep(1)
+        after = db()
+        deferred = "Ci sto lavorando" in reply or "I'm on it" in reply
+        total = secs
+        if deferred and kind in ("write", "unknown"):
+            while total < 35 and not check(before, after, reply):
+                time.sleep(1); total += 1; after = db()
+            ok = (not err) and bool(check(before, after, reply))
+        elif deferred:
+            time.sleep(20); ok = None
+        else:
+            ok = (not err) and bool(check(before, after, reply)) and "__" not in reply
+        r = {"agent": agent, "text": text, "kind": kind, "ok": ok, "seconds": secs, "total": round(total, 1), "deferred": deferred, "reply": reply[:220], "error": err}
+        results.append(r)
+        print(json.dumps(r, ensure_ascii=False), flush=True)
+json.dump(results, open(OUT, "w"), ensure_ascii=False, indent=1)
