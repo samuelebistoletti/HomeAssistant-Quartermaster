@@ -25,6 +25,10 @@ async def _start(hass: HomeAssistant) -> dict[str, Any]:
     )
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "user"
+    # Entity names start with the entry name: the default says where they come
+    # from, not the home name shared by every other device.
+    [name_key, _] = result["data_schema"].schema
+    assert name_key.default() == "Quartermaster"
     return result
 
 

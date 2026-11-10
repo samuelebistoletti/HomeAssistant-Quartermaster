@@ -71,7 +71,7 @@
           "language": "Lingua dei messaggi"
         },
         "data_description": {
-          "name": "Mostrato come nome dell'integrazione.",
+          "name": "Mostrato come nome dell'integrazione e davanti ai nomi delle entità, per esempio \"Quartermaster Lista della spesa\".",
           "language": "Lingua di notifiche, messaggi Telegram e risposte inviate da Quartermaster stesso."
         }
       },

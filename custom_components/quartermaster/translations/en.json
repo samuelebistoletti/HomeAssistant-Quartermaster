@@ -71,7 +71,7 @@
           "language": "Language of messages"
         },
         "data_description": {
-          "name": "Shown as the name of the integration.",
+          "name": "Shown as the integration name and in front of entity names, for example \"Quartermaster Shopping list\".",
           "language": "Language of notifications, Telegram messages and replies sent by Quartermaster itself."
         }
       },

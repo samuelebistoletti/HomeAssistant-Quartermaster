@@ -277,7 +277,7 @@ class QuartermasterConfigFlow(ConfigFlow, domain=DOMAIN):
         schema = probatio.Schema(
             {
                 probatio.Required(
-                    CONF_NAME, default=self.hass.config.location_name or self._title
+                    CONF_NAME, default=self._title
                 ): selector.TextSelector(),
                 probatio.Required(
                     CONF_LANGUAGE,
