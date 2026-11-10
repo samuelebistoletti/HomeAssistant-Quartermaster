@@ -1,7 +1,7 @@
 {
   "interactionModel": {
     "languageModel": {
-      "invocationName": "dispensa",
+      "invocationName": "dispensa smart",
       "intents": [
         {
           "name": "QuartermasterQueryIT",
@@ -23,7 +23,32 @@
             "segna {query}",
             "metti {query}",
             "controlla {query}",
-            "togli {query}"
+            "togli {query}",
+            "il {query}",
+            "la {query}",
+            "lo {query}",
+            "i {query}",
+            "gli {query}",
+            "le {query}",
+            "un {query}",
+            "una {query}",
+            "uno {query}",
+            "quello {query}",
+            "quella {query}",
+            "quelli {query}",
+            "quelle {query}",
+            "mi {query}",
+            "puoi {query}",
+            "dimmi {query}",
+            "fammi {query}",
+            "segnare {query}",
+            "aggiungere {query}",
+            "nel {query}",
+            "nella {query}",
+            "in {query}",
+            "sono {query}",
+            "ne {query}",
+            "sì {query}"
           ]
         },
         {
@@ -41,6 +66,30 @@
         {
           "name": "AMAZON.NavigateHomeIntent",
           "samples": []
+        },
+        {
+          "name": "QuartermasterYesIT",
+          "samples": [
+            "sì",
+            "si",
+            "certo",
+            "va bene",
+            "esatto",
+            "giusto",
+            "ok",
+            "sì grazie",
+            "confermo"
+          ]
+        },
+        {
+          "name": "QuartermasterNoIT",
+          "samples": [
+            "no",
+            "no grazie",
+            "non ora",
+            "lascia stare",
+            "niente"
+          ]
         }
       ],
       "types": []

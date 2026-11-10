@@ -1,7 +1,7 @@
 {
   "interactionModel": {
     "languageModel": {
-      "invocationName": "pantry",
+      "invocationName": "smart pantry",
       "intents": [
         {
           "name": "QuartermasterQueryEN",
@@ -23,7 +23,19 @@
             "mark {query}",
             "put {query}",
             "check {query}",
-            "remove {query}"
+            "remove {query}",
+            "the {query}",
+            "a {query}",
+            "an {query}",
+            "some {query}",
+            "my {query}",
+            "yes {query}",
+            "can you {query}",
+            "tell me {query}",
+            "in the {query}",
+            "there are {query}",
+            "we {query}",
+            "please {query}"
           ]
         },
         {
@@ -41,6 +53,29 @@
         {
           "name": "AMAZON.NavigateHomeIntent",
           "samples": []
+        },
+        {
+          "name": "QuartermasterYesEN",
+          "samples": [
+            "yes",
+            "yeah",
+            "sure",
+            "okay",
+            "yes please",
+            "correct",
+            "that's right",
+            "confirm"
+          ]
+        },
+        {
+          "name": "QuartermasterNoEN",
+          "samples": [
+            "no",
+            "no thanks",
+            "not now",
+            "never mind",
+            "nothing"
+          ]
         }
       ],
       "types": []

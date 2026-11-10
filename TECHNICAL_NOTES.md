@@ -17,7 +17,7 @@ Spec sections 12 (Phase 0.1) and 17 re-checked against the current official sour
 | 5 | §17.2 panels from Python undocumented | `panel_custom.async_register_panel()` and `hass.http.async_register_static_paths` are documented; `add_extra_js_url` is not | Wording only: the decision not to ship frontend code from the integration stands | A |
 | 6 | §6.4 interaction model: utterance `"{query}"` | "Each sample utterance must include a carrier phrase" (ASK slot-type-reference, AMAZON.SearchQuery) | Carrier-phrase utterances (e.g. "se {query}", "di {query}", "che {query}", "ho {query}"); Phase 0 checks the slot text arrives whole | A |
 | 7 | §6.4 example `intent_script` handles only StopIntent | Unhandled intents answer "This intent is not yet configured within Home Assistant" (core `alexa/intent.py`, source) | Example also handles `AMAZON.CancelIntent` and `<skill-id>.SessionEndedRequest` | A |
-| 8 | §6.4 one-word invocation name refused only at certification | it-IT rules: "One-word invocation names are not allowed" with no development/certification distinction (ASK choose-the-invocation-name) | Expect "dispensa di casa"; Phase 0 still tries "dispensa" in the console | A |
+| 8 | §6.4 one-word invocation name refused only at certification | it-IT rules: "One-word invocation names are not allowed" with no development/certification distinction (ASK choose-the-invocation-name) | Confirmed in Phase 0: the console refuses "dispensa" ("must be at least 2 words") and warns that two-word names must not contain articles or prepositions, so "dispensa di casa" is out too. Author decision (2026-11-10): "dispensa smart" (it-IT), "smart pantry" (en) | A |
 | 9 | §5.1 / §6.9 notification with an "Annulla" button via notify entities | `notify.send_message` has only `message` and `title` (home-assistant.io/actions/notify.send_message/) | Author decision: action buttons (Undo, add suggestion, confirm) only on Telegram (`inline_keyboard`) and in the dashboard; other notify entities get plain text | A |
 | 10 | §10 / §11 minimum HA version | ToolResult, `integration` and annotations from 2026.10 (developer blog 2026-09-26); `pytest-homeassistant` first aligned release 2026.11.0 (PyPI); Marketplace 2026.11 | Minimum **2026.11.0**, Python ≥ 3.14.2 (author confirmed) | A |
 | 11 | §11 README also covers installation from HACS on older versions | With a 2026.11 minimum no supported version lacks the Marketplace; separate HACS cannot be installed on 2026.11 (release 2026.11 notes) | No legacy-HACS section in the README (author confirmed) | A |
@@ -125,6 +125,32 @@ Procedure and probes: `docs/phase0/CHECKLIST.md`. Results are recorded here as t
   - One query intent per locale, passing `language` to `quartermaster.ask`.
   - The launch reply ("Dimmi" / "Tell me") follows the Home Assistant language. The next utterance arrives through the intent of the device language.
   - Not one skill per language.
+
+### Alexa with a real Echo, Alexa+ (2026-11-10)
+
+Custom skill in development (it-IT), forwarding Lambda in eu-west-1, account linking through a Cloudflare quick tunnel, `examples/phase0/packages/qm_probe_alexa.yaml`, then the real `examples/alexa/quartermaster_alexa.yaml`. The author's account uses **Alexa+**.
+
+| Check | Result |
+| --- | --- |
+| Invocation name | See deviation 8: "dispensa smart" |
+| Recognition of "smart" in Italian speech | Transcribed correctly |
+| Launch ("apri dispensa smart") | "Dimmi", microphone open |
+| Slot text | The carrier word is not part of the slot: "segna il latte finito" → `il latte finito`, "ho finito il formaggio" → `finito il formaggio in frigo`, "la mozzarella" → `mozzarella`. Alexa writes "una" as `1` |
+| Utterance not starting with a carrier word | Not routed to the skill (Alexa: "non so come aiutarti"). "chiedi a X **di** …" takes the "di" as part of the invocation, so "di farmi…", "di segnare…" fail |
+| "di' a dispensa smart che …" | Not routed: Italian Alexa treats "di' a X che …" as an Announcement ("annuncio in corso"). Do not document "di' a" |
+| Bare `{query}` sample (checklist 12) | Build fails: "must include a carrier phrase" |
+| Bare answers in a session ("sì", "no") | Lost with only carrier samples. Fixed with per-locale custom intents `QuartermasterYesIT/NoIT/YesEN/NoEN` (the built-in `AMAZON.YesIntent` is shared by all locales and would not tell the language) |
+| Question with microphone open, answer as a new request | Works ("la mozzarella" arrives as `mozzarella`) |
+| Empty reprompt | Session ends; no fixed reprompt ("Altro?") needed |
+| Stub answering after 6 s / 9 s | Both spoken, also past the documented 8 s, with Alexa+ |
+| Lambda timeout | New functions default to 3 s: the request failed after 3.3 s (`INVALID_RESPONSE`). Set it to 10 s (not in the HA docs) |
+| Speech recognition of free text | Imperfect: "farmi" became "far mi" and "portarmi" |
+| Alexa+ handoff | Alexa+ prefixes the first reply of each session with "Ecco <skill name>. Di': 'Alexa, esci' per tornare ad Alexa plus". No setting or response field turns it off (ASK and Alexa+ docs checked). Amazon says existing skills stay on the original Alexa experience and offers a review form for "direct invocation on Alexa+"; skills that are not routed this way include smart home skills (no session) and skills Amazon onboarded. Mitigation: a short public skill name |
+| Real `quartermaster.ask` through `/api/alexa` | Read answered in time; a slower write got "Ci sto lavorando"; a new request in the same session while the agent was still busy got "This conversation is busy with another message" (HA 2026.11 processes one message per conversation) → `quartermaster.ask` should wait for the pending turn instead of failing |
+
+Carrier words must never change the meaning when dropped: "non" is not a carrier word ("non ho più latte" would arrive as `ho più latte`); an unmatched utterance is safer than an inverted one.
+
+**Future option (author, 2026-11-10):** the Alexa+ MCP Toolkit connects an MCP server to Alexa+ without a skill (no invocation name, carrier words or handoff message), and Home Assistant ships an MCP server. Today it is limited to "select partners", needs Streamable HTTP, a public URL, OAuth 2.1 with PKCE, responses under 500 ms and certification. Re-evaluate when it opens to developers; v1 keeps the custom skill.
 
 ### Cloudflare AI Gateway community integration (code review, v2026.04.0)
 

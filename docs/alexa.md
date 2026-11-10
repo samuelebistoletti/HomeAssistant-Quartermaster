@@ -3,10 +3,10 @@
 Quartermaster has no Alexa code of its own. A private Alexa custom skill, set up as described in Home Assistant's [Alexa Intents](https://www.home-assistant.io/integrations/alexa.intent/) documentation, sends what you say to the `quartermaster.ask` action through `intent_script`. Quartermaster passes it to your conversation agent with its tools and returns what Alexa should say.
 
 ```text
-You:    Alexa, ask pantry if I still have milk
+You:    Alexa, ask smart pantry if I still have milk
 Alexa:  You have 2 bottles of milk in the fridge.
 
-You:    Alexa, chiedi a dispensa: ho finito il formaggio in frigo
+You:    Alexa, chiedi a dispensa smart se ho finito il formaggio in frigo
 Alexa:  In frigo ho parmigiano e mozzarella. Quale hai finito?
 You:    La mozzarella
 Alexa:  Fatto, mozzarella finita. È tra gli essenziali: l'ho messa in lista.
@@ -20,13 +20,15 @@ Alexa:  Fatto, mozzarella finita. È tra gli essenziali: l'ho messa in lista.
 
 ## Set up the skill
 
-1. Follow the [Alexa Intents](https://www.home-assistant.io/integrations/alexa.intent/) guide to create a **custom skill**, the forwarding Lambda and account linking. Use one skill with every language you speak at home.
+1. Follow the [Alexa Intents](https://www.home-assistant.io/integrations/alexa.intent/) guide to create a **custom skill**, the forwarding Lambda and account linking. Use one skill with every language you speak at home. Two details the guide does not mention:
+   - Create the Lambda in the region of your skill's language (Europe (Ireland) `eu-west-1` for Italian and UK English).
+   - Raise the Lambda **timeout** to 10 seconds (Configuration → General configuration). New functions stop after 3 seconds, and Alexa then says there was a problem with the skill.
 2. Add each locale to the skill (for example it-IT, en-US, en-GB). In each one, open the JSON editor and paste the matching file from [`examples/alexa`](../examples/alexa):
-   - `interaction_model.it-IT.json` (invocation name "dispensa", intent `QuartermasterQueryIT`);
-   - `interaction_model.en-US.json` and `interaction_model.en-GB.json` (invocation name "pantry", intent `QuartermasterQueryEN`).
+   - `interaction_model.it-IT.json` (invocation name "dispensa smart", intents `QuartermasterQueryIT`, `QuartermasterYesIT`, `QuartermasterNoIT`);
+   - `interaction_model.en-US.json` and `interaction_model.en-GB.json` (invocation name "smart pantry", intents `QuartermasterQueryEN`, `QuartermasterYesEN`, `QuartermasterNoEN`).
 
    Then build the model.
-3. If the console refuses a one-word invocation name, use two words ("dispensa di casa", "home pantry") and say that instead.
+3. You can choose another invocation name. The console requires at least two words, and a two-word name must not contain articles or prepositions ("dispensa di casa" is refused).
 4. Copy [`examples/alexa/quartermaster_alexa.yaml`](../examples/alexa/quartermaster_alexa.yaml) into your packages folder, or merge it into `configuration.yaml`. Replace `REPLACE_WITH_SKILL_ID` with your skill ID (`amzn1.ask.skill.…`), then restart Home Assistant.
 5. In the Alexa app, enable the skill under **Your Skills → Dev** and link your Home Assistant account.
 
@@ -34,26 +36,36 @@ Alexa:  Fatto, mozzarella finita. È tra gli essenziali: l'ho messa in lista.
 
 | Italian | English |
 | --- | --- |
-| "Alexa, chiedi a dispensa se ho ancora il latte" | "Alexa, ask pantry if I still have milk" |
-| "Alexa, di' a dispensa di segnare il latte finito" | "Alexa, tell pantry to mark the milk finished" |
-| "Alexa, apri dispensa e segna il latte finito" | "Alexa, open pantry and add milk" |
-| "Alexa, dispensa" → "Dimmi" → "ho finito il latte" | "Alexa, pantry" → … |
+| "Alexa, chiedi a dispensa smart se ho ancora il latte" | "Alexa, ask smart pantry if I still have milk" |
+| "Alexa, chiedi a dispensa smart cosa devo comprare" | "Alexa, ask smart pantry what I need to buy" |
+| "Alexa, apri dispensa smart e segna il latte finito" | "Alexa, open smart pantry and mark the milk finished" |
+| "Alexa, apri dispensa smart" → "Dimmi" → "ho finito il latte" | "Alexa, open smart pantry" → … |
 
-Why every utterance has a carrier word (for example "se", "di", "if", "to"): Alexa does not accept a free-text slot on its own as a sample, so each sample starts with a common word. The words after it reach Quartermaster intact.
+After the skill name, start with one of the words of the interaction model: in Italian, for example "se", "che", "ho", "cosa", "quanto", "segna", "aggiungi", "togli", "il", "la"; in English "if", "to", "I", "what", "how many", "add", "mark", "the". Alexa does not accept a free-text slot on its own as a sample, so each sample starts with such a word, and a sentence that starts otherwise does not reach the skill ("non so come aiutarti"). The starting word itself is not passed on: "segna il latte finito" reaches Quartermaster as "il latte finito", which the agent still understands.
 
-Home Assistant does not tell `intent_script` which language the request was in. For this reason each language has its own intent, and the example passes `language` to `quartermaster.ask`. The reply to "Alexa, dispensa" alone (launch) cannot know the language: change the two launch texts in the YAML if your home mainly speaks another language.
+Avoid in Italian:
+- "di' a dispensa smart che …": Alexa treats it as an announcement to your Echo devices.
+- "chiedi a dispensa smart **di** …": Alexa takes the "di" as part of the invocation, so the rest must start with a word of the model ("chiedi a dispensa smart di segnare…" fails, "chiedi a dispensa smart se…" works).
+
+Alexa writes numbers as digits ("una" becomes "1"), and Quartermaster handles that.
+
+Home Assistant does not tell `intent_script` which language the request was in. For this reason each language has its own intent, and the example passes `language` to `quartermaster.ask`. The reply to "Alexa, apri dispensa smart" alone (launch) cannot know the language: change the two launch texts in the YAML if your home mainly speaks another language.
 
 ## Questions and the microphone
 
-When the agent asks something ("Quale hai finito?"), `quartermaster.ask` returns `continue_conversation: true` and a short reprompt, so Alexa keeps the microphone open for the answer. The answer arrives as a new request, and Quartermaster keeps the thread for the session time in the options (default 120 seconds).
+When the agent asks something ("Quale hai finito?"), `quartermaster.ask` returns `continue_conversation: true` and a short reprompt, so Alexa keeps the microphone open for the answer. The answer arrives as a new request, and Quartermaster keeps the thread for the session time in the options (default 120 seconds). Answers such as "la mozzarella" or "quella in frigo" go through the query intent; a bare "sì", "va bene", "no" or "yes" goes through the yes/no intents of each language.
 
 When the reply asks nothing, the reprompt is empty and the session ends.
 
-Alexa gives a skill 8 seconds to answer. If the agent is slower than 5 seconds, Quartermaster replies "Ci sto lavorando, ti avviso quando ho finito" and sends the answer later to the notify entities chosen under **Late voice replies**. For example, pick an Echo's announce entity from the Alexa Devices integration.
+Alexa documents 8 seconds for a skill to answer. If the agent is slower than 5 seconds, Quartermaster replies "Ci sto lavorando, ti avviso quando ho finito" and sends the answer later to the notify entities chosen under **Late voice replies**. For example, pick an Echo's announce entity from the Alexa Devices integration.
 
 ## Phrases without the skill name
 
-Interaction without the invocation name is not available for this kind of skill in Italian. To get it, create an **Alexa routine** with a fixed phrase ("Alexa, cosa manca in casa") whose action is to say "chiedi a dispensa cosa manca".
+Interaction without the invocation name is not available for this kind of skill in Italian. To get it, create an **Alexa routine** with a fixed phrase ("Alexa, cosa manca in casa") whose action is to say "chiedi a dispensa smart cosa manca".
+
+## Alexa+
+
+With Alexa+, Alexa opens the skill in its classic mode and starts the first reply of each session with "Ecco <skill name>. Di': 'Alexa, esci' per tornare ad Alexa plus". The skill cannot turn this off. Keep the skill's public name short (for example "Dispensa"), because Alexa+ reads it out.
 
 ## Permissions
 
@@ -67,5 +79,6 @@ Every change is in the journal with channel `alexa` and can be undone ("annulla"
 ## Troubleshooting
 
 - **"Mi dispiace, non ho capito" from Home Assistant:** the conversation agent in the options is empty or is Home Assistant's built-in agent. Choose an LLM agent with the Assist API attached.
-- **Alexa says nothing or "there was a problem":** check the skill ID in the YAML and the Lambda logs. Then enable debug logging for `homeassistant.components.alexa` and `custom_components.quartermaster`.
+- **Alexa says nothing or "there was a problem":** check the Lambda timeout (10 seconds), the skill ID in the YAML and the Lambda logs (CloudWatch).
+- **"Non so come aiutarti":** the sentence after the skill name does not start with a word of the interaction model; see [How to talk to it](#how-to-talk-to-it). Then enable debug logging for `homeassistant.components.alexa` and `custom_components.quartermaster`.
 - **Words missing from what Quartermaster received:** enable debug logging and look at the `text` passed to `quartermaster.ask`. If the carrier word took part of the sentence, add a sample in the interaction model.

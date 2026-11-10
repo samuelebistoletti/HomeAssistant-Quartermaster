@@ -71,8 +71,20 @@ Steps:
 | 12 | Model built with a bare `{query}` sample (temporary edit) | Does the console accept it, and is the slot text whole? |
 
 Record:
-- [ ] Results 1–12, including the exact slot text for 3–6 and 11.
-- [ ] Whether a fixed short reprompt ("Altro?") is needed (spec §6.4 fallback).
+- [x] Results 1–12 (2026-11-10, Alexa+, it-IT; details in TECHNICAL_NOTES "Alexa with a real Echo, Alexa+"):
+  1. Refused ("at least 2 words"); "dispensa di casa" warned (no prepositions). Author chose "dispensa smart".
+  2. "Dimmi", microphone open.
+  3. `ho ancora il latte`.
+  4. Not routed: "di' a X che…" is an Announcement; "di' a X di segnare…" has no carrier word after "di".
+  5. `il latte finito` (carrier "segna" dropped).
+  6. `finito il formaggio in frigo` (carrier "ho" dropped).
+  7. Question and microphone open; bare "sì" lost until per-locale yes/no intents were added; "la mozzarella" → `mozzarella`.
+  8. Session ends after an answer with an empty reprompt.
+  9. Spoken after 6 s.
+  10. Spoken after 9 s with Alexa+ (Lambda timeout raised from the default 3 s to 10 s).
+  11. Not run (no English locale on the test skill yet).
+  12. Build fails: "must include a carrier phrase".
+- [x] No fixed reprompt needed.
 - [ ] Clean up: remove the probe package; keep the skill for Phase 8 or delete it.
 
 ## 3. Camera — **REAL** (reads only, plus one write if authorized)

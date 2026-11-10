@@ -14,7 +14,8 @@
 alexa:
 
 intent_script:
-  # "Alexa, dispensa" / "Alexa, open pantry": opens the skill and listens.
+  # "Alexa, apri dispensa smart" / "Alexa, open smart pantry": opens the skill
+  # and listens.
   REPLACE_WITH_SKILL_ID:
     speech:
       text: "Dimmi"
@@ -51,6 +52,77 @@ intent_script:
       - action: quartermaster.ask
         data:
           text: "{{ query | default('') }}"
+          channel: alexa
+          language: en
+        response_variable: qm
+      - stop: ""
+        response_variable: qm
+    speech:
+      text: "{{ action_response.speech }}"
+    reprompt:
+      text: >-
+        {{ action_response.reprompt
+           if action_response.continue_conversation else '' }}
+
+  # Bare answers to a question ("sì", "no", "yes"): Alexa does not accept a
+  # free-text slot without a carrier word, so each locale has its own yes/no
+  # intents (the built-in AMAZON.YesIntent would not tell the language).
+  QuartermasterYesIT:
+    action:
+      - action: quartermaster.ask
+        data:
+          text: "sì"
+          channel: alexa
+          language: it
+        response_variable: qm
+      - stop: ""
+        response_variable: qm
+    speech:
+      text: "{{ action_response.speech }}"
+    reprompt:
+      text: >-
+        {{ action_response.reprompt
+           if action_response.continue_conversation else '' }}
+
+  QuartermasterNoIT:
+    action:
+      - action: quartermaster.ask
+        data:
+          text: "no"
+          channel: alexa
+          language: it
+        response_variable: qm
+      - stop: ""
+        response_variable: qm
+    speech:
+      text: "{{ action_response.speech }}"
+    reprompt:
+      text: >-
+        {{ action_response.reprompt
+           if action_response.continue_conversation else '' }}
+
+  QuartermasterYesEN:
+    action:
+      - action: quartermaster.ask
+        data:
+          text: "yes"
+          channel: alexa
+          language: en
+        response_variable: qm
+      - stop: ""
+        response_variable: qm
+    speech:
+      text: "{{ action_response.speech }}"
+    reprompt:
+      text: >-
+        {{ action_response.reprompt
+           if action_response.continue_conversation else '' }}
+
+  QuartermasterNoEN:
+    action:
+      - action: quartermaster.ask
+        data:
+          text: "no"
           channel: alexa
           language: en
         response_variable: qm

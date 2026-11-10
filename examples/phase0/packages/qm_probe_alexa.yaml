@@ -91,6 +91,55 @@ intent_script:
     reprompt:
       text: "{{ action_response.reprompt if action_response.continue_conversation else '' }}"
 
+  # Bare yes/no answers inside a session, one pair per locale.
+  QuartermasterYesIT:
+    action:
+      - action: script.quartermaster_ask_stub
+        data:
+          text: "sì"
+          language: it
+        response_variable: qm
+      - stop: ""
+        response_variable: qm
+    speech:
+      text: "{{ action_response.speech }}"
+
+  QuartermasterNoIT:
+    action:
+      - action: script.quartermaster_ask_stub
+        data:
+          text: "no"
+          language: it
+        response_variable: qm
+      - stop: ""
+        response_variable: qm
+    speech:
+      text: "{{ action_response.speech }}"
+
+  QuartermasterYesEN:
+    action:
+      - action: script.quartermaster_ask_stub
+        data:
+          text: "yes"
+          language: en
+        response_variable: qm
+      - stop: ""
+        response_variable: qm
+    speech:
+      text: "{{ action_response.speech }}"
+
+  QuartermasterNoEN:
+    action:
+      - action: script.quartermaster_ask_stub
+        data:
+          text: "no"
+          language: en
+        response_variable: qm
+      - stop: ""
+        response_variable: qm
+    speech:
+      text: "{{ action_response.speech }}"
+
   AMAZON.StopIntent:
     speech:
       text: "Ok"
@@ -101,6 +150,6 @@ intent_script:
 
   AMAZON.HelpIntent:
     speech:
-      text: "Prova: chiedi a dispensa se ho ancora il latte. Try: ask pantry if I still have milk."
+      text: "Prova: chiedi a dispensa smart se ho ancora il latte. Try: ask smart pantry if I still have milk."
     reprompt:
       text: "Cosa devo fare? What should I do?"

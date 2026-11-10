@@ -19,7 +19,8 @@ Shared state between development sessions and machines. Keep it short and factua
 - Guided multi-step config flow and language option.
 - Integration: 203 tests, ~97 % coverage, ruff, mypy strict; CI green on `main`. Dashboard: 106 tests, TypeScript 7 (`tsc` 7.0, tools on `@typescript/typescript6`), CI green; Dependabot PR #1 closed after the move.
 - Dev instance: Home Assistant 2026.11.0, ha-mcp 9.1.2, patched Cloudflare AI Gateway integration installed (dev only), loads cleanly.
-- Pending real-world checks: all Phase 0 practical checks (Telegram, Alexa, iOS, camera freshness and clip mode, Marketplace, Cloudflare), real-provider dialogs and recall, camera tuning, Alexa end to end.
+- Alexa Phase 0 done on a real Echo with Alexa+ (2026-11-10): invocation "dispensa smart" / "smart pantry", per-locale yes/no intents, Lambda timeout 10 s; see TECHNICAL_NOTES. Open: `quartermaster.ask` fails with "conversation is busy" when a new request arrives while the agent is still answering; English locale not yet tried on the Echo.
+- Pending real-world checks: Phase 0 practical checks (Telegram, iOS, camera freshness and clip mode, Marketplace, Cloudflare), real-provider dialogs and recall, camera tuning, Alexa end to end.
 
 ## Decisions from the author
 
