@@ -218,7 +218,7 @@ Writing actions called by a user follow the [permissions](#configuration); autom
 
 ## Entities
 
-- **Shopping list** (todo). Entity names start with the name chosen at setup ("Quartermaster Shopping list"). Home Assistant's own **Shopping list** integration, which onboarding adds, is a separate list: keep only Quartermaster's, or set it as the copy target under **Configure → Shopping list** so both show the same items.
+- **Shopping list** (todo). Entity names start with the name chosen at setup ("Quartermaster Shopping list"). Home Assistant's own **Shopping list** integration, which onboarding adds, is a separate list, and its tools are offered to the agent too: Quartermaster tells the agent to use its own list, but removing the other integration (or setting it as the copy target under **Configure → Shopping list**) avoids items ending up there.
 - **Sensors:** to buy, suggestions (with the reason), expiring products, pending proposals, photo requests, analyses today.
 - **Calendar:** best-before dates.
 - **Buttons:** Go shopping, Undo.

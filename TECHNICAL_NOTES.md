@@ -174,6 +174,11 @@ Dropping the carrier word changes the meaning. On the real `quartermaster.ask`, 
 - **Author decision (2026-11-08):** wait for the upstream fix. Open PRs #4 and #5 add `voluptuous-openapi` to the requirements instead of switching to `probatio.to_openapi`. After the merge, re-check that tool and `structure` schemas (probatio objects) convert correctly, then run checklist section 6.
 - **Author decision (later, 2026-11-08): test now on the dev instance with a local patch.** Upstream `main` (39e94f7, one commit after `v2026.04.0`) with `entity.py` switched from `voluptuous_openapi.convert` to `probatio.to_openapi(..., openapi_version="3.1.0")`, as Home Assistant 2026.11's `openai_conversation` does; PR #5 (adding `voluptuous-openapi` back) is not enough because that library does not convert probatio schemas. Installed only in the dev `config/` (gitignored), not in this repository. Checked offline: every module imports on 2026.11.0; the 15 Quartermaster tools and both structures (nested, text, after `ai_task`'s own field validation) convert to JSON Schema. Still to check with real calls: gateway authentication (chat sends only `Authorization`) and whether Workers AI accepts `strict: true` with optional fields.
 
+### Shopping list conflicts and entity names (2026-11-10)
+
+- With Home Assistant's own Shopping list integration loaded, llama-4-scout put "segna i biscotti nella lista della spesa" on that list instead of Quartermaster's. The Quartermaster prompt now says to read and change the shopping list only with the quartermaster__ list tools; the README suggests removing the other integration or making it the copy target.
+- Entity names are "<entry name> <entity name>" (`has_entity_name`), and a name set in the entity registry keeps the device prefix (checked on the dev instance). Author decision: keep the prefix; the setup now suggests "Quartermaster" as the entry name instead of the home name.
+
 ### Telegram on the dev instance (2026-11-10)
 
 `examples/phase0/packages/qm_probe_telegram.yaml` on the test bot, polling platform:

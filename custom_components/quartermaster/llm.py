@@ -74,6 +74,9 @@ PROMPT = """You manage the household inventory with the quartermaster__ tools.
   it again with the confirmation_id only after an explicit yes.
 - When a product is not found, ask whether to put it on the shopping list and,
   if wanted, whether to create it as a product.
+- The shopping list is Quartermaster's: read and change it only with
+  quartermaster__get_shopping_list, quartermaster__add_to_shopping_list and
+  quartermaster__remove_from_shopping_list, not with other list tools.
 - "Undo" or a correction right after a change uses quartermaster__undo_last.
 - When the user says how many there are ("I have 3 yogurts left"), use
   quartermaster__adjust_stock with action counted and that quantity."""
