@@ -88,9 +88,9 @@ Today a camera_show sighting above the confidence threshold is written at once (
 
 #### Rules
 
-1. **Goods enter only with a receipt.** A confirmed receipt (photo or order email) is the only thing that raises the stock from the vision side. Photos and cameras are for what goes out and for the current state of a shelf. There is no "placement allowance": the stock changes when the receipt is confirmed, as today, in each product's default zone.
+1. **Goods enter with a receipt or with a photo sent on purpose.** A confirmed receipt (photo or order email) is the normal way in, in each product's default zone as today. A photo a person sends of a shelf also loads what it shows and the stock does not have (a gift, a purchase without receipt). A camera never loads anything. There is no "placement allowance".
 2. **A camera never writes.** Every sighting (camera_show, passage, scheduled or door-triggered count) becomes a request the user answers on Telegram. `confirm: auto` is removed from the sources.
-3. **A photo sent on purpose shows what is left.** The quantity becomes the one seen in the photo, following the update mode as today. A photo, like a camera, never raises a quantity by itself (rule 1): a count above the recorded stock stays a proposal that asks for the receipt.
+3. **A photo sent on purpose shows the shelf as it is.** Quantities become the ones seen in the photo, lower or higher, following the update mode as today; products the inventory does not know are offered as new products (gap A).
 4. **Telegram is where the user answers.** The same requests appear in the dashboard's Proposals view so none is lost; other notify entities get plain text, as decided earlier.
 5. **No answer, no change.** A request expires (12 hours, an option) and nothing is written.
 
@@ -114,13 +114,13 @@ A camera that sees goods placed on a shelf never changes the stock.
 
 #### Counts
 
-A count from a camera (scheduled or after a door closes) is always a proposal. Rows that lower a quantity, "not seen → 0" included (gap A), can be confirmed; rows above the recorded stock ask for the receipt instead.
+A count from a camera (scheduled or after a door closes) is always a proposal. Rows that lower a quantity, "not seen → 0" included (gap A), can be confirmed; rows above the recorded stock ask for the receipt or a photo sent on purpose instead.
 
 #### Work
 
 | Step | Content | Size |
 | --- | --- | --- |
-| E1 | Cameras never write: remove `confirm: auto` and the automatic path for the camera channel; passage corroboration stops confirming; "returned" never records a purchase; counts above the stock are never applied without a receipt. Spec §5.1 and user guide updated | small |
+| E1 | Cameras never write: remove `confirm: auto` and the automatic path for the camera channel; passage corroboration stops confirming; "returned" never records a purchase; a camera count above the stock is never applied. Spec §5.1 and user guide updated | small |
 | E2 | Movement requests: rows with a change and a kind (consume, put back), grouped in a time window, Telegram message with quantity buttons, confirmed as consumption in the journal, outcome message with Undo, expiry option | medium |
 | E3 | Placement sightings matched with the receipts of the last 24 hours (read from the journal, no new table), summary and "send the receipt" messages | small |
 | E4 | Dashboard: Proposals card shows movement requests (additive snapshot fields, API version unchanged) | small |
@@ -128,12 +128,30 @@ A count from a camera (scheduled or after a door closes) is always a proposal. R
 
 #### Open question
 
-Rule 1 read literally also covers purchases said by voice or typed ("I bought three milk"), the plus button in the dashboard and checking an item in shopping mode. They are kept as they are until the author says otherwise.
+Purchases said by voice or typed ("I bought three milk"), the plus button in the dashboard and checking an item in shopping mode keep working as they are; the author has not asked to change them.
+
+### F. Zones nobody photographs: chest freezer, freezer, fridge (author request, 2026-11-11)
+
+These zones have no camera, and a photo of a chest freezer shows only the top layer. The author keeps them by telling Alexa or the Telegram bot what was finished. Today such a zone works with a `manual` source and no `reminder_days`, with three weak points: essentials kept there raise "zone not updated" suggestions after seven days although nothing is wrong; nothing ever checks the list against reality; nothing says how long something has been frozen.
+
+Proposal: a zone setting `tracking` with two values, `photo` (today's behaviour) and `ledger`.
+
+A `ledger` zone:
+
+1. **Never asks for photos** and is left out of the "zone not updated" suggestion and of photo reminders. A photo sent on purpose is still accepted.
+2. **Goes in:** a confirmed receipt puts frozen products there through their default zone; home-made portions and gifts are said or typed ("I put two bags of ragù in the chest freezer"). Unknown names are offered as new products with that zone as default.
+3. **Goes out:** by voice or Telegram, as today ("I finished the peas").
+4. **Guided check on Telegram** instead of photos: on demand (`/check chest freezer`, or "let's check the chest freezer") and every `reminder_days` if set, the bot sends the zone's list, oldest first, with one row of buttons per product: **still there**, **−1**, **finished**; **all right** closes it. A typed answer ("no more peas, 2 ragù left") goes to the agent as usual. Answers are journaled as counts, and the zone counts as updated. On Alexa the same check reads at most five products per turn.
+5. **Age:** a product placed in a ledger zone without a date gets today plus its `shelf_life_days` (for the freezer, the months it keeps), so the existing expiry sensor, calendar and daily message say "ragù in the chest freezer since June: use it". "What is in the chest freezer?" answers oldest first.
+
+Work: a `tracking` field on the zone (migration, `set_zone`, zone editor in the dashboard), the three exclusions, the guided check (Telegram message with buttons, command, schedule through `reminder_days`), oldest-first ordering in `get_stock`. Medium size; independent of section E.
+
+Until then: give these zones a `manual` source only and no `reminder_days`, and set `shelf_life_days` on what is frozen.
 
 ## Suggested order
 
 1. E1 (cameras never write), because it changes behaviour the author does not want.
 2. A (unknown and unseen products) and E2 together: both rework proposals.
-3. E3, then B (product life cycle) and E4 in the dashboard.
+3. E3 and F (ledger zones), then B (product life cycle) and E4 in the dashboard.
 4. C and the "Still open" table.
 5. D, field validation, then 1.0.0 when the author asks.

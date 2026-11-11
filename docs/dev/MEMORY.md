@@ -36,7 +36,8 @@ Shared state between development sessions and machines. Keep it short and factua
 - Receipts and order emails always become a proposal; the forecast also puts essentials on the list.
 - Permissions: administrators plus a chosen list of non-admin users (`write_users`), listed with `hass.auth.async_get_users()` (public, not in the developer docs; accepted by the author).
 - The agent's tools and `quartermaster.ask` follow `write_users` (2026-11-11).
-- Every camera action must be confirmed by the user on Telegram before the stock changes, removals included. Goods enter only with a confirmed receipt: photos and cameras are for what goes out and for the state of a shelf; a photo sets the quantity left; a camera seeing goods placed only confirms a receipt; no placement allowance; `confirm: auto` goes away (2026-11-11; design in the assessment, section E, not implemented yet).
+- Fridge, freezer and chest freezer have no cameras: the author keeps them by voice (Alexa) and Telegram (2026-11-11).
+- Every camera action must be confirmed by the user on Telegram before the stock changes, removals included. Goods enter with a confirmed receipt or with a photo sent on purpose (gifts, purchases without receipt); cameras are for what goes out and for the state of a shelf and never load anything; a camera seeing goods placed only confirms a receipt; no placement allowance; `confirm: auto` goes away (2026-11-11; design in the assessment, section E, not implemented yet).
 - A photo request started from a Telegram chat goes back to that chat (chat id from the conversation session).
 - Kept as they are: no debug retention of photos; analyses tile instead of AI cost; dashboard reload after adding or deleting a zone.
 - Cloudflare AI Gateway: test now with the locally patched community integration (dev only), not waiting for upstream.
@@ -46,5 +47,5 @@ Shared state between development sessions and machines. Keep it short and factua
 ## Open questions for the author
 
 - Marketplace check needs the author's GitHub device sign-in on the dev instance; and if the Marketplace requires a release, whether a test pre-release is allowed.
-- Assessment section E: does "goods enter only with a receipt" also cover purchases said by voice, the plus button in the dashboard and checking an item in shopping mode? Kept as they are for now.
+- Assessment section F (zones kept by voice and Telegram only, such as the chest freezer: `tracking: ledger` with a guided check on Telegram) is proposed, waiting for the author's answer.
 - Whether the entities (todo, buttons, select, switch) should check `write_users` or keep the documented limit; whether to keep the domain `quartermaster` given the other integration using it.
