@@ -10,9 +10,22 @@ in the database. Each phrase costs the provider one or more agent calls.
 
     python3 scripts/dev-agent-bench config/.dev/ha_token \
         config/quartermaster/pantry.db results.json \
-        conversation.a,conversation.b <quartermaster entry id> <shopping list todo entity>
+        conversation.a,conversation.b <quartermaster entry id> <shopping list todo entity> \
+        [--quick] [--only s1,s5]
+
+Every call carries the whole Assist context (about 18,000 input tokens on the
+dev instance), so a full run of three agents can exceed a free daily
+allowance on its own. To keep runs small:
+- `--quick` sends 6 phrases instead of 13 (one question, two writes, the
+  clarification pair, an unknown product); `--only` picks sessions by name;
+- pass one agent per run and check the provider's usage before the next;
+- an agent whose calls fail twice in a row is skipped, and the run stops at
+  once when the Home Assistant log shows a quota error (HTTP 429, Workers AI
+  4006 or 3036), so no more requests are wasted;
+- each agent's start and end time (UTC) is printed, to look up its usage.
 """
 
+from datetime import UTC, datetime
 import json
 import sqlite3
 import sys
@@ -20,12 +33,18 @@ import time
 import urllib.error
 import urllib.request
 
-TOKEN = open(sys.argv[1]).read().strip()
-DB = sys.argv[2]
-OUT = sys.argv[3]
-AGENTS = sys.argv[4].split(",")
-ENTRY = sys.argv[5]
-TODO = sys.argv[6]
+ARGS = [a for a in sys.argv[1:] if not a.startswith("--")]
+FLAGS = sys.argv[1:]
+TOKEN = open(ARGS[0]).read().strip()
+DB = ARGS[1]
+OUT = ARGS[2]
+AGENTS = ARGS[3].split(",")
+ENTRY = ARGS[4]
+TODO = ARGS[5]
+QUICK = {"s1", "s5", "s6", "s9", "s12"}
+ONLY = set(FLAGS[FLAGS.index("--only") + 1].split(",")) if "--only" in FLAGS else None
+ERROR_REPLIES = ("Non ci sono riuscito", "Sorry, I couldn't do that")
+QUOTA_MARKS = ("Rate limited", "4006", "3036", "neurons", " 429")
 BASE = "http://localhost:8123/api"
 
 
@@ -119,10 +138,35 @@ PHRASES = [
     ("s12", "ho finito il dentifricio", "it", lambda b, a, r: a["products"] == b["products"], "unknown"),
 ]
 
+if ONLY:
+    PHRASES = [p for p in PHRASES if p[0] in ONLY]
+elif "--quick" in FLAGS:
+    PHRASES = [p for p in PHRASES if p[0] in QUICK]
+
+
+def log_tail():
+    req = urllib.request.Request(f"{BASE}/error_log", headers={"Authorization": f"Bearer {TOKEN}"})
+    try:
+        return urllib.request.urlopen(req, timeout=30).read().decode(errors="replace")
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def now():
+    return datetime.now(UTC).strftime("%H:%M:%S")
+
+
+def save():
+    json.dump(results, open(OUT, "w"), ensure_ascii=False, indent=1)
+
+
 results = []
+log_seen = len(log_tail())
 for i, agent in enumerate(AGENTS):
     set_agent(agent)
     seed(i == 0)
+    print(f"# {agent} start {now()} UTC, {len(PHRASES)} phrases", flush=True)
+    failures = 0
     for session, text, lang, check, kind in PHRASES:
         key = f"{agent}-{session}-{int(time.time()) // 3600}"
         before = db()
@@ -149,4 +193,20 @@ for i, agent in enumerate(AGENTS):
         r = {"agent": agent, "text": text, "kind": kind, "ok": ok, "seconds": secs, "total": round(total, 1), "deferred": deferred, "reply": reply[:220], "error": err}
         results.append(r)
         print(json.dumps(r, ensure_ascii=False), flush=True)
-json.dump(results, open(OUT, "w"), ensure_ascii=False, indent=1)
+        if err or reply.startswith(ERROR_REPLIES):
+            failures += 1
+            log = log_tail()
+            # Only what was logged since the last look (all of it if rotated).
+            new = log[log_seen:] if len(log) >= log_seen else log
+            log_seen = len(log)
+            if any(mark in new for mark in QUOTA_MARKS):
+                print(f"# quota error at {now()} UTC: stopping the run", flush=True)
+                save()
+                sys.exit(2)
+            if failures >= 2:
+                print(f"# {agent}: two failures in a row, skipping it", flush=True)
+                break
+        else:
+            failures = 0
+    print(f"# {agent} end {now()} UTC", flush=True)
+save()
