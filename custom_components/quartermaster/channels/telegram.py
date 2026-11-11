@@ -38,7 +38,11 @@ from homeassistant.util.ulid import ulid_now
 
 from custom_components.quartermaster.const import DOMAIN
 from custom_components.quartermaster.core.events import is_fresh_event
-from custom_components.quartermaster.core.inventory import InventoryError, normalize
+from custom_components.quartermaster.core.inventory import (
+    InventoryError,
+    StockOperation,
+    normalize,
+)
 from custom_components.quartermaster.core.phrases import (
     async_error_text,
     async_phrase,
@@ -48,6 +52,7 @@ from custom_components.quartermaster.core.voice import (
     EVENT_ASK_RESULT,
     TELEGRAM_SESSION_PREFIX,
 )
+from custom_components.quartermaster.core.zones import CheckStatus
 from custom_components.quartermaster.storage.models import (
     Channel,
     ShoppingOrigin,
@@ -66,6 +71,10 @@ PHOTO_ZONE_TTL = timedelta(minutes=10)
 # Callback commands carried by inline buttons (Telegram limits data to 64 bytes).
 CB_CONFIRM = "/qm_ok"
 CB_REJECT = "/qm_no"
+CB_QUANTITY = "/qm_qty"
+# Guided check of a zone kept by word: one product less or finished, done.
+CB_LEDGER = "/qm_lg"
+CB_LEDGER_OK = "/qm_lg_ok"
 CB_ZONE = "/qm_zone"
 # Zone ids are slugs, so this can never be one.
 RECEIPT = "@receipt"
@@ -285,6 +294,32 @@ class TelegramChannel:
             await self.async_send_suggestions(chat_id)
         elif name in ("undo", "annulla"):
             await self._async_undo(chat_id, None)
+        elif name in ("check", "controlla") and args.strip():
+            # A zone kept by word answers with its list; a camera is read; a
+            # zone with photos asks this chat for one.
+            outcome = await runtime.zones.async_check_zone(
+                args.strip(), channel=Channel.TELEGRAM, chat_id=chat_id
+            )
+            if outcome.status is CheckStatus.UPDATED:
+                await self.async_send(
+                    chat_id,
+                    await self._phrase(
+                        "notify_check_result",
+                        zone=args.strip(),
+                        applied=str(outcome.result.get("applied") or 0),
+                        proposed="1" if outcome.result.get("proposal_id") else "0",
+                    ),
+                )
+            elif outcome.status is CheckStatus.FAILED:
+                reason = await self._phrase(
+                    f"reason_{outcome.reason or 'analysis_failed'}"
+                )
+                await self.async_send(
+                    chat_id,
+                    await self._phrase(
+                        "notify_check_failed", zone=args.strip(), reason=reason
+                    ),
+                )
         else:
             await self.async_send(chat_id, await self._phrase("telegram_help"))
 
@@ -447,6 +482,30 @@ class TelegramChannel:
                 int(args[0]), channel=Channel.TELEGRAM, user_id=None
             )
             answer = await self._phrase("telegram_confirmed")
+        elif command == CB_QUANTITY and len(args) == 2:
+            # A camera sighting confirmed with another quantity taken.
+            await runtime.proposals.async_confirm(
+                int(args[0]),
+                corrections={0: {"moved": float(args[1])}},
+                channel=Channel.TELEGRAM,
+                user_id=None,
+            )
+            answer = await self._phrase("telegram_confirmed")
+        elif command == CB_LEDGER and len(args) == 3:
+            movement = await runtime.inventory.async_adjust_stock(
+                int(args[1]),
+                StockOperation.FINISH if args[2] == "f" else StockOperation.CONSUME,
+                zone_ref=args[0],
+                channel=Channel.TELEGRAM,
+            )
+            answer = await self._phrase(
+                "telegram_ledger_left",
+                product=movement.product.name,
+                quantity=_number(movement.entry.quantity_after),
+            )
+        elif command == CB_LEDGER_OK and args:
+            zone = await runtime.inventory.async_find_zone(args[0])
+            answer = await self._phrase("telegram_ledger_done", zone=zone.name)
         elif command == CB_REJECT and args:
             await runtime.proposals.async_reject(int(args[0]))
             answer = await self._phrase("telegram_rejected")

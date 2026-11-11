@@ -193,6 +193,11 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
             for zone_id in self._zone_names.keys() - names.keys():
                 self._async_remove_zone_entities(zone_id)
         self._zone_names = names
+        ledgers = {
+            zone.id
+            for zone in zones
+            if any(source.get("type") == "ledger" for source in zone.sources)
+        }
 
         def compute(items: list[ShoppingItem]) -> Analysis:
             return analyze(
@@ -206,7 +211,12 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
                     if item.product_id is not None
                     and item.status is ShoppingStatus.NEEDS_ACTION
                 },
-                zone_updates=updates,
+                # Zones kept by word are not expected to be looked at often.
+                zone_updates={
+                    zone_id: when
+                    for zone_id, when in updates.items()
+                    if zone_id not in ledgers
+                },
                 now=now,
                 stale_days=self.option(CONF_STALE_ZONE_DAYS, DEFAULT_STALE_ZONE_DAYS),
                 expiring_days=self.option(CONF_EXPIRING_DAYS, DEFAULT_EXPIRING_DAYS),

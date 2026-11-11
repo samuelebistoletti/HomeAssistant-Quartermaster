@@ -27,9 +27,15 @@ from custom_components.quartermaster.core.phrases import async_phrase
 from custom_components.quartermaster.core.purchases import EVENT_PURCHASES_PROPOSED
 from custom_components.quartermaster.core.suggestions import Suggestion
 from custom_components.quartermaster.core.voice import EVENT_ASK_RESULT
-from custom_components.quartermaster.core.zones import EVENT_PHOTO_REQUEST
+from custom_components.quartermaster.core.zones import (
+    EVENT_LEDGER_CHECK,
+    EVENT_PHOTO_REQUEST,
+)
 from custom_components.quartermaster.storage.models import Channel, MovementKind
-from custom_components.quartermaster.vision.show import EVENT_SHOW_RECOGNIZED
+from custom_components.quartermaster.vision.show import (
+    EVENT_SHOW_RECOGNIZED,
+    EVENT_SHOW_REQUEST,
+)
 
 if TYPE_CHECKING:
     from custom_components.quartermaster import QuartermasterRuntimeData
@@ -126,6 +132,8 @@ class NotificationRouter:
         self._unsubs += [
             bus.async_listen(EVENT_PHOTO_REQUEST, self._on_photo_request),
             bus.async_listen(EVENT_SHOW_RECOGNIZED, self._on_show),
+            bus.async_listen(EVENT_SHOW_REQUEST, self._on_show_request),
+            bus.async_listen(EVENT_LEDGER_CHECK, self._on_ledger_check),
             bus.async_listen(EVENT_ASK_RESULT, self._on_ask_result),
             bus.async_listen(f"{DOMAIN}_zone_checked", self._on_zone_checked),
             bus.async_listen(EVENT_PURCHASES_PROPOSED, self._on_purchases),
@@ -230,6 +238,123 @@ class NotificationRouter:
         )
 
     @callback
+    def _on_ledger_check(self, event: Event[dict[str, Any]]) -> None:
+        self._task(self._async_ledger_check(event.data), "ledger")
+
+    async def _async_ledger_check(self, data: dict[str, Any]) -> None:
+        """Send the list of a zone kept by word, with a row of buttons each."""
+        zone_id, zone = str(data["zone_id"]), str(data["zone"])
+        chats = [int(data["chat_id"])] if data.get("chat_id") is not None else []
+        items = list(data.get("items") or [])
+        if not items:
+            text = await self._phrase("notify_ledger_empty", zone=zone)
+            await self.async_send(
+                Message(
+                    MessageType.PHOTO_REQUEST, text, chats=chats, direct=bool(chats)
+                )
+            )
+            return
+        lines = [await self._phrase("notify_ledger_check", zone=zone)]
+        buttons: list[list[tuple[str, str]]] = []
+        for item in items:
+            line = f"• {item['product']}: {float(item['quantity']):g}"
+            if item.get("unit"):
+                line += f" {item['unit']}"
+            if since := dt_util.parse_date(str(item.get("since") or "")):
+                line += " " + await self._phrase(
+                    "notify_ledger_since",
+                    date=f"{since.day}/{since.month}/{since.year}",
+                )
+            lines.append(line)
+            less = f"/qm_lg {zone_id} {item['product_id']} m"
+            # Telegram refuses callback data over 64 bytes.
+            if len(less.encode()) <= 64:
+                buttons.append(
+                    [
+                        (
+                            await self._phrase(
+                                "button_ledger_less", product=item["product"]
+                            ),
+                            less,
+                        ),
+                        (
+                            await self._phrase(
+                                "button_ledger_finished", product=item["product"]
+                            ),
+                            f"/qm_lg {zone_id} {item['product_id']} f",
+                        ),
+                    ]
+                )
+        if more := int(data.get("more") or 0):
+            lines.append(await self._phrase("notify_ledger_more", count=more))
+        lines.append(await self._phrase("notify_ledger_hint"))
+        done = f"/qm_lg_ok {zone_id}"
+        if len(done.encode()) <= 64:
+            buttons.append([(await self._phrase("button_ledger_ok"), done)])
+        await self.async_send(
+            Message(
+                MessageType.PHOTO_REQUEST,
+                "\n".join(lines),
+                buttons=buttons,
+                chats=chats,
+                direct=bool(chats),
+            )
+        )
+
+    @callback
+    def _on_show_request(self, event: Event[dict[str, Any]]) -> None:
+        self._task(self._async_show_request(event.data), "camera request")
+
+    async def _async_show_request(self, data: dict[str, Any]) -> None:
+        """Ask the user to confirm what a camera saw; nothing is written yet."""
+        quantity = float(data.get("quantity") or 1)
+        current = float(data.get("current") or 0)
+        values = {
+            "product": data.get("product"),
+            "quantity": f"{quantity:g}",
+            "zone": data.get("zone"),
+        }
+        proposal_id = data.get("proposal_id")
+        if proposal_id is None:
+            text = await self._phrase("notify_show_no_receipt", **values)
+            await self.async_send(Message(MessageType.CAMERA, text))
+            return
+        no = (await self._phrase("button_no"), f"/qm_no {proposal_id}")
+        if data.get("action") != "taken":
+            text = await self._phrase("notify_show_ask_returned", **values)
+            yes = (
+                await self._phrase("button_yes", quantity=values["quantity"]),
+                f"/qm_ok {proposal_id}",
+            )
+            await self.async_send(
+                Message(MessageType.CAMERA, text, buttons=[[yes, no]])
+            )
+            return
+        text = await self._phrase(
+            "notify_show_ask_taken",
+            **values,
+            current=f"{current:g}",
+            left=f"{max(current - quantity, 0):g}",
+        )
+        # The quantity seen, one more, and everything: the usual corrections.
+        row = [
+            (
+                await self._phrase("button_yes", quantity=values["quantity"]),
+                f"/qm_ok {proposal_id}",
+            )
+        ]
+        if quantity + 1 < current:
+            row.append((f"{quantity + 1:g}", f"/qm_qty {proposal_id} {quantity + 1:g}"))
+        if current > quantity:
+            row.append(
+                (
+                    await self._phrase("button_all", quantity=f"{current:g}"),
+                    f"/qm_qty {proposal_id} {current:g}",
+                )
+            )
+        await self.async_send(Message(MessageType.CAMERA, text, buttons=[[*row, no]]))
+
+    @callback
     def _on_show(self, event: Event[dict[str, Any]]) -> None:
         self._task(self._async_show(event.data), "camera")
 
@@ -320,6 +445,10 @@ class NotificationRouter:
             applied=data.get("applied") or 0,
             proposed="1" if data.get("proposal_id") else "0",
         )
+        if more := data.get("more_than_stock"):
+            text += " " + await self._phrase(
+                "notify_check_more", products=", ".join(more)
+            )
         buttons = None
         if data.get("proposal_id"):
             buttons = [

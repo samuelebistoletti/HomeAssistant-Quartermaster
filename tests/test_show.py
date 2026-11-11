@@ -16,11 +16,12 @@ from pytest_homeassistant.common import MockConfigEntry, async_capture_events
 
 from custom_components.quartermaster.const import DOMAIN
 from custom_components.quartermaster.core.inventory import InventoryError
-from custom_components.quartermaster.storage.models import Channel
+from custom_components.quartermaster.storage.models import Channel, MovementKind
 from custom_components.quartermaster.vision.quality import Frame
 from custom_components.quartermaster.vision.schema import StructureMode
 from custom_components.quartermaster.vision.show import (
     EVENT_SHOW_RECOGNIZED,
+    EVENT_SHOW_REQUEST,
     _in_hours,
     choose_frames,
     combine,
@@ -178,49 +179,121 @@ async def _quantity(entry: MockConfigEntry) -> float:
     return level.quantity
 
 
+async def _confirm(entry: MockConfigEntry, **correction: float) -> None:
+    """Answer yes to the one waiting request, as a Telegram button does."""
+    [proposal] = await entry.runtime_data.proposals.async_pending()
+    await entry.runtime_data.proposals.async_confirm(
+        proposal.id,
+        corrections={0: correction} if correction else None,
+        channel=Channel.TELEGRAM,
+        user_id=None,
+    )
+
+
 async def test_show_taken_and_returned(hass: HomeAssistant, show: Any) -> None:
-    """Armed: a product taken is recorded; shown back it is undone."""
+    """Armed: a product taken is asked about, and written only on a yes."""
     entry, _scene, model, passata = show
     manager = entry.runtime_data.show
     assert (await manager.async_handle_trigger("garage:0"))["status"] == "not_armed"
 
-    events = async_capture_events(hass, EVENT_SHOW_RECOGNIZED)
+    recognized = async_capture_events(hass, EVENT_SHOW_RECOGNIZED)
+    requests = async_capture_events(hass, EVENT_SHOW_REQUEST)
     await hass.services.async_call(
         DOMAIN, "arm_show_mode", {"zone": "garage"}, blocking=True
     )
     assert hass.states.get("switch.quartermaster_show_mode_garage").state == "on"  # type: ignore[union-attr]
     model.answers["show"] = _taken(passata, 0.9)
     result = await manager.async_handle_trigger("garage:0")
-    assert result["status"] == "applied"
-    assert await _quantity(entry) == 3
+    assert result["status"] == "proposed"
+    assert await _quantity(entry) == 4  # a camera never writes
+    assert recognized == []
+    [request] = requests
+    assert (request.data["action"], request.data["quantity"]) == ("taken", 1)
+    assert request.data["current"] == 4
     assert len(model.calls[0]["attachments"]) >= 1
-    [event] = events
+
+    await _confirm(entry)
+    assert await _quantity(entry) == 3
+    [event] = recognized
     assert (event.data["product"], event.data["action"]) == ("Passata", "taken")
+    assert event.data["operation_id"]
     journal = await entry.runtime_data.inventory.async_list_journal(limit=1)
-    assert journal[0].channel is Channel.CAMERA
+    assert (journal[0].kind, journal[0].channel) == (
+        MovementKind.CONSUME,
+        Channel.TELEGRAM,
+    )
     await entry.runtime_data.coordinator.async_refresh()
     assert hass.states.get("sensor.quartermaster_last_shown_garage").state == "Passata"  # type: ignore[union-attr]
 
+    # Put back after the yes: a request to undo that consumption.
     model.answers["show"] = _taken(passata, 0.9, "returned")
-    assert (await manager.async_handle_trigger("garage:0"))["status"] == "applied"
+    assert (await manager.async_handle_trigger("garage:0"))["status"] == "proposed"
+    assert await _quantity(entry) == 3
+    await _confirm(entry)
     assert await _quantity(entry) == 4
-    # Returned with nothing to undo adds the quantity.
-    assert (await manager.async_handle_trigger("garage:0"))["status"] == "applied"
-    assert await _quantity(entry) == 5
+    assert recognized[-1].data["action"] == "returned"
+
+    # Put back with nothing to undo: nothing to record, the user is told.
+    assert (await manager.async_handle_trigger("garage:0"))["status"] == (
+        "needs_receipt"
+    )
+    assert requests[-1].data["proposal_id"] is None
+    assert await _quantity(entry) == 4
+    assert await entry.runtime_data.proposals.async_pending() == []
     assert not any((Path(hass.config.media_dirs["local"]) / DOMAIN / "tmp").iterdir())
+
+
+async def test_taken_then_returned_before_answering(
+    hass: HomeAssistant, show: Any
+) -> None:
+    """A product taken and put back before the answer leaves nothing to ask."""
+    entry, _scene, model, passata = show
+    manager = entry.runtime_data.show
+    manager.async_arm("garage")
+    model.answers["show"] = _taken(passata, 0.9)
+    await manager.async_handle_trigger("garage:0")
+    model.answers["show"] = _taken(passata, 0.9, "returned")
+    assert (await manager.async_handle_trigger("garage:0"))["status"] == "cancelled"
+    assert await entry.runtime_data.proposals.async_pending() == []
+    assert await _quantity(entry) == 4
+
+
+async def test_another_quantity_and_out_of_stock(
+    hass: HomeAssistant, show: Any
+) -> None:
+    """The answer may give another quantity; nothing in stock, nothing asked."""
+    entry, _scene, model, passata = show
+    manager = entry.runtime_data.show
+    manager.async_arm("garage")
+    model.answers["show"] = _taken(passata, 0.9)
+    await manager.async_handle_trigger("garage:0")
+    await _confirm(entry, moved=3)
+    assert await _quantity(entry) == 1
+    # More taken than there is: the request is for what is left.
+    model.answers["show"] = lambda: {**_taken(passata, 0.9)(), "quantity": 5}
+    await manager.async_handle_trigger("garage:0")
+    [proposal] = await entry.runtime_data.proposals.async_pending()
+    assert proposal.payload["items"][0]["moved"] == 1
+    # The dashboard's corrected count is what is left.
+    await _confirm(entry, quantity=0)
+    assert await _quantity(entry) == 0
+    assert (await manager.async_handle_trigger("garage:0"))["status"] == (
+        "not_in_stock"
+    )
 
 
 async def test_low_confidence_corroborated_by_passage(
     hass: HomeAssistant, show: Any
 ) -> None:
-    """A held take becomes a consumption when the yard camera sees it go out."""
+    """A doubtful take waits silently; seen again at the door, the user is asked."""
     entry, _, model, passata = show
     manager = entry.runtime_data.show
     manager.async_arm("garage")
+    requests = async_capture_events(hass, EVENT_SHOW_REQUEST)
     model.answers["show"] = _taken(passata, 0.6)
     result = await manager.async_handle_trigger("garage:0")
     assert result["status"] == "proposed"
-    assert await _quantity(entry) == 4
+    assert requests == []
 
     model.answers["passage"] = lambda: {
         "items": [
@@ -234,20 +307,24 @@ async def test_low_confidence_corroborated_by_passage(
         ]
     }
     result = await manager.async_handle_trigger("yard:0")
-    assert result["items"] == [{"product_id": passata, "status": "confirmed"}]
-    assert await _quantity(entry) == 3
-    assert await entry.runtime_data.proposals.async_pending() == []
+    assert result["items"] == [{"product_id": passata, "status": "corroborated"}]
+    [request] = requests
+    assert request.data["confidence"] == combine([0.6, 0.6])
+    # Still nothing written, and one request only.
+    assert await _quantity(entry) == 4
+    assert len(await entry.runtime_data.proposals.async_pending()) == 1
 
 
-async def test_passage_confirms_applied_take_without_double_count(
+async def test_passage_supports_a_take_without_double_count(
     hass: HomeAssistant, show: Any
 ) -> None:
-    """A passage sighting of a recorded take only corroborates it."""
+    """A passage sighting of a take already asked about adds no second request."""
     entry, _, model, passata = show
     manager = entry.runtime_data.show
     manager.async_arm("garage")
     model.answers["show"] = _taken(passata, 0.95)
     await manager.async_handle_trigger("garage:0")
+    await _confirm(entry)
     model.answers["passage"] = lambda: {
         "items": [
             {
@@ -262,10 +339,11 @@ async def test_passage_confirms_applied_take_without_double_count(
     result = await manager.async_handle_trigger("yard:0")
     assert result["items"] == [{"product_id": passata, "status": "corroborated"}]
     assert await _quantity(entry) == 3
+    assert await entry.runtime_data.proposals.async_pending() == []
 
 
-async def test_passage_alone_only_proposes(hass: HomeAssistant, show: Any) -> None:
-    """Carrying out or in without a zone sighting gives proposals, no writes."""
+async def test_passage_alone(hass: HomeAssistant, show: Any) -> None:
+    """Goods carried in are only seen; goods carried out are asked about."""
     entry, _, model, passata = show
     manager = entry.runtime_data.show
     model.answers["passage"] = lambda: {
@@ -287,19 +365,35 @@ async def test_passage_alone_only_proposes(hass: HomeAssistant, show: Any) -> No
         ]
     }
     result = await manager.async_handle_trigger("yard:0")
-    assert result["items"] == [{"product_id": passata, "status": "proposed"}]
+    assert result["items"] == [{"product_id": passata, "status": "seen"}]
     assert await _quantity(entry) == 4
-    [proposal] = await entry.runtime_data.proposals.async_pending()
-    assert proposal.payload["items"][0]["proposed"] == 6
+    assert await entry.runtime_data.proposals.async_pending() == []
 
-    # A later zone sighting of the same product merges with it.
+    # Placed on the shelf with nothing taken before: no stock change either.
     manager.async_arm("garage")
     model.answers["show"] = _taken(passata, 0.5, "returned")
     result = await manager.async_handle_trigger("garage:0")
     assert result["confidence"] == combine([0.5, 0.99])
-    assert result["status"] == "applied"
-    assert await _quantity(entry) == 5
-    assert await entry.runtime_data.proposals.async_pending() == []
+    assert result["status"] == "needs_receipt"
+    assert await _quantity(entry) == 4
+
+    model.answers["passage"] = lambda: {
+        "items": [
+            {
+                "product": "Passata",
+                "matched_product_id": passata,
+                "quantity": 2,
+                "direction": "out",
+                "confidence": 0.9,
+            }
+        ]
+    }
+    result = await manager.async_handle_trigger("yard:0")
+    assert result["items"] == [{"product_id": passata, "status": "proposed"}]
+    [proposal] = await entry.runtime_data.proposals.async_pending()
+    assert (proposal.zone_id, proposal.payload["items"][0]["moved"]) == ("garage", 2)
+    await _confirm(entry)
+    assert await _quantity(entry) == 2
 
     model.answers["passage"] = lambda: {"items": []}
     assert (await manager.async_handle_trigger("yard:0"))["status"] == "nothing_carried"
@@ -387,7 +481,8 @@ async def test_single_attachment_fallback_and_trigger(
     hass.states.async_set("binary_sensor.garage_motion", "on")
     await hass.async_block_till_done(wait_background_tasks=True)
     assert len(model.calls[-1]["attachments"]) == 1
-    assert await _quantity(entry) == 3
+    assert len(await entry.runtime_data.proposals.async_pending()) == 1
+    assert await _quantity(entry) == 4
 
     # Event entities trigger on a new state. A state restored after a restart
     # or a reload (the entity appears, or comes back from unavailable, with
@@ -450,8 +545,9 @@ async def test_text_mode_list_and_announce(hass: HomeAssistant, show: Any) -> No
         DOMAIN, "arm_show_mode", {"zone": "garage"}, blocking=True
     )
     model.answers["show"] = lambda: {"result_json": json.dumps(_taken(passata, 0.9)())}
-    assert (await runtime.show.async_handle_trigger("garage:0"))["status"] == "applied"
+    assert (await runtime.show.async_handle_trigger("garage:0"))["status"] == "proposed"
     assert "result_json" in model.calls[-1]["structure"]
+    await _confirm(entry)
     [event] = events
     assert event.data["to_list"] is True
     assert event.data["announce"] == ["notify.garage_echo"]

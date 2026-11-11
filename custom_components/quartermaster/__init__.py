@@ -178,6 +178,7 @@ async def async_setup_entry(
     entry.async_on_unload(zones.async_stop)
     show = ShowManager(hass, entry.runtime_data)
     entry.runtime_data.show = show
+    proposals.on_movement = show.async_movement_confirmed
     coordinator.show = show
     show.async_start(list(coordinator.data.zones.values()))
     zones.async_watch_doors(list(coordinator.data.zones.values()))

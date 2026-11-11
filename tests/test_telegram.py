@@ -450,3 +450,71 @@ async def test_camera_undo_button_names_its_operation(
     await _event(
         hass, event_type="telegram_callback", chat_id=CHAT, id="q2", data="/qm_ok x"
     )
+
+
+async def test_guided_check_of_a_zone_kept_by_word(
+    hass: HomeAssistant, bot: Any
+) -> None:
+    """/controlla sends the list with buttons; a tap lowers or finishes a product."""
+    entry, fake = bot
+    inventory = entry.runtime_data.inventory
+    await inventory.async_add_zone("Pozzetto")
+    await hass.services.async_call(
+        DOMAIN,
+        "set_zone",
+        {"zone": "pozzetto", "sources": [{"type": "ledger"}]},
+        blocking=True,
+    )
+    ragu = await inventory.async_add_product("Ragù", default_zone="pozzetto")
+    await inventory.async_set_stock("ragù", 2, channel=Channel.SERVICE)
+    await _event(
+        hass,
+        event_type="telegram_command",
+        chat_id=CHAT,
+        command="/controlla",
+        args="pozzetto",
+    )
+    message = fake.sent[-1]
+    assert message["chat_id"] == [CHAT]
+    assert message["message"].startswith("Controlliamo Pozzetto. Dal più vecchio:")
+    assert "• Ragù: 2 (dal " in message["message"]
+    assert fake.keyboard() == [
+        f"Ragù −1:/qm_lg pozzetto {ragu.id} m, Ragù finito:/qm_lg pozzetto {ragu.id} f",
+        "✔ Tutto giusto:/qm_lg_ok pozzetto",
+    ]
+
+    await _event(
+        hass,
+        event_type="telegram_callback",
+        chat_id=CHAT,
+        id="q1",
+        data=f"/qm_lg pozzetto {ragu.id} m",
+    )
+    assert fake.answers[-1]["message"] == "Ragù: ne restano 1."
+    await _event(
+        hass,
+        event_type="telegram_callback",
+        chat_id=CHAT,
+        id="q2",
+        data=f"/qm_lg pozzetto {ragu.id} f",
+    )
+    [level] = await inventory.async_get_stock(product_id=ragu.id)
+    assert level.quantity == 0
+    await _event(
+        hass,
+        event_type="telegram_callback",
+        chat_id=CHAT,
+        id="q3",
+        data="/qm_lg_ok pozzetto",
+    )
+    assert fake.answers[-1]["message"] == "Bene, Pozzetto è aggiornato."
+
+    # Nothing left: the check says so instead of sending an empty list.
+    await _event(
+        hass,
+        event_type="telegram_command",
+        chat_id=CHAT,
+        command="/controlla",
+        args="pozzetto",
+    )
+    assert fake.sent[-1]["message"].startswith("Pozzetto dovrebbe essere vuoto.")

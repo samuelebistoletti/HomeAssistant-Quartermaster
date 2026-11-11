@@ -36,6 +36,7 @@ from custom_components.quartermaster.core.voice import (
     TELEGRAM_SESSION_PREFIX,
     PendingClarification,
 )
+from custom_components.quartermaster.core.zones import ledger_source
 from custom_components.quartermaster.storage.models import (
     Channel,
     MovementKind,
@@ -49,6 +50,8 @@ if TYPE_CHECKING:
 UNDO_WINDOW = timedelta(minutes=10)
 LARGE_PURCHASE = 20.0
 MAX_CANDIDATES = 3
+# Products of a zone kept by word that a voice reads in one turn.
+LEDGER_SPOKEN = 5
 
 READ_ONLY = llm.ToolAnnotations(
     read_only=True, destructive=False, idempotent=True, open_world=False
@@ -947,7 +950,9 @@ class CheckZoneTool(QuartermasterTool):
     name = f"{DOMAIN}__check_zone"
     description = (
         "Start checking a zone (camera, or a photo request to the user). It runs "
-        "in the background: say that the check has started."
+        "in the background: say that the check has started. A zone kept by word "
+        "(status list_sent) returns its oldest products instead: read them and "
+        "ask what changed."
     )
     parameters = probatio.Schema({probatio.Required("zone"): str})
     annotations = WRITES
@@ -968,6 +973,30 @@ class CheckZoneTool(QuartermasterTool):
         chat_id = None
         if session is not None and session.key.startswith(TELEGRAM_SESSION_PREFIX):
             chat_id = int(session.key.removeprefix(TELEGRAM_SESSION_PREFIX))
+        if ledger_source(zone) is not None:
+            # A zone kept by word has no camera to wait for: its list comes
+            # back at once (and goes to the chat or the notifications).
+            outcome = await runtime.zones.async_check_zone(
+                zone.id, channel=channel, user_id=user_id, chat_id=chat_id
+            )
+            items = outcome.result.get("items", [])
+            return _result(
+                {
+                    "status": outcome.status.value,
+                    "zone": zone.name,
+                    "oldest_first": [
+                        {
+                            "product": item["product"],
+                            "quantity": item["quantity"],
+                            "unit": item["unit"],
+                            "since": item["since"],
+                        }
+                        for item in items[:LEDGER_SPOKEN]
+                    ],
+                    "more": outcome.result.get("more", 0)
+                    + max(len(items) - LEDGER_SPOKEN, 0),
+                }
+            )
         entry = runtime.coordinator.config_entry
         entry.async_create_background_task(
             runtime.coordinator.hass,

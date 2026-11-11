@@ -35,7 +35,6 @@ from custom_components.quartermaster.const import (
     CONF_CONFIDENCE_THRESHOLD,
     DEFAULT_CONFIDENCE_THRESHOLD,
     DOMAIN,
-    SETTING_UPDATE_MODE,
 )
 from custom_components.quartermaster.core.cron import Cron, CronError
 from custom_components.quartermaster.core.inventory import InventoryError, normalize
@@ -55,6 +54,9 @@ _LOGGER = logging.getLogger(__name__)
 
 EVENT_PHOTO_REQUEST = f"{DOMAIN}_photo_request"
 EVENT_ZONE_CHECKED = f"{DOMAIN}_zone_checked"
+# The list of a ledger zone to go through with the user.
+EVENT_LEDGER_CHECK = f"{DOMAIN}_ledger_check"
+LEDGER_LIST_MAX = 30
 REQUEST_REMINDER_AFTER = timedelta(hours=12)
 REQUEST_LIFETIME = timedelta(hours=24)
 ZONE_ERROR_FAILURES = 3
@@ -67,6 +69,9 @@ class SourceType(StrEnum):
     CAMERA_SHOW = "camera_show"
     PASSAGE = "passage"
     MANUAL = "manual"
+    # Kept by word: no camera and no photos (a chest freezer). A check sends
+    # the list to go through instead of asking for a picture.
+    LEDGER = "ledger"
 
 
 class CheckStatus(StrEnum):
@@ -74,6 +79,7 @@ class CheckStatus(StrEnum):
 
     UPDATED = "updated"
     PHOTO_REQUESTED = "photo_requested"
+    LIST_SENT = "list_sent"
     FAILED = "failed"
 
 
@@ -161,7 +167,6 @@ SOURCE_SCHEMAS: dict[SourceType, probatio.Schema] = {
             probatio.Optional("active", default="when_armed"): probatio.In(
                 ["always", "when_armed"]
             ),
-            probatio.Optional("confirm", default="auto"): probatio.In(["auto", "ask"]),
             probatio.Optional("arm_minutes", default=10): probatio.All(
                 int, probatio.Range(min=1, max=240)
             ),
@@ -177,7 +182,24 @@ SOURCE_SCHEMAS: dict[SourceType, probatio.Schema] = {
         }
     ),
     SourceType.MANUAL: probatio.Schema({probatio.Required("type"): "manual"}),
+    SourceType.LEDGER: probatio.Schema(
+        {
+            probatio.Required("type"): SourceType.LEDGER.value,
+            # Days between two guided checks; 0 sends them only when asked.
+            probatio.Optional("check_days", default=30): probatio.All(
+                int, probatio.Range(min=0, max=365)
+            ),
+        }
+    ),
 }
+
+
+def ledger_source(zone: Zone) -> dict[str, Any] | None:
+    """Return the ledger source of a zone kept by word, if it has one."""
+    for source in zone.sources:
+        if source.get("type") == SourceType.LEDGER:
+            return source
+    return None
 
 
 def validate_sources(sources: list[Any]) -> list[dict[str, Any]]:
@@ -188,6 +210,8 @@ def validate_sources(sources: list[Any]) -> list[dict[str, Any]]:
             raise InventoryError(
                 "invalid_source", index=str(index + 1), error="not an object"
             )
+        # Dropped option (cameras always ask now); stored sources may have it.
+        source = {key: value for key, value in source.items() if key != "confirm"}
         try:
             kind = SourceType(str(source.get("type")))
             validated.append(dict(SOURCE_SCHEMAS[kind](source)))
@@ -312,6 +336,10 @@ class ZoneManager:
                         continue
                     await self._async_record(outcome)
                     return outcome
+                if kind == SourceType.LEDGER:
+                    outcome = await self._async_ledger_check(zone, chat_id)
+                    await self._async_record(outcome)
+                    return outcome
                 if kind == SourceType.MANUAL:
                     request = await self.async_request_photo(
                         zone,
@@ -335,6 +363,60 @@ class ZoneManager:
         finally:
             self._running.discard(zone.id)
             await runtime.coordinator.async_request_refresh()
+
+    async def _async_ledger_check(
+        self, zone: Zone, chat_id: int | None
+    ) -> CheckOutcome:
+        """Send the zone's list, oldest first, to be gone through by the user."""
+        inventory = self._runtime.inventory
+        products = {p.id: p for p in await inventory.async_list_products()}
+        levels = [
+            level
+            for level in await inventory.async_get_stock(zone_id=zone.id)
+            if level.quantity > 0 and level.product_id in products
+        ]
+        far = dt_util.utcnow() + timedelta(days=36500)
+        levels.sort(
+            key=lambda level: (
+                level.best_before or far.date(),
+                level.updated_at or far,
+                products[level.product_id].name,
+            )
+        )
+        items = [
+            {
+                "product_id": level.product_id,
+                "product": products[level.product_id].name,
+                "quantity": level.quantity,
+                "unit": products[level.product_id].unit,
+                "best_before": level.best_before.isoformat()
+                if level.best_before
+                else None,
+                "since": level.updated_at.date().isoformat()
+                if level.updated_at
+                else None,
+            }
+            for level in levels[:LEDGER_LIST_MAX]
+        ]
+        await self._backend.async_set_setting(
+            f"ledger_check:{zone.id}", dt_util.utcnow().isoformat()
+        )
+        self._hass.bus.async_fire(
+            EVENT_LEDGER_CHECK,
+            {
+                "zone_id": zone.id,
+                "zone": zone.name,
+                "items": items,
+                "more": len(levels) - len(items),
+                "chat_id": chat_id,
+            },
+        )
+        return CheckOutcome(
+            zone.id,
+            CheckStatus.LIST_SENT,
+            source=SourceType.LEDGER.value,
+            result={"items": items, "more": len(levels) - len(items)},
+        )
 
     async def _async_camera_source(
         self,
@@ -483,14 +565,17 @@ class ZoneManager:
                             "unchanged": True,
                         },
                     )
-        mode = await self._backend.async_get_setting(SETTING_UPDATE_MODE)
+        # A camera never writes and never loads goods: its count is always a
+        # proposal, of what went down only (the update mode is for photos a
+        # person sends).
         outcome = await runtime.proposals.async_create(
             zone,
             analysis,
             channel=channel,
             user_id=user_id,
-            automatic=mode == "automatic",
+            automatic=False,
             threshold=threshold,
+            allow_increase=False,
         )
         await runtime.vision.async_keep_proposal_crop(outcome.proposal, run.image)
         await self.async_fulfil(zone.id)
@@ -503,6 +588,7 @@ class ZoneManager:
                 "reused_previous": run.reused,
                 "applied": len(outcome.applied),
                 "proposal_id": outcome.proposal.id if outcome.proposal else None,
+                "more_than_stock": outcome.more_than_stock,
             },
         )
 
@@ -665,6 +751,9 @@ class ZoneManager:
             ):
                 reminded[request.zone_id] = request.created
         for zone in zones.values():
+            if (ledger := ledger_source(zone)) is not None:
+                await self._async_ledger_due(zone, int(ledger.get("check_days", 30)))
+                continue
             has_camera = any(s.get("type") == SourceType.CAMERA for s in zone.sources)
             if has_camera or not zone.reminder_days or zone.id in waiting:
                 continue
@@ -687,6 +776,20 @@ class ZoneManager:
             await crops.async_prune("proposal", {str(p.id) for p in pending})
             await crops.async_prune("zone", set(zones))
         await self._runtime.coordinator.async_request_refresh()
+
+    async def _async_ledger_due(self, zone: Zone, check_days: int) -> None:
+        """Send the guided check of a ledger zone when its interval is over."""
+        if check_days <= 0 or zone.id in self._running:
+            return
+        key = f"ledger_check:{zone.id}"
+        now = dt_util.utcnow()
+        last = dt_util.parse_datetime(await self._backend.async_get_setting(key) or "")
+        if last is None:
+            # First time: the interval starts now.
+            await self._backend.async_set_setting(key, now.isoformat())
+            return
+        if now - last >= timedelta(days=check_days):
+            await self._async_record(await self._async_ledger_check(zone, None))
 
 
 def _reason(err: InventoryError) -> str:

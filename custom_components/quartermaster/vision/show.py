@@ -10,9 +10,13 @@ observation points"):
   stops without calling the model.
 - The best frames go to ai_task.generate_data in chronological order (the
   sharpest one alone if the provider refuses several).
-- Zone cameras (camera_show) record consumption above `min_confidence` with
-  `confirm: auto`, or propose; "returned" reverts a recent consumption or
-  adds the quantity. Passage cameras only propose, never write.
+- A camera never writes (author decision, 2026-11-11). A product taken
+  becomes a request the user confirms, on Telegram or in the dashboard, and
+  is then recorded as a consumption; "returned" cancels a request still
+  waiting, or asks to undo the consumption confirmed a moment before;
+  otherwise nothing is recorded, because goods enter with a receipt or a
+  photo sent on purpose. Sightings below `min_confidence` wait in the
+  dashboard without a message.
 - Observations of the same product by different cameras within the match
   window combine their confidence; a missing sighting never lowers it, and a
   matching observation only corroborates (no double counting).
@@ -55,13 +59,16 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util.ulid import ulid_now
 
 from custom_components.quartermaster.const import DOMAIN
+from custom_components.quartermaster.core.confirmations import RETURNED, TAKEN
 from custom_components.quartermaster.core.events import is_fresh_event
-from custom_components.quartermaster.core.inventory import (
-    InventoryError,
-    StockOperation,
-)
+from custom_components.quartermaster.core.inventory import InventoryError
 from custom_components.quartermaster.core.zones import SourceType
-from custom_components.quartermaster.storage.models import Channel, Product, Zone
+from custom_components.quartermaster.storage.models import (
+    Channel,
+    Product,
+    Proposal,
+    Zone,
+)
 from custom_components.quartermaster.vision.analyze import (
     MEDIA_SUBDIR,
     async_camera_frame,
@@ -79,7 +86,11 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+# A sighting was confirmed by the user and written.
 EVENT_SHOW_RECOGNIZED = f"{DOMAIN}_show_recognized"
+# A sighting waits for the user's answer (or, for goods put on a shelf with
+# nothing to undo, only tells them: `proposal_id` is then None).
+EVENT_SHOW_REQUEST = f"{DOMAIN}_show_request"
 # Mean absolute difference (0-255) from the reference that counts as change.
 CHANGE_THRESHOLD = 12.0
 SUSPEND_AFTER = 3
@@ -168,6 +179,8 @@ class Observation:
     confidence: float
     ts: datetime
     applied: bool = False
+    # Whether the user was asked about it (clear enough, see min_confidence).
+    asked: bool = False
     proposal_id: int | None = None
     operation_id: str | None = None
     corroborated_by: list[str] = field(default_factory=list)
@@ -598,12 +611,10 @@ class ShowManager:
         # Earlier passage sightings of the same product raise the confidence.
         partners = self._partners(observation, watcher)
         effective = combine([confidence, *(p.confidence for p in partners)])
-        auto = watcher.source.get("confirm", "auto") == "auto"
-        status = await self._async_apply_zone(
+        status = await self._async_request_zone(
             observation,
             zone,
             effective,
-            auto,
             watcher.source["min_confidence"],
             str(result.get("product") or ""),
         )
@@ -619,22 +630,6 @@ class ShowManager:
             "status": status,
             "ts": observation.ts.isoformat(),
         }
-        if status == "applied":
-            self._hass.bus.async_fire(
-                EVENT_SHOW_RECOGNIZED,
-                {
-                    "zone_id": zone.id,
-                    "zone": zone.name,
-                    "product": product.name if product else None,
-                    "action": action,
-                    "quantity": quantity,
-                    "operation_id": observation.operation_id,
-                    "to_list": action == "taken"
-                    and product is not None
-                    and await self._async_below_minimum(product),
-                    "announce": watcher.source.get("announce", []),
-                },
-            )
         return {
             "status": status,
             "action": action,
@@ -663,107 +658,168 @@ class ShowManager:
         candidates = await inventory.async_search(name)
         return candidates[0].product if len(candidates) == 1 else None
 
-    async def _async_apply_zone(
+    async def _async_request_zone(
         self,
         observation: Observation,
         zone: Zone,
         confidence: float,
-        auto: bool,
         threshold: float,
         seen_as: str,
     ) -> str:
+        """Turn a sighting into a request to the user; a camera never writes.
+
+        - taken: a request to confirm the consumption;
+        - returned while that request is still waiting: both cancel out;
+        - returned after the consumption was confirmed: a request to undo it;
+        - returned otherwise: nothing to record (goods enter with a receipt
+          or a photo sent on purpose), the user is told.
+        """
+        if not observation.product_id or observation.action not in (TAKEN, RETURNED):
+            observation.proposal_id = await self._async_propose_unknown(
+                observation, zone.id, confidence, seen_as
+            )
+            return "proposed"
         inventory = self._runtime.inventory
-        if (
-            observation.action in ("taken", "returned")
-            and auto
-            and confidence >= threshold
-        ):
-            if observation.action == "returned":
-                undone = await self._async_undo_recent(observation, zone)
-                if undone:
-                    observation.applied = True
-                    return "applied"
-            try:
-                movement = await inventory.async_adjust_stock(
-                    observation.product_id,
-                    StockOperation.CONSUME
-                    if observation.action == "taken"
-                    else StockOperation.PURCHASE,
-                    quantity=observation.quantity,
-                    zone_ref=zone.id,
-                    channel=Channel.CAMERA,
+        product = await inventory.async_find_product(observation.product_id)
+        if observation.action == RETURNED:
+            past = self._recent_take(observation, zone)
+            if past is not None and past.proposal_id is not None:
+                await self._async_drop_proposal(past)
+                return "cancelled"
+            if past is None or past.operation_id is None:
+                self._fire_request(
+                    observation, zone, product, None, 0.0, confidence, threshold
                 )
-            except InventoryError:
-                pass  # not in stock: fall through to a proposal
-            else:
-                observation.applied = True
-                observation.operation_id = movement.entry.operation_id
-                return "applied"
-        proposal = await self._async_propose(observation, zone.id, confidence, seen_as)
-        observation.proposal_id = proposal
+                return "needs_receipt"
+            operation_id: str | None = past.operation_id
+        else:
+            operation_id = None
+        levels = await inventory.async_get_stock(product_id=product.id, zone_id=zone.id)
+        current = levels[0].quantity if levels else 0.0
+        if observation.action == TAKEN:
+            if current <= 0:
+                return "not_in_stock"
+            observation.quantity = min(observation.quantity, current)
+        proposal = await self._runtime.proposals.async_propose_movement(
+            zone.id,
+            product,
+            action=observation.action,
+            quantity=observation.quantity,
+            current=current,
+            confidence=confidence,
+            seen_as=seen_as,
+            source=observation.source_key,
+            operation_id=operation_id,
+        )
+        observation.proposal_id = proposal.id
+        self._fire_request(
+            observation, zone, product, proposal.id, current, confidence, threshold
+        )
         return "proposed"
 
-    async def _async_undo_recent(self, observation: Observation, zone: Zone) -> bool:
-        """Revert a consumption of the same product by a camera a moment ago."""
+    def _fire_request(
+        self,
+        observation: Observation,
+        zone: Zone,
+        product: Product,
+        proposal_id: int | None,
+        current: float,
+        confidence: float,
+        threshold: float,
+    ) -> None:
+        """Ask the user about a sighting that is clear enough to bother them."""
+        if confidence < threshold or observation.asked:
+            return
+        observation.asked = True
+        self._hass.bus.async_fire(
+            EVENT_SHOW_REQUEST,
+            {
+                "proposal_id": proposal_id,
+                "zone_id": zone.id,
+                "zone": zone.name,
+                "product": product.name,
+                "action": observation.action,
+                "quantity": observation.quantity,
+                "current": current,
+                "confidence": confidence,
+            },
+        )
+
+    def _recent_take(self, observation: Observation, zone: Zone) -> Observation | None:
+        """Return the same product taken from the zone a moment ago, if any."""
         cutoff = dt_util.utcnow() - RETURN_WINDOW
         for past in reversed(self.observations):
             if (
-                past.applied
-                and not past.passage
-                and past.action == "taken"
+                not past.passage
+                and past.action == TAKEN
                 and past.product_id == observation.product_id
                 and past.zone_id == zone.id
                 and past.ts >= cutoff
-                and past.operation_id
+                and (past.proposal_id is not None or past.applied)
             ):
-                await self._runtime.inventory.async_undo_last(
-                    channel=Channel.CAMERA, operation_id=past.operation_id
-                )
-                past.applied = False
-                return True
-        return False
+                return past
+        return None
 
-    async def _async_propose(
+    async def async_movement_confirmed(
+        self, proposal: Proposal, moved: float, operation_id: str | None
+    ) -> None:
+        """Remember a confirmed sighting and announce it (with Undo)."""
+        payload = proposal.payload
+        action = str(payload["action"])
+        for observation in self.observations:
+            if observation.proposal_id == proposal.id:
+                observation.proposal_id = None
+                observation.applied = action == TAKEN
+                observation.operation_id = operation_id
+            elif action == RETURNED and observation.operation_id == payload.get(
+                "operation_id"
+            ):
+                # The consumption this one put back no longer stands.
+                observation.applied = False
+                observation.operation_id = None
+        assert proposal.zone_id is not None
+        inventory = self._runtime.inventory
+        zone = await inventory.async_find_zone(proposal.zone_id)
+        product = await inventory.async_find_product(payload["items"][0]["product_id"])
+        watcher = self._watchers.get(str(payload.get("source")))
+        self._hass.bus.async_fire(
+            EVENT_SHOW_RECOGNIZED,
+            {
+                "zone_id": zone.id,
+                "zone": zone.name,
+                "product": product.name,
+                "action": action,
+                "quantity": moved,
+                "operation_id": operation_id,
+                "to_list": action == TAKEN and await self._async_below_minimum(product),
+                "announce": watcher.source.get("announce", []) if watcher else [],
+            },
+        )
+
+    async def _async_propose_unknown(
         self, observation: Observation, zone_id: str, confidence: float, seen_as: str
-    ) -> int | None:
-        if not observation.product_id:
-            rows = [
+    ) -> int:
+        """Keep a sighting nobody can confirm as it is (unknown or unclear)."""
+        product = None
+        if observation.product_id:
+            product = await self._runtime.inventory.async_find_product(
+                observation.product_id
+            )
+        proposal = await self._runtime.proposals.async_propose(
+            zone_id,
+            [
                 {
                     "key": 0,
                     "product_id": None,
                     "product": None,
-                    "seen_as": seen_as,
+                    "seen_as": seen_as or (product.name if product else ""),
                     "current": None,
                     "proposed": None,
                     "unit": None,
                     "confidence": confidence,
                     "notes": observation.action,
                 }
-            ]
-        else:
-            inventory = self._runtime.inventory
-            product = await inventory.async_find_product(observation.product_id)
-            levels = await inventory.async_get_stock(
-                product_id=product.id, zone_id=zone_id
-            )
-            current = levels[0].quantity if levels else 0.0
-            sign = -1 if observation.action in ("taken", "out") else 1
-            rows = [
-                {
-                    "key": 0,
-                    "product_id": product.id,
-                    "product": product.name,
-                    "seen_as": seen_as or product.name,
-                    "current": current,
-                    "proposed": max(current + sign * observation.quantity, 0.0),
-                    "unit": product.unit,
-                    "confidence": confidence,
-                    "notes": observation.action,
-                }
-            ]
-        proposal = await self._runtime.proposals.async_propose(
-            zone_id,
-            rows,
+            ],
             channel=Channel.CAMERA,
             user_id=None,
             extra={"source": observation.source_key, "action": observation.action},
@@ -826,31 +882,48 @@ class ShowManager:
         self._remember(observation)
         for partner in partners:
             observation.corroborated_by.append(partner.source_key)
-            if partner.applied:
-                # Already recorded by the zone camera: this only confirms it.
-                return {"product_id": observation.product_id, "status": "corroborated"}
-            if partner.proposal_id is not None:
+            if partner.proposal_id is not None and not partner.asked:
+                # A doubtful zone sighting seen again at the door: ask now.
                 combined = combine([partner.confidence, observation.confidence])
-                partner_source = self._watchers[partner.source_key].source
-                if (
-                    partner_source.get("confirm", "auto") == "auto"
-                    and combined >= partner_source["min_confidence"]
-                ):
-                    await self._runtime.proposals.async_confirm(
-                        partner.proposal_id, channel=Channel.CAMERA, user_id=None
-                    )
-                    partner.applied = True
-                    partner.proposal_id = None
-                    return {"product_id": observation.product_id, "status": "confirmed"}
-                return {"product_id": observation.product_id, "status": "corroborated"}
-        # On its own a passage camera only proposes.
+                zone = await self._runtime.inventory.async_find_zone(
+                    str(partner.zone_id)
+                )
+                product = await self._runtime.inventory.async_find_product(
+                    partner.product_id
+                )
+                levels = await self._runtime.inventory.async_get_stock(
+                    product_id=product.id, zone_id=zone.id
+                )
+                self._fire_request(
+                    partner,
+                    zone,
+                    product,
+                    partner.proposal_id,
+                    levels[0].quantity if levels else 0.0,
+                    combined,
+                    self._watchers[partner.source_key].source["min_confidence"],
+                )
+            # The zone camera already asked (or will): this only supports it.
+            return {"product_id": observation.product_id, "status": "corroborated"}
+        if observation.action == "in":
+            # Goods coming in are loaded by their receipt, not by a camera.
+            return {"product_id": observation.product_id, "status": "seen"}
         zone_id = await self._passage_zone(observation)
         if zone_id is None:
             return {"product_id": observation.product_id, "status": "no_zone"}
-        observation.proposal_id = await self._async_propose(
-            observation, zone_id, observation.confidence, seen_as
+        zone = await self._runtime.inventory.async_find_zone(zone_id)
+        observation.action = TAKEN
+        observation.zone_id = zone_id
+        status = await self._async_request_zone(
+            observation,
+            zone,
+            observation.confidence,
+            watcher.source["min_confidence"],
+            seen_as,
         )
-        return {"product_id": observation.product_id, "status": "proposed"}
+        observation.action = "out"
+        observation.zone_id = None
+        return {"product_id": observation.product_id, "status": status}
 
     async def _passage_zone(self, observation: Observation) -> str | None:
         inventory = self._runtime.inventory

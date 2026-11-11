@@ -22,6 +22,7 @@ from custom_components.quartermaster.const import DOMAIN
 from custom_components.quartermaster.core.cron import Cron, CronError, is_valid
 from custom_components.quartermaster.core.inventory import InventoryError
 from custom_components.quartermaster.core.zones import (
+    EVENT_LEDGER_CHECK,
     EVENT_PHOTO_REQUEST,
     EVENT_ZONE_CHECKED,
     validate_sources,
@@ -85,6 +86,8 @@ def test_validate_sources() -> None:
                 "entity_id": "camera.garage",
                 "trigger_entity": "event.garage_motion",
                 "hours": "07:00-23:00",
+                # Dropped option, still present in sources stored earlier.
+                "confirm": "auto",
             },
             {
                 "type": "passage",
@@ -95,15 +98,8 @@ def test_validate_sources() -> None:
         ]
     )
     assert sources[0]["max_checks_per_day"] == 4
-    assert (
-        sources[1]["active"],
-        sources[1]["confirm"],
-        sources[1]["min_confidence"],
-    ) == (
-        "when_armed",
-        "auto",
-        0.8,
-    )
+    assert (sources[1]["active"], sources[1]["min_confidence"]) == ("when_armed", 0.8)
+    assert "confirm" not in sources[1]
     assert sources[2]["match_window_seconds"] == 300
     for bad in (
         [{"type": "drone"}],
@@ -160,7 +156,7 @@ async def zoned(
     await inventory.async_add_zone("Garage")
     await inventory.async_add_zone("Pantry")
     passata = await inventory.async_add_product("Passata", default_zone="garage")
-    await inventory.async_set_stock("passata", 2, channel=Channel.SERVICE)
+    await inventory.async_set_stock("passata", 5, channel=Channel.SERVICE)
     await hass.services.async_call(
         DOMAIN,
         "set_zone",
@@ -482,7 +478,7 @@ async def test_new_count_replaces_the_waiting_one(
     entry, ai, camera = zoned
     first = await _check(hass, "garage")
     camera.seed = 2
-    ai.answer["items"][0]["quantity"] = 5
+    ai.answer["items"][0]["quantity"] = 1
     second = await _check(hass, "garage")
     assert second["proposal_id"] != first["proposal_id"]
     [pending] = await entry.runtime_data.proposals.async_pending()
@@ -508,10 +504,125 @@ async def test_product_seen_twice_is_summed(hass: HomeAssistant, zoned: Any) -> 
     """Two rows for one product become one count, with the lower confidence."""
     entry, ai, _ = zoned
     ai.answer["items"].append(
-        {**ai.answer["items"][0], "quantity": 2, "confidence": 0.7}
+        {**ai.answer["items"][0], "quantity": 1, "confidence": 0.7}
     )
     outcome = await _check(hass, "garage")
     [pending] = await entry.runtime_data.proposals.async_pending()
     assert pending.id == outcome["proposal_id"]
     [row] = pending.payload["items"]
-    assert (row["current"], row["proposed"], row["confidence"]) == (2, 5, 0.7)
+    assert (row["current"], row["proposed"], row["confidence"]) == (5, 4, 0.7)
+
+
+async def test_camera_count_never_loads(hass: HomeAssistant, zoned: Any) -> None:
+    """A camera seeing more than recorded proposes nothing and says so."""
+    entry, ai, camera = zoned
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": "select.quartermaster_update_mode", "option": "automatic"},
+        blocking=True,
+    )
+    ai.answer["items"][0]["quantity"] = 8
+    outcome = await _check(hass, "garage")
+    assert outcome["status"] == "updated"
+    assert (outcome["applied"], outcome["proposal_id"]) == (0, None)
+    assert outcome["more_than_stock"] == ["Passata"]
+    # Fewer than recorded: proposed, never applied, even in automatic mode.
+    ai.answer["items"][0]["quantity"] = 3
+    camera.seed = 3
+    outcome = await _check(hass, "garage")
+    assert (outcome["applied"], outcome["proposal_id"] is not None) == (0, True)
+    levels = await entry.runtime_data.inventory.async_get_stock(zone_id="garage")
+    assert levels[0].quantity == 5
+
+
+@pytest.fixture
+async def chest(hass: HomeAssistant, zoned: Any) -> MockConfigEntry:
+    """A chest freezer kept by word, with two products of different ages."""
+    entry, _, _ = zoned
+    inventory = entry.runtime_data.inventory
+    await inventory.async_add_zone("Chest freezer")
+    await hass.services.async_call(
+        DOMAIN,
+        "set_zone",
+        {"zone": "chest_freezer", "sources": [{"type": "ledger"}]},
+        blocking=True,
+    )
+    await inventory.async_add_product(
+        "Ragù", default_zone="chest_freezer", unit="bag", essential=True, min_stock=1
+    )
+    await inventory.async_add_product("Peas", default_zone="chest_freezer")
+    await inventory.async_set_stock("ragù", 2, channel=Channel.SERVICE)
+    await entry.runtime_data.coordinator.async_refresh()
+    return entry
+
+
+async def test_ledger_zone_check_and_schedule(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, chest: MockConfigEntry
+) -> None:
+    """A zone kept by word sends its list, oldest first, never a photo request."""
+    zones = chest.runtime_data.zones
+    inventory = chest.runtime_data.inventory
+    zone = await inventory.async_find_zone("chest_freezer")
+    assert zone.sources == [{"type": "ledger", "check_days": 30}]
+    lists = async_capture_events(hass, EVENT_LEDGER_CHECK)
+    photos = async_capture_events(hass, EVENT_PHOTO_REQUEST)
+
+    freezer.tick(timedelta(days=3))
+    await inventory.async_set_stock("peas", 1, channel=Channel.SERVICE)
+    outcome = await _check(hass, "chest freezer")
+    assert (outcome["status"], outcome["source"]) == ("list_sent", "ledger")
+    assert [item["product"] for item in outcome["items"]] == ["Ragù", "Peas"]
+    assert len(lists) == 1
+    assert lists[0].data["items"][0]["quantity"] == 2
+
+    # Housekeeping: nothing before the interval, the list again after it.
+    await zones.async_housekeeping()
+    freezer.tick(timedelta(days=29))
+    await chest.runtime_data.coordinator.async_refresh()
+    await zones.async_housekeeping()
+    assert len(lists) == 1
+    freezer.tick(timedelta(days=2))
+    await zones.async_housekeeping()
+    assert len(lists) == 2
+    assert [e for e in photos if e.data["zone_id"] == "chest_freezer"] == []
+
+    # Old stock in a zone kept by word is not "a zone not updated".
+    await chest.runtime_data.coordinator.async_refresh()
+    suggestions = chest.runtime_data.coordinator.data.analysis.suggestions
+    assert not [s for s in suggestions if s.reason == "stale_zone"]
+
+    # check_days 0: only on request.
+    await hass.services.async_call(
+        DOMAIN,
+        "set_zone",
+        {"zone": "chest_freezer", "sources": [{"type": "ledger", "check_days": 0}]},
+        blocking=True,
+    )
+    freezer.tick(timedelta(days=90))
+    await zones.async_housekeeping()
+    assert len(lists) == 2
+
+
+async def test_ledger_zone_by_voice(
+    hass: HomeAssistant, chest: MockConfigEntry
+) -> None:
+    """The check tool returns the oldest products of a zone kept by word."""
+    from homeassistant.components import conversation
+    from homeassistant.core import Context
+    from homeassistant.helpers import llm
+
+    api = await llm.async_get_api(
+        hass,
+        llm.LLM_API_ASSIST,
+        llm.LLMContext("t", Context(), "en", conversation.DOMAIN, None),
+    )
+    result = await api.async_call_tool(
+        llm.ToolInput(
+            tool_name=f"{DOMAIN}__check_zone", tool_args={"zone": "chest freezer"}
+        )
+    )
+    data = dict(result.data)  # type: ignore[union-attr]
+    assert data["status"] == "list_sent"
+    assert [item["product"] for item in data["oldest_first"]] == ["Ragù"]
+    assert data["more"] == 0

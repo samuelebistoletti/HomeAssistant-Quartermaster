@@ -266,3 +266,96 @@ async def test_telegram_copies_with_buttons(hass: HomeAssistant, notified: Any) 
     assert message["chat_id"] == [11]
     assert message["message"] == "Ho segnato 2 Passata rimesso in Garage."
     assert message["inline_keyboard"] == ["Annulla:/qm_undo_camera"]
+
+
+async def test_camera_request_buttons(hass: HomeAssistant, notified: Any) -> None:
+    """A sighting is asked about with the usual quantities; a tap confirms it."""
+    entry, notify = notified
+    sent: list[dict[str, Any]] = []
+
+    async def send(call: ServiceCall) -> None:
+        sent.append(dict(call.data))
+
+    hass.services.async_register("telegram_bot", "send_message", send)
+    hass.services.async_register("telegram_bot", "answer_callback_query", send)
+    hass.states.async_set("event.bot", "unknown")
+    hass.config_entries.async_update_entry(
+        entry,
+        options={
+            **entry.options,
+            "telegram_event_entity": "event.bot",
+            "telegram_chats": ["11"],
+            "telegram_notify": True,
+        },
+    )
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    runtime = entry.runtime_data
+    await runtime.inventory.async_add_zone("Garage")
+    passata = await runtime.inventory.async_add_product(
+        "Passata", default_zone="garage"
+    )
+    await runtime.inventory.async_set_stock("passata", 4, channel=Channel.SERVICE)
+    proposal = await runtime.proposals.async_propose_movement(
+        "garage",
+        passata,
+        action="taken",
+        quantity=1,
+        current=4,
+        confidence=0.9,
+        seen_as="Passata",
+        source="garage:0",
+    )
+    hass.bus.async_fire(
+        f"{DOMAIN}_show_request",
+        {
+            "proposal_id": proposal.id,
+            "zone": "Garage",
+            "product": "Passata",
+            "action": "taken",
+            "quantity": 1,
+            "current": 4,
+        },
+    )
+    await _settle(hass)
+    text = "Garage: hai preso 1 Passata? Ne avevi 4, ne resterebbero 3."
+    assert ("notify.phone", text) in notify.messages
+    message = sent[-1]
+    assert message["message"] == text
+    assert message["inline_keyboard"] == [
+        f"✔ 1:/qm_ok {proposal.id}, 2:/qm_qty {proposal.id} 2,"
+        f" Tutti (4):/qm_qty {proposal.id} 4, No:/qm_no {proposal.id}"
+    ]
+
+    # "2" on Telegram: two are consumed, and the outcome carries Undo.
+    hass.states.async_set(
+        "event.bot",
+        dt_util.utcnow().isoformat(),
+        {
+            "event_type": "telegram_callback",
+            "chat_id": 11,
+            "id": "q",
+            "data": f"/qm_qty {proposal.id} 2",
+        },
+    )
+    await _settle(hass)
+    [level] = await runtime.inventory.async_get_stock(product_id=passata.id)
+    assert level.quantity == 2
+    outcome = next(m for m in sent if m.get("message", "").startswith("Ho segnato"))
+    assert outcome["message"] == "Ho segnato 2 Passata in meno in Garage."
+    assert outcome["inline_keyboard"][0].startswith("Annulla:/qm_undo_camera ")
+
+    # Goods placed with nothing to undo: plain information, no buttons.
+    hass.bus.async_fire(
+        f"{DOMAIN}_show_request",
+        {
+            "proposal_id": None,
+            "zone": "Garage",
+            "product": "Passata",
+            "action": "returned",
+            "quantity": 2,
+        },
+    )
+    await _settle(hass)
+    assert sent[-1]["message"].startswith("Ho visto mettere 2 Passata in Garage.")
+    assert "inline_keyboard" not in sent[-1]

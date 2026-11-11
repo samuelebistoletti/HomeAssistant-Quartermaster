@@ -19,6 +19,7 @@ from homeassistant.util.ulid import ulid_now
 from custom_components.quartermaster.core.inventory import (
     InventoryError,
     InventoryService,
+    StockOperation,
 )
 from custom_components.quartermaster.storage.models import (
     Channel,
@@ -72,6 +73,11 @@ class ToolConfirmations:
 PROPOSAL_TTL = timedelta(hours=24)
 # Payload kind of proposals from receipts and order emails; others are counts.
 PURCHASE = "purchase"
+# Payload kind of a camera sighting: a change the user confirms (a product
+# taken, or put back), not a count.
+MOVEMENT = "movement"
+TAKEN = "taken"
+RETURNED = "returned"
 # Several products changing by more than half: never applied automatically.
 LARGE_CHANGE_RATIO = 0.5
 
@@ -84,6 +90,8 @@ class ProposalOutcome:
     proposal: Proposal | None
     not_seen: list[str]
     unknown: list[str]
+    # Products a camera saw in a larger quantity than recorded (not proposed).
+    more_than_stock: list[str] = field(default_factory=list)
 
 
 class ProposalService:
@@ -95,6 +103,11 @@ class ProposalService:
         self._backend = inventory.backend
         # Called when a proposal is decided or expires (deletes its crop).
         self.on_closed: Callable[[Proposal], Awaitable[None]] | None = None
+        # Called when a camera sighting is confirmed, with the quantity moved
+        # and the operation written (None for a product put back).
+        self.on_movement: (
+            Callable[[Proposal, float, str | None], Awaitable[None]] | None
+        ) = None
         # Two confirmations of one proposal (two taps, two channels) must not
         # both apply it.
         self._confirm_lock = asyncio.Lock()
@@ -117,8 +130,13 @@ class ProposalService:
         user_id: str | None,
         automatic: bool,
         threshold: float,
+        allow_increase: bool = True,
     ) -> ProposalOutcome:
-        """Compare an analysis with the zone's stock and propose or apply."""
+        """Compare an analysis with the zone's stock and propose or apply.
+
+        Without `allow_increase` (counts by a camera, which never loads
+        goods) rows above the recorded stock are left out and reported.
+        """
         stock = {
             level.product_id: level.quantity
             for level in await self._inventory.async_get_stock(zone_id=zone.id)
@@ -152,6 +170,18 @@ class ProposalService:
             for row in rows
             if row["product_id"] is None or row["current"] != row["proposed"]
         ]
+        more: list[str] = []
+        if not allow_increase:
+            more = [
+                row["product"]
+                for row in rows
+                if row["product_id"] is not None and row["proposed"] > row["current"]
+            ]
+            rows = [
+                row
+                for row in rows
+                if row["product_id"] is not None and row["proposed"] < row["current"]
+            ]
         # A new count of the zone replaces the earlier ones still waiting.
         for older in await self.async_pending():
             if older.zone_id == zone.id and "not_seen" in older.payload:
@@ -198,6 +228,7 @@ class ProposalService:
                         "unknown": analysis.unknown_items,
                         "overall_confidence": analysis.overall_confidence,
                         "user_id": user_id,
+                        "more_than_stock": more,
                     },
                     expires_at=now + PROPOSAL_TTL,
                 )
@@ -207,6 +238,7 @@ class ProposalService:
             proposal=proposal,
             not_seen=analysis.expected_not_seen,
             unknown=analysis.unknown_items,
+            more_than_stock=more,
         )
 
     async def async_propose(
@@ -227,6 +259,58 @@ class ProposalService:
                 channel=channel,
                 zone_id=zone_id,
                 payload={"items": rows, "user_id": user_id, **(extra or {})},
+                expires_at=now + PROPOSAL_TTL,
+            )
+        )
+
+    async def async_propose_movement(
+        self,
+        zone_id: str,
+        product: Product,
+        *,
+        action: str,
+        quantity: float,
+        current: float,
+        confidence: float,
+        seen_as: str,
+        source: str,
+        operation_id: str | None = None,
+    ) -> Proposal:
+        """Store a camera sighting of a product taken or put back.
+
+        Confirming a taken product consumes the quantity (the one seen, or
+        another the user gives); confirming one put back undoes
+        `operation_id`, the consumption confirmed a moment before.
+        """
+        now = dt_util.utcnow()
+        sign = -1 if action == TAKEN else 1
+        return await self._backend.async_add_proposal(
+            Proposal(
+                id=0,
+                created=now,
+                channel=Channel.CAMERA,
+                zone_id=zone_id,
+                payload={
+                    "kind": MOVEMENT,
+                    "action": action,
+                    "source": source,
+                    "operation_id": operation_id,
+                    "user_id": None,
+                    "items": [
+                        {
+                            "key": 0,
+                            "product_id": product.id,
+                            "product": product.name,
+                            "seen_as": seen_as or product.name,
+                            "current": current,
+                            "proposed": max(current + sign * quantity, 0.0),
+                            "unit": product.unit,
+                            "confidence": confidence,
+                            "notes": action,
+                            "moved": quantity,
+                        }
+                    ],
+                },
                 expires_at=now + PROPOSAL_TTL,
             )
         )
@@ -256,6 +340,53 @@ class ProposalService:
                 expires_at=now + PROPOSAL_TTL,
             )
         )
+
+    async def _async_confirm_movement(
+        self,
+        proposal: Proposal,
+        correction: dict[str, Any],
+        channel: Channel,
+        user_id: str | None,
+    ) -> list[dict[str, Any]]:
+        """Apply a confirmed camera sighting as a consumption or an undo."""
+        assert proposal.zone_id is not None
+        row = proposal.payload["items"][0]
+        action = proposal.payload["action"]
+        operation_id: str | None = None
+        moved = float(row["moved"])
+        if action == RETURNED:
+            await self._inventory.async_undo_last(
+                channel=channel,
+                user_id=user_id,
+                operation_id=proposal.payload["operation_id"],
+            )
+        elif "quantity" in correction:
+            # A corrected count (the dashboard's field): what is left now.
+            left = float(correction["quantity"])
+            [movement] = await self._inventory.async_apply_counts(
+                [(row["product_id"], proposal.zone_id, left, row["confidence"])],
+                channel=channel,
+                user_id=user_id,
+            )
+            operation_id = movement.entry.operation_id
+            moved = -movement.entry.delta
+        else:
+            moved = float(correction.get("moved", moved))
+            movement = await self._inventory.async_adjust_stock(
+                row["product_id"],
+                StockOperation.CONSUME,
+                quantity=moved,
+                zone_ref=proposal.zone_id,
+                channel=channel,
+                user_id=user_id,
+            )
+            operation_id = movement.entry.operation_id
+        proposal.status = ProposalStatus.CONFIRMED
+        await self._backend.async_update_proposal(proposal)
+        await self._async_closed(proposal)
+        if self.on_movement is not None:
+            await self.on_movement(proposal, moved, operation_id)
+        return [{**row, "moved": moved}]
 
     async def _async_closed(self, proposal: Proposal) -> None:
         if self.on_closed is not None:
@@ -318,6 +449,10 @@ class ProposalService:
         user_id: str | None,
     ) -> list[dict[str, Any]]:
         proposal = await self._async_get(proposal_id)
+        if proposal.payload.get("kind") == MOVEMENT:
+            return await self._async_confirm_movement(
+                proposal, corrections.get(0, {}), channel, user_id
+            )
         purchase = proposal.payload.get("kind") == PURCHASE
         if proposal.zone_id is None and not purchase:
             raise InventoryError("proposal_not_found", proposal=str(proposal_id))
