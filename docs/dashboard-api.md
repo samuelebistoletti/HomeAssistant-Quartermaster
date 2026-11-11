@@ -30,7 +30,7 @@ Writers: administrators and the users chosen in the `write_users` option (`can_w
   "suggestions": [{"product_id", "have", "reason": "below_target|stale_zone|finished_recently|running_out", "...details": "have, target | zone, days | date | days_left, per_day"}],
   "expiring": [{"product_id", "zone_id", "quantity", "best_before", "days_left"}],
   "shopping_list": [{"item_id", "text", "product_id", "quantity", "origin": "auto|suggestion|manual", "done"}],
-  "proposals": [{"proposal_id", "kind": "count|purchase", "zone_id": "null for purchase", "channel", "created", "has_image": false, "items": [{"key", "product_id", "product", "seen_as", "current", "proposed", "unit", "confidence", "notes"}], "not_seen"}],
+  "proposals": [{"proposal_id", "kind": "count|purchase|movement", "zone_id": "null for purchase", "channel", "created", "has_image": false, "items": [{"key", "product_id", "product", "seen_as", "current", "proposed", "unit", "confidence", "notes"}], "not_seen"}],
   "shopping_mode_until": "ISO or null",
   "analyses_today": 0,
   "daily_analysis_limit": 50,
@@ -48,12 +48,13 @@ Cards write through the `quartermaster` actions (no `config_entry_id` needed): `
 
 ## Additions after version 1 (still `api_version` 1, additive only)
 
-- **Proposal kinds.** `count` proposals (photos and cameras) set the quantity of a product in `zone_id`: `current` → `proposed`. `purchase` proposals (receipts and order emails) have `zone_id: null`; each item's `proposed` is the quantity bought and `current` is `null`. Confirming a purchase adds it to the product's default zone; corrections work the same way (`product`, `quantity`).
+- **Proposal kinds.** `count` proposals (photos and cameras) set the quantity of a product in `zone_id`: `current` → `proposed`. `purchase` proposals (receipts and order emails) have `zone_id: null`; each item's `proposed` is the quantity bought and `current` is `null`. Confirming a purchase adds it to the product's default zone; corrections work the same way (`product`, `quantity`). `movement` proposals (a camera saw a product taken or put back; additive, API version unchanged) have one item with `current` → `proposed` and `moved`, the quantity seen; confirming records a consumption of `moved` (or undoes the confirmed take for a product put back), and a `quantity` correction is the count left in the zone.
 - **Images.** `has_image` on proposals and zones tells whether `quartermaster/image` has a crop. Only zone photos and zone camera checks keep a crop; camera_show and passage frames are never kept. A proposal's crop is deleted when it is confirmed, rejected or expires.
 - **Zone editing.** `source_details`, `check_schedule`, `reminder_days` and `confidence_threshold` are what `set_zone` takes, so a card can edit a zone and send it back whole. Source types and fields:
   - `camera`: `entity_id`, `roi`, `max_age_minutes` (30), `max_checks_per_day` (4), and for interior cameras with a door sensor `trigger_entity` (binary_sensor), `trigger_state` (`off`: door closed), `trigger_delay_seconds` (3), `min_interval_minutes` (30).
-  - `camera_show` and `passage`: `entity_id`, `trigger_entity`, `roi`, `capture`, `window_seconds`, `burst_interval_seconds`, `max_frames_to_model`, `cooldown_seconds`, `max_per_day`, `min_confidence`, `hours`, `announce` (notify entity ids for this zone's announcements); `camera_show` also `active`, `confirm`, `arm_minutes`; `passage` also `match_window_seconds`.
+  - `camera_show` and `passage`: `entity_id`, `trigger_entity`, `roi`, `capture`, `window_seconds`, `burst_interval_seconds`, `max_frames_to_model`, `cooldown_seconds`, `max_per_day`, `min_confidence`, `hours`, `announce` (notify entity ids for this zone's announcements); `camera_show` also `active`, `arm_minutes` (`confirm` is gone: cameras always ask); `passage` also `match_window_seconds`.
   - `manual`: no fields.
+  - `ledger`: `check_days` (30; 0 = guided check only on request). Zones kept by word: no photo requests, and the last check status `list_sent`.
   Before a card enables `camera_show` or `passage` it must show the privacy notice (frames show people; only the show area goes to the AI provider; frames are deleted right after the analysis).
 - **Running out.** Suggestion reason `running_out` with `days_left` and `per_day`: at the usual pace, the product runs out within the forecast days.
 - **Analyses.** `daily_analysis_limit` next to `analyses_today`, for the AI usage tile (the integration has no cost data).

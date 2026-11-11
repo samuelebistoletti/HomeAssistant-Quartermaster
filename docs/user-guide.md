@@ -30,8 +30,9 @@ Each zone has sources in priority order. A zone check (scheduled, by voice, from
 | --- | --- |
 | `camera` | Reads a frame, crops it, checks light and sharpness, skips unchanged images, asks the model. An unclear result, or an essential not seen, moves to the next source. |
 | `manual` | Asks you for a photo, with one reminder after 12 hours. |
-| `camera_show` | Show mode: when someone shows a product to the camera, it is recorded as taken (or put back). Off by default. |
-| `passage` | A camera where people pass (entrance, yard). Products carried in or out are proposed, and confirm what a zone camera saw. It never writes on its own. |
+| `camera_show` | Show mode: when someone shows a product to the camera, Quartermaster asks on Telegram whether it was taken, and how many, before recording anything. Off by default. |
+| `passage` | A camera where people pass (entrance, yard). It supports what a zone camera saw and asks about goods carried out; goods carried in are left to their receipt. It never writes on its own. |
+| `ledger` | Kept by word, no photos (chest freezer, fridge): a guided check sends the zone's list every `check_days` (30 by default, 0 = only on request). |
 
 Example:
 
@@ -58,6 +59,30 @@ An interior camera (fridge, cupboard) can check the zone when its door closes: a
 
 Zones without a camera can have `reminder_days`: when they have not been updated for that many days, Quartermaster asks for a photo.
 
+### Cameras never write
+
+A camera only tells you what it saw; nothing changes until you answer. Goods come in with a confirmed receipt or with a photo you send of the shelf, never from a camera:
+
+- **Taken:** "Garage shelf: did you take 1 passata? You had 4, 3 would be left." Buttons: the quantity seen, one more, all, and No. On an answer the consumption is recorded and the outcome comes with **Undo**. Unanswered requests expire after 24 hours and change nothing.
+- **Put back:** while the request for the take is still waiting, the two cancel out. After you confirmed the take, Quartermaster asks whether to undo it. Otherwise it tells you it saw the goods and waits for the receipt or a photo.
+- **Uncertain sightings** (below `min_confidence`) wait in the dashboard's Proposals without a message, unless a passage camera sees the same product leave.
+- **Zone checks by a camera** are always proposals, and only of what went down, even in automatic mode. Products seen in a larger quantity than recorded are mentioned in the check message.
+
+### Zones kept by word
+
+For a chest freezer, a freezer or a fridge without cameras, keep the list by voice or on Telegram: "I put two bags of ragù in the chest freezer", "I finished the peas". Give the zone a `ledger` source:
+
+```yaml
+action: quartermaster.set_zone
+data:
+  zone: Chest freezer
+  sources:
+    - type: ledger
+      check_days: 30
+```
+
+Such a zone never asks for photos and never shows up as "not updated". Every `check_days`, or with `/check chest freezer` on Telegram (`/controlla`), the check button or by voice, Quartermaster sends its list, oldest first, with **−1**, **finished** and **All right** buttons; you can also answer in words. By voice the agent reads the five oldest products. Set `shelf_life_days` on frozen products so purchases without a date get one and the expiry calendar tells you what to use first.
+
 ### Show mode
 
 With `active: when_armed` (the default), show mode works only while the zone's **Show mode** switch is on. You turn it on from the dashboard, an automation, or by voice ("I'm taking things from the garage"), and it turns itself off after 10 minutes. Three triggers in a row without any change in the show area suspend it and create a repair issue. Turning it on again resumes it.
@@ -66,7 +91,7 @@ Frames show people. Only the show area goes to the AI provider, and frames are d
 
 ### Cameras confirming each other
 
-A sighting by a zone camera and one by a passage camera of the same product within the match window (default 5 minutes) combine their confidence. An uncertain take can then be recorded. A missing sighting never counts against a product: you may take something from the garage straight to the car.
+A sighting by a zone camera and one by a passage camera of the same product within the match window (default 5 minutes) combine their confidence. An uncertain take is then asked about. A missing sighting never counts against a product: you may take something from the garage straight to the car.
 
 ## Photos
 
@@ -75,7 +100,7 @@ Send a photo through any of these:
 - **Dashboard**: the photo card;
 - **`quartermaster.analyze_image`**: with a file or a camera.
 
-In **confirm** mode (the **Update mode** select), changes become a proposal. Confirm or reject it from the dashboard, Telegram or by voice, correcting product and quantity if needed. A correction teaches Quartermaster the name the model used. In **automatic** mode, changes above the confidence threshold are applied and the rest are proposed. When several products would change by more than half, nothing is applied automatically.
+A photo you send shows the shelf as it is: quantities follow what it shows, higher ones too (a gift, a purchase without receipt). In **confirm** mode (the **Update mode** select), changes become a proposal. Confirm or reject it from the dashboard, Telegram or by voice, correcting product and quantity if needed. A correction teaches Quartermaster the name the model used. In **automatic** mode, changes above the confidence threshold are applied and the rest are proposed. When several products would change by more than half, nothing is applied automatically.
 
 ## Receipts and order emails
 

@@ -159,6 +159,11 @@ Le zone si creano dall'options flow o dalla dashboard e si salvano nell'archivio
   aliases: [frigo, frigorifero]
   sources: [{type: manual}]
   reminder_days: 3
+- id: chest_freezer
+  name: Pozzetto
+  sources:
+    - type: ledger                  # tenuto a registro, sezione 5.2
+      check_days: 30                # controllo guidato; 0 = solo su richiesta
 ```
 
 I tipi di fonte sono estensibili (per esempio sensor per una bilancia ESPHome) senza cambiare il resto del sistema.
@@ -193,10 +198,13 @@ Ogni controllo di zona (programmato, chiesto a voce, da Telegram, dalla dashboar
 3. Calcolare un hash percettivo (dHash con Pillow): se l'immagine è quasi identica all'ultima analizzata, riusare il risultato precedente senza chiamare il modello.
 4. Salvare il ritaglio nella cartella media dell'integrazione e chiamare ai\_task.generate\_data con istruzioni, prodotti attesi nella zona, schema di output e immagine come allegato.
 5. Se overall\_confidence è sotto la soglia della zona o un essenziale atteso non è stato visto, il risultato è insufficiente: passare alla fonte successiva.
-6. Fonte manual: inviare all'utente una richiesta di foto con il motivo (telecamera non raggiungibile, immagine poco nitida, prodotti non riconosciuti) e cosa inquadrare, sul canale da cui è partita la richiesta o su quello preferito. La richiesta compare anche nella dashboard e nel sensore Foto richieste.
-7. Una richiesta senza risposta riceve un solo promemoria dopo 12 ore, poi scade; la zona mantiene i dati precedenti.
-8. Nelle zone senza telecamera lo scheduler invia un promemoria ogni reminder\_days dall'ultimo aggiornamento, rispettando il silenzio notturno.
-9. Con un risultato valido il servizio di inventario prepara le variazioni: in modalità conferma crea una proposta in attesa; in modalità automatica applica le variazioni sopra soglia e propone le altre.
+6. Fonte ledger: nessuna foto; si invia l'elenco della zona per il controllo guidato (sezione 5.2).
+7. Fonte manual: inviare all'utente una richiesta di foto con il motivo (telecamera non raggiungibile, immagine poco nitida, prodotti non riconosciuti) e cosa inquadrare, sul canale da cui è partita la richiesta o su quello preferito. La richiesta compare anche nella dashboard e nel sensore Foto richieste.
+8. Una richiesta senza risposta riceve un solo promemoria dopo 12 ore, poi scade; la zona mantiene i dati precedenti.
+9. Nelle zone senza telecamera (e non tenute a registro) lo scheduler invia un promemoria ogni reminder\_days dall'ultimo aggiornamento, rispettando il silenzio notturno.
+10. Con un risultato valido il servizio di inventario prepara le variazioni. Per le foto inviate dall'utente: in modalità conferma crea una proposta in attesa; in modalità automatica applica le variazioni sopra soglia e propone le altre. Per le telecamere: sempre una proposta, e solo delle diminuzioni; i prodotti visti in quantità maggiore di quella registrata vengono segnalati, non caricati.
+
+Regola di carico (decisione dell'autore, 2026-11-11): la merce entra con uno scontrino confermato (foto o email d'ordine) o con una foto inviata di proposito dall'utente, che mostra lo scaffale com'è e può quindi anche aumentare le quantità (regali, acquisti senza scontrino). Una telecamera non carica mai e non scrive mai senza una conferma dell'utente.
 
 Le foto dell'utente seguono la stessa pipeline da tre ingressi, tutti disponibili su iOS e Android: Telegram, caricamento dalla dashboard e azione quartermaster.analyze\_image con un'immagine già presente in Home Assistant.
 
@@ -218,7 +226,6 @@ Nelle zone con telecamera, chi prende un prodotto lo mostra all'obiettivo per un
   cooldown_seconds: 30
   max_per_day: 40
   active: when_armed                    # always | when_armed
-  confirm: auto                         # auto | ask
   min_confidence: 0.8
   hours: "07:00-23:00"                  # facoltativo
 ```
@@ -230,7 +237,7 @@ Flusso:
 3. Cattura per window\_seconds dopo il movimento. Modalità clip: breve registrazione mp4 con l'azione camera.record (richiede l'integrazione stream e una telecamera che la supporti) e decodifica dei fotogrammi. Modalità burst: letture ripetute dell'immagine della telecamera ogni burst\_interval\_seconds, valida per qualsiasi telecamera. Con auto si usa clip se disponibile, altrimenti burst. Su ogni fotogramma: ritaglio dell'area di presentazione, punteggio di nitidezza (varianza del laplaciano) e di cambiamento rispetto a un fotogramma di riferimento della scena vuota, scarto dei duplicati con hash percettivo. Se nessun fotogramma mostra un cambiamento significativo nell'area (per esempio un'auto che entra in garage) il flusso si ferma senza chiamare il modello. Altrimenti si scelgono fino a max\_frames\_to\_model fotogrammi, i più nitidi e distribuiti nel tempo, in ordine cronologico.
 4. Chiamata ad ai\_task.generate\_data con i fotogrammi scelti come allegati in ordine cronologico (se il provider ne accetta uno solo, il più nitido), i prodotti attesi nella zona e lo schema qui sotto: il modello indica prodotto, quantità e azione (preso, rimesso, non chiaro). Al modello vanno solo immagini: l'invio di video non è documentato per AI Task. Le istruzioni chiedono di ignorare le persone e di non descriverle.
 5. Nessun prodotto mostrato: nessuna azione, non conta come errore.
-6. Prodotto riconosciuto sopra min\_confidence con confirm: auto: consumo registrato con canale camera, notifica con pulsante Annulla (app e Telegram) e, se scelto, annuncio sull'Echo della zona ("Ho segnato una passata di pomodoro in meno"). Sotto soglia o con confirm: ask: proposta in attesa con il ritaglio.
+6. Prodotto riconosciuto: nessuna scrittura, ma una richiesta all'utente. Sopra min\_confidence arriva su Telegram e nelle notifiche ("Scaffale garage: hai preso 1 passata? Ne avevi 4, ne resterebbero 3") con i pulsanti per la quantità vista, una in più, tutte, e No; sotto soglia resta in attesa nella dashboard senza messaggio, finché una telecamera di passaggio non vede lo stesso prodotto uscire. Alla conferma il consumo si registra (canale di chi conferma), arriva l'esito con il pulsante Annulla e, se scelto, l'annuncio sull'Echo della zona ("Ho segnato una passata di pomodoro in meno"). Senza risposta la richiesta scade e non cambia nulla.
 7. Se il prodotto è essenziale e scende sotto la scorta minima entra in lista, e la stessa notifica lo dice.
 8. Se i fotogrammi restano invariati per tre inneschi di fila, la fonte si sospende e crea una segnalazione nelle riparazioni.
 
@@ -247,9 +254,19 @@ Flusso:
 }
 ```
 
-action vale taken (consumo), returned (il prodotto viene rimesso: si annulla il consumo registrato poco prima o si aggiunge la quantità) o unclear (nessuna scrittura, proposta in attesa con il fotogramma migliore).
+action vale taken (richiesta di confermare il consumo), returned (il prodotto viene rimesso: se la richiesta del prelievo è ancora in attesa si annullano a vicenda; se il consumo era già confermato si chiede di annullarlo; altrimenti non si registra nulla, perché la merce entra con lo scontrino o con una foto, e l'utente viene avvisato) o unclear (nessuna scrittura, proposta in attesa con il fotogramma migliore).
+
+Le telecamere di passaggio non scrivono: confermano la confidenza di un avvistamento della zona, chiedono conferma per la merce portata fuori, e per la merce portata dentro non fanno nulla.
 
 camera\_show integra le altre fonti: l'inventario della zona si aggiorna comunque con i controlli dell'algoritmo precedente.
+
+### 5.2 Zone tenute a registro (fonte ledger)
+
+Per le zone senza telecamera di cui una foto mostra poco (pozzetto, freezer, frigorifero) l'utente tiene il registro a voce o su Telegram: entrate con lo scontrino o dette ("ho messo due buste di ragù nel pozzetto"), uscite dette ("ho finito i piselli"). Una zona con la fonte ledger:
+
+1. Non chiede mai foto, non riceve promemoria di foto e non genera il suggerimento "zona non aggiornata". Una foto inviata di proposito resta accettata.
+2. Ogni check\_days (predefinito 30; 0 = solo su richiesta), oppure con /controlla &lt;zona&gt; su Telegram, il pulsante di controllo, l'azione check\_zone o a voce, riceve un controllo guidato: l'elenco della zona dal più vecchio (per scadenza, poi per ultima variazione), con i pulsanti "−1", "finito" e "Tutto giusto". Si può rispondere anche a parole. A voce l'agente legge i cinque prodotti più vecchi.
+3. Per l'età dei surgelati si usa shelf\_life\_days del prodotto: un acquisto senza data riceve la data di oggi più quella durata, e calendario e messaggio delle scadenze dicono cosa consumare.
 
 Riservatezza: il config flow spiega che i fotogrammi riprendono persone prima di attivare la fonte. Al provider va solo l'area di presentazione; i fotogrammi si cancellano subito dopo l'analisi anche con l'opzione di debug attiva e non compaiono mai in log, diagnostica o notifiche, dove va solo il nome del prodotto.
 
@@ -680,7 +697,7 @@ Criteri: un utente nuovo installa e configura tutto seguendo solo il README; val
 | Rischio | Mitigazione |
 | --- | --- |
 | Riconoscimento impreciso da foto | Conferma, soglie, prodotti attesi nel prompt, correzioni e alias |
-| Falsi positivi di camera\_show | Soglia alta, when\_armed e confirm: ask, notifica con Annulla, cooldown, solo prodotti attesi nella zona |
+| Falsi positivi di camera\_show | Nessuna scrittura senza conferma dell'utente, soglia alta per i messaggi, when\_armed, Annulla sull'esito, cooldown, solo prodotti attesi nella zona |
 | Fotogrammi vecchi o lenti con telecamere cloud | Verifica in Fase 0, più fotogrammi per innesco, sospensione automatica |
 | Telecamere a batteria | Limiti giornalieri per zona e per fonte |
 | Provider con qualità diversa | Tabella dei provider testati, ripiego per l'output strutturato |
