@@ -178,3 +178,30 @@ async def test_not_loaded(
         {"type": f"{DOMAIN}/upload_photo", "zone": "x", "image": "eA=="}
     )
     assert (await client.receive_json())["error"]["code"] == "not_loaded"
+
+
+async def test_subscription_survives_a_reload(
+    hass: HomeAssistant,
+    hass_ws_client: Any,
+    init_integration: MockConfigEntry,
+    stocked: InventoryService,
+) -> None:
+    """A dashboard left open keeps getting updates after the options change."""
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": f"{DOMAIN}/subscribe"})
+    assert (await client.receive_json())["success"] is True
+    assert (await client.receive_json())["type"] == "event"
+
+    await hass.config_entries.async_reload(init_integration.entry_id)
+    await hass.async_block_till_done()
+    after_reload = await client.receive_json()
+    assert after_reload["event"]["can_write"] is True
+
+    inventory = init_integration.runtime_data.inventory
+    await inventory.async_set_stock("milk", 5, channel=Channel.SERVICE)
+    await init_integration.runtime_data.coordinator.async_refresh()
+    while True:
+        update = await client.receive_json()
+        milk = next(p for p in update["event"]["products"] if p["name"] == "Milk")
+        if milk["total"] == 5:
+            break

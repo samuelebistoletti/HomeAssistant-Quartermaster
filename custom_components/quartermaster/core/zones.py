@@ -446,10 +446,17 @@ class ZoneManager:
         run = await runtime.vision.async_analyze(frame, zone, roi=roi)
         analysis = run.analysis
         threshold = self.threshold(zone)
+        # An essential already at zero is not missing from the picture: it is
+        # expected not to be there.
+        in_stock = {
+            level.product_id
+            for level in await runtime.inventory.async_get_stock(zone_id=zone.id)
+            if level.quantity > 0
+        }
         essentials = {
             normalize(p.name)
             for p in await runtime.inventory.async_list_products()
-            if p.essential
+            if p.essential and p.id in in_stock
         }
         missing_essentials = [
             name for name in analysis.expected_not_seen if normalize(name) in essentials
@@ -458,6 +465,24 @@ class ZoneManager:
             return "low_confidence", missing_essentials
         if missing_essentials:
             return "not_recognized", missing_essentials
+        if run.reused:
+            # Same picture as last time: its proposal, if still waiting, is
+            # the answer; a second identical one would only be noise.
+            for older in await runtime.proposals.async_pending():
+                if older.zone_id == zone.id and "not_seen" in older.payload:
+                    await self.async_fulfil(zone.id)
+                    return CheckOutcome(
+                        zone.id,
+                        CheckStatus.UPDATED,
+                        source=SourceType.CAMERA.value,
+                        overall_confidence=analysis.overall_confidence,
+                        result={
+                            "reused_previous": True,
+                            "applied": 0,
+                            "proposal_id": older.id,
+                            "unchanged": True,
+                        },
+                    )
         mode = await self._backend.async_get_setting(SETTING_UPDATE_MODE)
         outcome = await runtime.proposals.async_create(
             zone,
@@ -632,11 +657,27 @@ class ZoneManager:
                     self._announce(request, zones[request.zone_id], reminder=True)
         waiting = {r.zone_id for r in open_requests if r.expires_at > now}
         updates = self._runtime.coordinator.data.zone_updates
+        reminded: dict[str, datetime] = {}
+        for request in await self._backend.async_list_photo_requests():
+            if request.reason == "reminder" and (
+                request.zone_id not in reminded
+                or request.created > reminded[request.zone_id]
+            ):
+                reminded[request.zone_id] = request.created
         for zone in zones.values():
             has_camera = any(s.get("type") == SourceType.CAMERA for s in zone.sources)
             if has_camera or not zone.reminder_days or zone.id in waiting:
                 continue
-            last = updates.get(zone.id)
+            # The zone's last update or, if later, the last reminder: an
+            # unanswered request is repeated after reminder_days, not daily.
+            last = max(
+                (
+                    when
+                    for when in (updates.get(zone.id), reminded.get(zone.id))
+                    if when is not None
+                ),
+                default=None,
+            )
             if last is None or now - last >= timedelta(days=zone.reminder_days):
                 await self.async_request_photo(
                     zone, "reminder", channel=Channel.SCHEDULER

@@ -7,7 +7,7 @@ Contract between the integration and the cards of `HomeAssistant-Quartermaster-D
 | Command | Who | Fields | Result |
 | --- | --- | --- | --- |
 | `quartermaster/snapshot` | any authenticated user | — | snapshot (below) plus `can_write` |
-| `quartermaster/subscribe` | any authenticated user | — | `success`, then an event with the snapshot now and after every recalculation |
+| `quartermaster/subscribe` | any authenticated user | — | `success`, then an event with the snapshot now and after every recalculation. The subscription stays valid when the entry reloads (every change of options); `can_write` is evaluated at each event |
 | `quartermaster/journal` | any authenticated user | `limit` (1–500, default 50), `product_id` | `{entries: [{id, operation_id, ts, product_id, product, zone_id, zone, kind, delta, quantity_after, channel, undone}]}`, newest first |
 | `quartermaster/upload_photo` | writers | `zone` (name, alias or id; required unless `kind` is `receipt`), `image` (base64 JPEG ≤ 2 MB, resized in the browser to 1280 px, quality 80, EXIF rotation applied, metadata removed), `kind` (`zone`, default, or `receipt`) | zone: analysis result, as the `analyze_image` action; receipt: as the `analyze_receipt` action (`{proposal_id, items, unknown}`) |
 | `quartermaster/image` | any authenticated user | `proposal_id` or `zone_id` (one of them) | `{content_type: "image/jpeg", data: base64}` of the crop sent to the model for that proposal, or of the last zone analysis; error `not_found` when there is none |

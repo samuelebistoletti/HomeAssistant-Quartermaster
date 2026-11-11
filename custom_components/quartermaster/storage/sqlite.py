@@ -474,6 +474,10 @@ class SQLiteBackend(StorageBackend):
                     after = _quantity(change.set_quantity)
                 else:
                     after = _quantity(before + change.delta)
+                # Stock that starts again from zero is a new batch: the date
+                # and the opening of the finished one do not apply to it. An
+                # undo brings the old batch back.
+                same_batch = before > 0 or change.kind is MovementKind.UNDO
                 conn.execute(
                     """
                     INSERT INTO stock (product_id, zone_id, quantity, best_before,
@@ -481,7 +485,10 @@ class SQLiteBackend(StorageBackend):
                     VALUES (?, ?, ?, ?, ?)
                     ON CONFLICT (product_id, zone_id) DO UPDATE SET
                         quantity = excluded.quantity,
-                        best_before = coalesce(excluded.best_before, best_before),
+                        best_before = CASE WHEN ? THEN
+                            coalesce(excluded.best_before, best_before)
+                            ELSE excluded.best_before END,
+                        opened_at = CASE WHEN ? THEN opened_at ELSE NULL END,
                         updated_at = excluded.updated_at
                     """,
                     (
@@ -490,6 +497,8 @@ class SQLiteBackend(StorageBackend):
                         after,
                         _iso(change.best_before),
                         now.isoformat(),
+                        same_batch,
+                        same_batch,
                     ),
                 )
                 cursor = conn.execute(

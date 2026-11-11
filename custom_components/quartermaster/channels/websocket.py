@@ -16,9 +16,14 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError, Unauthorized
 from homeassistant.helpers import entity_registry as er, service
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 import probatio
 
-from custom_components.quartermaster.const import CONF_WRITE_USERS, DOMAIN
+from custom_components.quartermaster.const import (
+    CONF_WRITE_USERS,
+    DOMAIN,
+    SIGNAL_SNAPSHOT,
+)
 from custom_components.quartermaster.core.inventory import InventoryError
 from custom_components.quartermaster.core.zones import ZONE_ERROR_FAILURES
 from custom_components.quartermaster.storage.models import Channel, ShoppingStatus
@@ -238,19 +243,23 @@ def ws_subscribe(
     """Send the snapshot now and after every recalculation."""
     if (runtime := _loaded(hass, connection, msg["id"])) is None:
         return
-    writer = can_write(runtime, connection.user)
 
     @callback
-    def send() -> None:
+    def send(current: QuartermasterRuntimeData) -> None:
         connection.send_message(
             websocket_api.event_message(
-                msg["id"], snapshot(runtime) | {"can_write": writer}
+                msg["id"],
+                snapshot(current) | {"can_write": can_write(current, connection.user)},
             )
         )
 
-    connection.subscriptions[msg["id"]] = runtime.coordinator.async_add_listener(send)
+    # The signal carries the runtime data of the entry as it is now, so the
+    # subscription outlives a reload of the entry (every change of options).
+    connection.subscriptions[msg["id"]] = async_dispatcher_connect(
+        hass, SIGNAL_SNAPSHOT, send
+    )
     connection.send_result(msg["id"])
-    send()
+    send(runtime)
 
 
 @websocket_api.websocket_command(

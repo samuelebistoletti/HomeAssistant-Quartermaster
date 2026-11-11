@@ -489,3 +489,20 @@ The author asked to close the gaps of a spec audit and to implement §15 now. Au
 | Permissions | Writes allowed to administrators and to the non-admin users chosen in `write_users`. The options step lists the active, non-system, non-admin users with `hass.auth.async_get_users()`: public but not in the developer docs (only `async_get_user` and `is_admin` are), and there is no user selector. **Author decision (2026-11-08):** use it anyway for a real user list; if it changes, only the options step breaks, the check uses the documented `async_get_user` | Spec §8; contributors.home-assistant.io (permissions); author |
 | AI cost | AI Task gives no cost data: the dashboard shows analyses today against the daily limit | Spec §6.5 |
 | Notices | Config flow says the dashboard is a separate download; `set_zone` sources and the dashboard zone editor carry the camera privacy notice | Spec §5.1, §6.5 |
+
+## Assessment and fixes (2026-11-11)
+
+Full review of both repositories; the report with the open points and the plan is `docs/dev/ASSESSMENT-2026-11-11.md`. Decisions taken while fixing:
+
+| Topic | Decision | Source or reason |
+| --- | --- | --- |
+| Tool permissions | Write tools (`writes = True`) check `can_write` when the LLM context has a user, and return `not_allowed`. `quartermaster.ask` passes the caller's user to the conversation, so it is covered. Requests without a user (Telegram chats, automations) are checked by their own channel. Entities (todo, buttons, select, switch) are not checked: Home Assistant entity permissions apply | Author (2026-11-11): tools and `ask` follow `write_users` |
+| Restored event states | An event entity that appears, or leaves `unavailable`, with a state older than 30 s is showing its restored state, not a new event: the Telegram channel and the camera_show and passage triggers ignore it. The Telegram channel also remembers the last state it handled. A binary sensor that comes back already on is not a trigger | home-assistant.io (event entity: the state is the time of the last event and is restored) |
+| Checked automatic items | A completed item keeps its product off the automatic list while no stock row of the product changed after the check, for at most two days (`CHECKED_GRACE`); then the normal rule applies. Completed items older than 30 days are deleted locally (their external copies are left alone) | Bug: with purchase recording off the item came back at once |
+| New batch | Stock that goes from zero to a positive quantity takes the best-before date of that change (or none) and clears `opened_at`; an undo keeps the old values | Bug: stale dates after finish and re-purchase |
+| Snapshot subscription | `quartermaster/subscribe` listens to the dispatcher signal `quartermaster_snapshot`, sent with the entry's runtime data after every recalculation and once at the end of setup, so it outlives reloads | contributors.home-assistant.io (dispatcher) |
+| Zone counts | A reused analysis (same picture) refreshes the snapshot time and returns the waiting proposal with `unchanged: true` (no notification). A new analysis expires the zone's earlier waiting counts. Rows of the same product are summed with the lowest confidence. Only essentials with stock above zero in the zone count as "missing" | Bugs found in the review |
+| Photo reminders | The reminder interval counts from the later of the zone's last update and its last reminder request | Bug: a new request every day |
+| Camera undo | The Telegram button carries the operation id (`/qm_undo_camera <operation_id>`); without it the old rule (last camera operation, 10 minutes) applies | Bug: wrong movement undone |
+| Quiet hours | Messages marked `direct` (photo request to the asking chat, late voice reply) are not held | Bug: answers delayed to the morning |
+

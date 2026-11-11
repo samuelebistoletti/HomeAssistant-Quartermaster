@@ -153,6 +153,8 @@ class QuartermasterListSensor(QuartermasterEntity, SensorEntity):
     """Number of entries, with the entries as the `items` attribute."""
 
     entity_description: QuartermasterSensorDescription
+    # The lists are large and change often: kept out of the recorder.
+    _unrecorded_attributes = frozenset({"items"})
 
     def __init__(
         self,

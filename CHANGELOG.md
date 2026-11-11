@@ -33,3 +33,19 @@
 - AI Task for text, hourly analysis limit, per-minute limit for `ask`, 15 s camera timeout, tool argument validation, "counted" quantities by voice, photo requests that say what to frame, per-zone announcements, failed checks announced.
 - Automation examples.
 - README and user guide.
+
+### Fixed
+- The agent's tools and `quartermaster.ask` follow the write permissions: a user who may not write gets `not_allowed` instead of changing the inventory through Assist.
+- A Telegram message or a camera trigger is no longer handled again when its entity comes back with its restored state (restart, reload of the bot).
+- A checked automatic shopping item no longer comes back at once: the product stays off the list until its stock changes or two days pass. Completed items are deleted after 30 days.
+- A product finished and bought again without a date no longer keeps the old best-before date and opening time (undo restores them).
+- camera_show compares frames with an uncropped reference, so the change score is right when the source has a crop; two triggers at the same moment no longer both capture.
+- Open dashboards keep receiving updates after the entry reloads.
+- A zone checked with an unchanged picture counts as updated, keeps its waiting proposal instead of adding a copy, and sends no second notification; a new count of a zone replaces the one still waiting. A product listed twice by the model is summed.
+- An essential already at zero no longer makes every camera check end in a photo request.
+- Photo reminders for zones without camera wait `reminder_days` after an unanswered request instead of repeating daily.
+- The Undo button under a camera notification undoes that movement, not the camera's latest one.
+- Quiet hours no longer hold answers to something the user just asked (a photo request to the asking chat, a late voice reply) and are validated in the setup and options forms.
+- Expiry and "finished on" dates use the local day; Telegram errors are in the chat's language; malformed buttons are ignored.
+- A product whose name is made of digits is found by name; JSON import validates dates and statuses and reports database errors; oversized images are refused cleanly; a model answering `"false"` as text is understood.
+- The list sensors keep their `items` attribute out of the recorder; temporary images left by a crash are deleted at startup.

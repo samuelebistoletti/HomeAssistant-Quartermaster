@@ -61,6 +61,16 @@ if TYPE_CHECKING:
     from custom_components.quartermaster import QuartermasterRuntimeData
 
 MEDIA_SUBDIR = Path(DOMAIN) / "tmp"
+
+
+def clear_temporary_images(folder: Path) -> None:
+    """Delete images left in the temporary folder by a crash or a restart."""
+    if not folder.is_dir():
+        return
+    for path in folder.glob("*.jpg"):
+        path.unlink(missing_ok=True)
+
+
 # Spec §5: a frame that takes longer than this to read is discarded.
 CAMERA_TIMEOUT = 15
 
@@ -132,6 +142,9 @@ class VisionService:
             and distance(previous.perceptual_hash, image.perceptual_hash)
             <= SAME_IMAGE_BITS
         ):
+            # Same picture: no model call, but the zone was looked at now.
+            previous.ts = dt_util.utcnow()
+            await self._backend.async_save_snapshot(previous)
             return AnalysisRun(result_from_dict(previous.result), image, reused=True)
         analysis = await self._async_call_model(image, zone)
         await self._backend.async_save_snapshot(

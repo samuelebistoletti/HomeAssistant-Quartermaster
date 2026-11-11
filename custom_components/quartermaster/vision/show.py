@@ -55,6 +55,7 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util.ulid import ulid_now
 
 from custom_components.quartermaster.const import DOMAIN
+from custom_components.quartermaster.core.events import is_fresh_event
 from custom_components.quartermaster.core.inventory import (
     InventoryError,
     StockOperation,
@@ -225,7 +226,9 @@ class Watcher:
     source: dict[str, Any]
     last_trigger: float | None = None
     unchanged: int = 0
+    # Uncropped frames: the scene at rest and the last frame captured.
     reference: bytes | None = None
+    last_raw: bytes | None = None
     busy: bool = False
 
     @property
@@ -296,10 +299,19 @@ class ShowManager:
             if new is None or new.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
                 return
             entity_id = watcher.source["trigger_entity"]
+            # A state that appears or comes back (restart, reload) is not a
+            # trigger: only a change seen while listening is.
             if entity_id.startswith("binary_sensor."):
-                if new.state != STATE_ON or (old is not None and old.state == STATE_ON):
+                if (
+                    new.state != STATE_ON
+                    or old is None
+                    or old.state in (STATE_UNAVAILABLE, STATE_ON)
+                ):
                     return
-            elif old is not None and old.state == new.state:
+            elif old is None or old.state == STATE_UNAVAILABLE:
+                if not is_fresh_event(new.state):
+                    return
+            elif old.state == new.state:
                 return
             entry = self._runtime.coordinator.config_entry
             entry.async_create_background_task(
@@ -382,17 +394,17 @@ class ShowManager:
             and time.monotonic() - watcher.last_trigger < source["cooldown_seconds"]
         ):
             return {"status": "cooldown"}
-        if not await self._async_count(watcher, source["max_per_day"]):
-            return {"status": "daily_limit"}
         watcher.busy = True
-        watcher.last_trigger = time.monotonic()
         try:
+            if not await self._async_count(watcher, source["max_per_day"]):
+                return {"status": "daily_limit"}
+            watcher.last_trigger = time.monotonic()
             frames = await self._async_capture(watcher)
             chosen = choose_frames(frames, source["max_frames_to_model"])
             if not chosen:
                 watcher.unchanged += 1
                 if frames:
-                    watcher.reference = frames[-1].jpeg
+                    watcher.reference = watcher.last_raw or watcher.reference
                 if watcher.unchanged >= SUSPEND_AFTER:
                     self._suspend(watcher)
                 return {"status": "no_change", "frames": len(frames)}
@@ -425,6 +437,7 @@ class ShowManager:
                 if watcher.reference is None:
                     # No empty scene yet: the first frame is the reference.
                     watcher.reference = data
+                watcher.last_raw = data
                 frames.append(frame)
             index += 1
             if time.monotonic() >= deadline:
@@ -564,7 +577,7 @@ class ShowManager:
             f"show {zone.id}",
         )
         if not result.get("product_shown"):
-            watcher.reference = frames[-1].jpeg
+            watcher.reference = watcher.last_raw or watcher.reference
             return {"status": "nothing_shown"}
         product = await self._async_product(result, ids)
         action = str(result.get("action") or "unclear")
@@ -779,7 +792,7 @@ class ShowManager:
         )
         raw_items = result.get("items")
         if not isinstance(raw_items, list) or not raw_items:
-            watcher.reference = frames[-1].jpeg
+            watcher.reference = watcher.last_raw or watcher.reference
             return {"status": "nothing_carried"}
         outcomes = []
         for raw in raw_items[:20]:

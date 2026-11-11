@@ -22,6 +22,15 @@ from PIL import (
 
 from custom_components.quartermaster.vision.phash import dhash
 
+# What Pillow raises for data it cannot or will not decode; an image with an
+# absurd pixel count (a decompression bomb) is refused like a broken one.
+_UNREADABLE = (
+    UnidentifiedImageError,
+    Image.DecompressionBombError,
+    OSError,
+    ValueError,
+)
+
 MIN_SHORT_SIDE = 640
 LONG_SIDE = 1280
 JPEG_QUALITY = 80
@@ -101,7 +110,7 @@ def prepare(data: bytes, roi: Roi | None = None) -> PreparedImage:
         with Image.open(io.BytesIO(data)) as source:
             source.load()
             image = ImageOps.exif_transpose(source).convert("RGB")
-    except (UnidentifiedImageError, OSError, ValueError) as err:
+    except _UNREADABLE as err:
         raise ImageRejectedError(ImageIssue.UNREADABLE) from err
     image = crop(image, roi)
     if min(image.size) < MIN_SHORT_SIDE:
@@ -141,7 +150,7 @@ def prepare_document(data: bytes) -> bytes:
         with Image.open(io.BytesIO(data)) as source:
             source.load()
             image = ImageOps.exif_transpose(source).convert("RGB")
-    except (UnidentifiedImageError, OSError, ValueError) as err:
+    except _UNREADABLE as err:
         raise ImageRejectedError(ImageIssue.UNREADABLE) from err
     if min(image.size) < DOCUMENT_MIN_SIDE:
         raise ImageRejectedError(ImageIssue.TOO_SMALL)
@@ -191,7 +200,7 @@ def prepare_frame(
                 ref_gray = crop(
                     ImageOps.exif_transpose(ref).convert("RGB"), roi
                 ).convert("L")
-    except (UnidentifiedImageError, OSError, ValueError) as err:
+    except _UNREADABLE as err:
         raise ImageRejectedError(ImageIssue.UNREADABLE) from err
     gray = image.convert("L")
     image.thumbnail((LONG_SIDE, LONG_SIDE), Image.Resampling.LANCZOS)

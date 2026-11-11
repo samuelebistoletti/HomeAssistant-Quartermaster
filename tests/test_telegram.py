@@ -7,11 +7,13 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.util import dt as dt_util
 import pytest
 from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.quartermaster.channels.telegram import parse_chat_ids
 from custom_components.quartermaster.const import DOMAIN
+from custom_components.quartermaster.core.inventory import StockOperation
 from custom_components.quartermaster.storage.models import Channel
 
 from .test_llm import SCRIPT, ScriptedAgent
@@ -390,3 +392,61 @@ async def test_check_from_a_chat_asks_that_chat(hass: HomeAssistant, bot: Any) -
     await hass.async_block_till_done(wait_background_tasks=True)
     assert fake.sent[-1]["chat_id"] == [CHAT]
     assert fake.sent[-1]["message"].startswith("Mandami una foto di Fridge")
+
+
+async def test_restored_event_is_not_handled_again(
+    hass: HomeAssistant, bot: Any
+) -> None:
+    """After a restart or a reload of the bot the last message is not replayed."""
+    _entry, fake = bot
+    await _event(hass, event_type="telegram_command", command="/lista", chat_id=CHAT)
+    sent = len(fake.sent)
+    assert sent
+    state = hass.states.get(EVENT)
+    assert state is not None
+    # The bot reloads: the entity goes away and comes back with its old state.
+    hass.states.async_set(EVENT, "unavailable")
+    hass.states.async_set(EVENT, state.state, state.attributes)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    # Home Assistant restarts: the entity is added again with the old state.
+    hass.states.async_remove(EVENT)
+    hass.states.async_set(EVENT, state.state, state.attributes)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert len(fake.sent) == sent
+
+    # A message that arrives while the entity was unavailable is a new one.
+    hass.states.async_set(EVENT, "unavailable")
+    hass.states.async_set(
+        EVENT,
+        dt_util.utcnow().isoformat(),
+        {"event_type": "telegram_command", "command": "/lista", "chat_id": CHAT},
+    )
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert len(fake.sent) > sent
+
+
+async def test_camera_undo_button_names_its_operation(
+    hass: HomeAssistant, bot: Any
+) -> None:
+    """The button under a camera message undoes that movement, not the last."""
+    entry, _ = bot
+    inventory = entry.runtime_data.inventory
+    first = await inventory.async_adjust_stock(
+        "milk", StockOperation.PURCHASE, quantity=2, channel=Channel.CAMERA
+    )
+    await inventory.async_adjust_stock(
+        "milk", StockOperation.PURCHASE, quantity=5, channel=Channel.CAMERA
+    )
+    await _event(
+        hass,
+        event_type="telegram_callback",
+        chat_id=CHAT,
+        id="q1",
+        data=f"/qm_undo_camera {first.entry.operation_id}",
+    )
+    [level] = await inventory.async_get_stock(product_id=first.product.id)
+    assert level.quantity == 6  # 1 + 2 + 5, minus the 2 of the first movement
+    # A malformed button is ignored instead of failing.
+    await _event(
+        hass, event_type="telegram_callback", chat_id=CHAT, id="q2", data="/qm_ok x"
+    )

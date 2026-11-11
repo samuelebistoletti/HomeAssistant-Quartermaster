@@ -200,7 +200,7 @@ def parse_result(data: Any, expected_ids: set[int]) -> ZoneAnalysis:
         raise InvalidResultError("items is not a list")
     items = [item for raw in raw_items if (item := _item(raw, expected_ids))]
     return ZoneAnalysis(
-        image_usable=bool(data.get("image_usable", True)),
+        image_usable=_flag(data.get("image_usable", True)),
         overall_confidence=_score(data.get("overall_confidence")),
         items=items[:100],
         image_issues=_texts(data.get("image_issues")),
@@ -220,3 +220,10 @@ def result_from_dict(data: dict[str, Any]) -> ZoneAnalysis:
             and isinstance(item.get("matched_product_id"), int)
         },
     )
+
+
+def _flag(value: Any) -> bool:
+    """Read a boolean that some models send as text ("false")."""
+    if isinstance(value, str):
+        return value.strip().lower() not in ("false", "no", "0", "")
+    return bool(value)

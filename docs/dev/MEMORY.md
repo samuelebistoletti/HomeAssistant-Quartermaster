@@ -2,12 +2,15 @@
 
 Shared state between development sessions and machines. Keep it short and factual, and free of secrets or personal data. Durable architecture decisions go to `TECHNICAL_NOTES.md`; this file tracks where the work stands. Update it and push it at the end of every working session.
 
-## Resume here (last update 2026-11-10)
+## Resume here (last update 2026-11-11)
+
+0. **Assessment done on 2026-11-11** (`docs/dev/ASSESSMENT-2026-11-11.md`): twelve groups of bugs fixed in both repositories with regression tests; the report lists what is still open, the project gaps (A–E) and the order. Section E (cameras always ask on Telegram, goods enter only with a receipt) is decided and not implemented: start from E1.
 
 1. Read `CLAUDE.md` (rules), this file, then `TECHNICAL_NOTES.md` and `docs/SPEC.md` as needed. The author writes in Italian; answer in Italian, code and docs in English.
 2. Set up the machine as in `CONTRIBUTING.md` → "Working on another computer" (both repos side by side, dashboard built, `.venv`, `docker compose up -d`, `scripts/dev-bootstrap`, then `scripts/dev-cloudflare-gateway`). A new machine has a fresh dev instance: the author enters provider keys again in the dev UI. `docs/ENVIRONMENT.local.md` (author's environment, gitignored) exists only where the author copied it: ask for the details you need instead of guessing.
 3. Current step: **choose the voice agent among free Workers AI models.**
    - Run `scripts/dev-agent-bench` (13 phrases, stock checks, waits for deferred replies) on `conversation.gemma_4_26b_agent`, `conversation.llama_3_3_70b_fast`, `conversation.phonellm_mini` (already created on the dev gateway entry, Assist attached). The 2026-11-10 run failed only because the daily 10,000 neurons were used up (resets 00:00 UTC). Also read tokens per call from the gateway logs (`/ai-gateway/gateways/<gw>/logs`, user token from the gateway config entry; never print it).
+   - 2026-11-11, 07:21 UTC: run again, every call refused with the same 429 (daily 10,000 neurons used up) although the gateway logs show no successful call since the evening before. Either the allocation does not reset at 00:00 UTC as assumed, or something outside the gateway uses the account's neurons: check the Workers AI usage in the Cloudflare dashboard before the next run. The script no longer drops the AI Task options when it changes the agent (they were restored on the dev entry).
    - Check with the new prompt rule that "segna i biscotti nella lista della spesa" lands on Quartermaster's list.
    - Not chosen yet: gpt-oss-120b needs a patch to the community integration (string `content`, `content` on assistant tool-call messages); Claude Haiku through the official Anthropic integration is the paid option (author asked to stay free for now).
    - Then: Telegram texts and photos through Quartermaster (channel already connected to the test bot; commands work), Alexa voice re-test with the per-carrier-word models (`examples/alexa`, regenerate with `scripts/alexa-models`; the author must paste the it-IT JSON into the console), Phase 4 recall on ≥30 author photos (target 85 %), threshold tuning.
@@ -32,6 +35,8 @@ Shared state between development sessions and machines. Keep it short and factua
 - Cameras: off by default; zone + passage cameras; positive-only corroboration; passage cameras only propose.
 - Receipts and order emails always become a proposal; the forecast also puts essentials on the list.
 - Permissions: administrators plus a chosen list of non-admin users (`write_users`), listed with `hass.auth.async_get_users()` (public, not in the developer docs; accepted by the author).
+- The agent's tools and `quartermaster.ask` follow `write_users` (2026-11-11).
+- Every camera action must be confirmed by the user on Telegram before the stock changes, removals included. Goods enter only with a confirmed receipt: photos and cameras are for what goes out and for the state of a shelf; a photo sets the quantity left; a camera seeing goods placed only confirms a receipt; no placement allowance; `confirm: auto` goes away (2026-11-11; design in the assessment, section E, not implemented yet).
 - A photo request started from a Telegram chat goes back to that chat (chat id from the conversation session).
 - Kept as they are: no debug retention of photos; analyses tile instead of AI cost; dashboard reload after adding or deleting a zone.
 - Cloudflare AI Gateway: test now with the locally patched community integration (dev only), not waiting for upstream.
@@ -41,3 +46,5 @@ Shared state between development sessions and machines. Keep it short and factua
 ## Open questions for the author
 
 - Marketplace check needs the author's GitHub device sign-in on the dev instance; and if the Marketplace requires a release, whether a test pre-release is allowed.
+- Assessment section E: does "goods enter only with a receipt" also cover purchases said by voice, the plus button in the dashboard and checking an item in shopping mode? Kept as they are for now.
+- Whether the entities (todo, buttons, select, switch) should check `write_users` or keep the documented limit; whether to keep the domain `quartermaster` given the other integration using it.

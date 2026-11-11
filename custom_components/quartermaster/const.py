@@ -6,6 +6,9 @@ from typing import Final
 
 DOMAIN: Final = "quartermaster"
 
+# Dispatcher signal sent, with the runtime data, after every recalculation.
+SIGNAL_SNAPSHOT: Final = f"{DOMAIN}_snapshot"
+
 # Folder under <config>/quartermaster for export and import files.
 TRANSFER_DIR: Final = "exports"
 DATABASE_FILE: Final = "pantry.db"

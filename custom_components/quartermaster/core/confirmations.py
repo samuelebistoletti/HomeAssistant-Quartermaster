@@ -7,6 +7,7 @@ photos and cameras (Phase 4) also live here.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -94,6 +95,9 @@ class ProposalService:
         self._backend = inventory.backend
         # Called when a proposal is decided or expires (deletes its crop).
         self.on_closed: Callable[[Proposal], Awaitable[None]] | None = None
+        # Two confirmations of one proposal (two taps, two channels) must not
+        # both apply it.
+        self._confirm_lock = asyncio.Lock()
 
     async def async_match(self, item: SeenItem) -> Product | None:
         if item.matched_product_id is not None:
@@ -120,24 +124,40 @@ class ProposalService:
             for level in await self._inventory.async_get_stock(zone_id=zone.id)
         }
         rows: list[dict[str, Any]] = []
+        by_product: dict[int, dict[str, Any]] = {}
         for key, item in enumerate(analysis.items):
             product = await self.async_match(item)
-            current = stock.get(product.id, 0.0) if product else None
-            if product is not None and current == item.quantity:
+            if product is not None and (seen := by_product.get(product.id)):
+                # The same product listed twice (two shelves, two names):
+                # the count of the zone is the sum.
+                seen["proposed"] = round(seen["proposed"] + item.quantity, 3)
+                seen["confidence"] = min(seen["confidence"], item.confidence)
                 continue
-            rows.append(
-                {
-                    "key": key,
-                    "product_id": product.id if product else None,
-                    "product": product.name if product else None,
-                    "seen_as": item.product,
-                    "current": current,
-                    "proposed": item.quantity,
-                    "unit": (product.unit if product else None) or item.unit,
-                    "confidence": item.confidence,
-                    "notes": item.notes,
-                }
-            )
+            row = {
+                "key": key,
+                "product_id": product.id if product else None,
+                "product": product.name if product else None,
+                "seen_as": item.product,
+                "current": stock.get(product.id, 0.0) if product else None,
+                "proposed": item.quantity,
+                "unit": (product.unit if product else None) or item.unit,
+                "confidence": item.confidence,
+                "notes": item.notes,
+            }
+            rows.append(row)
+            if product is not None:
+                by_product[product.id] = row
+        rows = [
+            row
+            for row in rows
+            if row["product_id"] is None or row["current"] != row["proposed"]
+        ]
+        # A new count of the zone replaces the earlier ones still waiting.
+        for older in await self.async_pending():
+            if older.zone_id == zone.id and "not_seen" in older.payload:
+                older.status = ProposalStatus.EXPIRED
+                await self._backend.async_update_proposal(older)
+                await self._async_closed(older)
         large = [
             row
             for row in rows
@@ -284,8 +304,20 @@ class ProposalService:
         A correction may name the right product and quantity; the name the
         model used is then learned as an alias of that product.
         """
+        async with self._confirm_lock:
+            return await self._async_confirm(
+                proposal_id, keys, corrections or {}, channel, user_id
+            )
+
+    async def _async_confirm(
+        self,
+        proposal_id: int,
+        keys: list[int] | None,
+        corrections: dict[int, dict[str, Any]],
+        channel: Channel,
+        user_id: str | None,
+    ) -> list[dict[str, Any]]:
         proposal = await self._async_get(proposal_id)
-        corrections = corrections or {}
         purchase = proposal.payload.get("kind") == PURCHASE
         if proposal.zone_id is None and not purchase:
             raise InventoryError("proposal_not_found", proposal=str(proposal_id))

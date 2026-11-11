@@ -37,8 +37,10 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util.ulid import ulid_now
 
 from custom_components.quartermaster.const import DOMAIN
+from custom_components.quartermaster.core.events import is_fresh_event
 from custom_components.quartermaster.core.inventory import InventoryError, normalize
 from custom_components.quartermaster.core.phrases import (
+    async_error_text,
     async_phrase,
     configured_language,
 )
@@ -128,6 +130,8 @@ class TelegramChannel:
         self._unsubs: list[CALLBACK_TYPE] = []
         self._recent: dict[int, deque[float]] = {}
         self.held: dict[str, HeldPhoto] = {}
+        # State (the event time) of the last bot event handled.
+        self._last_event: str | None = None
         # Last chat that wrote, so replies to its requests go back there.
 
     @callback
@@ -156,8 +160,17 @@ class TelegramChannel:
         if new is None or new.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return
         old = event.data["old_state"]
-        if old is not None and old.state == new.state:
+        if (old is not None and old.state == new.state) or (
+            new.state == self._last_event
+        ):
             return
+        if (old is None or old.state == STATE_UNAVAILABLE) and not is_fresh_event(
+            new.state
+        ):
+            # The entity came back with its restored state (restart, reload
+            # of the bot): that message was handled before.
+            return
+        self._last_event = new.state
         data = dict(new.attributes)
         entry = self._runtime.coordinator.config_entry
         entry.async_create_background_task(
@@ -211,9 +224,13 @@ class TelegramChannel:
             elif kind == "telegram_callback":
                 await self._async_callback(chat_id, data)
         except InventoryError as err:
+            error = await async_error_text(self._hass, None, err)
             await self.async_send(
-                chat_id, await self._phrase("telegram_error", error=str(err))
+                chat_id, await self._phrase("telegram_error", error=error)
             )
+        except ValueError:
+            # A button or command with an argument that is not a number.
+            _LOGGER.debug("Ignoring malformed Telegram %s", kind)
 
     async def _phrase(self, key: str, **placeholders: str) -> str:
         return await async_phrase(self._hass, None, key, **placeholders)
@@ -448,7 +465,9 @@ class TelegramChannel:
             await self._async_undo(chat_id, query_id)
             return
         elif command == CB_UNDO_CAMERA:
-            await self._async_undo(chat_id, query_id, Channel.CAMERA)
+            await self._async_undo(
+                chat_id, query_id, Channel.CAMERA, args[0] if args else None
+            )
             return
         elif command == CB_ADD and args:
             await runtime.shopping.async_add(
@@ -460,14 +479,24 @@ class TelegramChannel:
         await self._async_answer(query_id, answer)
 
     async def _async_undo(
-        self, chat_id: int, query_id: Any, channel: Channel = Channel.TELEGRAM
+        self,
+        chat_id: int,
+        query_id: Any,
+        channel: Channel = Channel.TELEGRAM,
+        operation_id: str | None = None,
     ) -> None:
+        """Undo the operation named by the button, or the channel's last one."""
         try:
-            await self._runtime.inventory.async_undo_last(
-                channel=channel,
-                within=timedelta(minutes=10),
-                only_channel=True,
-            )
+            if operation_id is not None:
+                await self._runtime.inventory.async_undo_last(
+                    channel=channel, operation_id=operation_id
+                )
+            else:
+                await self._runtime.inventory.async_undo_last(
+                    channel=channel,
+                    within=timedelta(minutes=10),
+                    only_channel=True,
+                )
             text = await self._phrase("telegram_undone")
         except InventoryError:
             text = await self._phrase("telegram_nothing_to_undo")

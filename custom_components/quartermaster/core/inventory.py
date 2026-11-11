@@ -242,7 +242,9 @@ class InventoryService:
             for product in products:
                 if product.id == product_id:
                     return product
-            raise InventoryError("product_not_found", product=str(ref))
+            if isinstance(ref, int):
+                raise InventoryError("product_not_found", product=str(ref))
+            # Digits that are no id may be a name ("1664").
         key = normalize(ref)
         for product in products:
             if normalize(product.name) == key:

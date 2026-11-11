@@ -204,7 +204,7 @@ All actions are in the `quartermaster` domain. `config_entry_id` is optional: Qu
 | `import_from_todo` | Import from a todo list, with a preview |
 | `export_data`, `import_data` | JSON backup, CSV stock list |
 
-Writing actions called by a user follow the [permissions](#configuration); automations and scripts without a user are always allowed.
+Writing actions called by a user follow the [permissions](#configuration), and so do the agent's tools and `quartermaster.ask` when the request carries a user; automations and scripts without a user are always allowed. The entities (shopping list, buttons, update mode, show mode switches) follow Home Assistant's own entity permissions instead.
 
 ## Events
 

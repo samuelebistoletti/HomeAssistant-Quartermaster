@@ -13,12 +13,18 @@ from datetime import date
 import io
 import json
 from pathlib import Path
+import sqlite3
 from typing import Any, Final
 
 from homeassistant.util import dt as dt_util
 import probatio
 
-from custom_components.quartermaster.storage.models import Channel, MovementKind
+from custom_components.quartermaster.storage.models import (
+    Channel,
+    MovementKind,
+    ShoppingOrigin,
+    ShoppingStatus,
+)
 
 from .inventory import MAX_QUANTITY, InventoryError, InventoryService, normalize
 
@@ -40,7 +46,24 @@ CSV_COLUMNS: Final = (
 )
 ALIAS_SEPARATOR: Final = ";"
 
+
+def _datetime(value: Any) -> str:
+    """Accept an ISO 8601 date and time, as the store reads them back."""
+    if not isinstance(value, str) or dt_util.parse_datetime(value) is None:
+        raise ValueError("not a date and time")
+    return value
+
+
+def _date(value: Any) -> str:
+    """Accept an ISO 8601 date."""
+    if not isinstance(value, str) or dt_util.parse_date(value) is None:
+        raise ValueError("not a date")
+    return value
+
+
 _OPT_STR = probatio.Any(None, str)
+_OPT_DATETIME = probatio.Any(None, _datetime)
+_OPT_DATE = probatio.Any(None, _date)
 _OPT_NUM = probatio.Any(None, probatio.Coerce(float))
 _OPT_INT = probatio.Any(None, int)
 
@@ -79,15 +102,15 @@ TABLES_SCHEMA = probatio.Schema(
                 probatio.Required("product_id"): int,
                 probatio.Required("zone_id"): str,
                 probatio.Required("quantity"): probatio.Coerce(float),
-                probatio.Required("best_before"): _OPT_STR,
-                probatio.Required("opened_at"): _OPT_STR,
-                probatio.Required("updated_at"): str,
+                probatio.Required("best_before"): _OPT_DATE,
+                probatio.Required("opened_at"): _OPT_DATETIME,
+                probatio.Required("updated_at"): _datetime,
             }
         ],
         probatio.Required("journal"): [
             {
                 probatio.Required("id"): int,
-                probatio.Required("ts"): str,
+                probatio.Required("ts"): _datetime,
                 probatio.Required("product_id"): int,
                 probatio.Required("zone_id"): str,
                 probatio.Required("kind"): probatio.In([k.value for k in MovementKind]),
@@ -107,11 +130,15 @@ TABLES_SCHEMA = probatio.Schema(
                 probatio.Required("product_id"): _OPT_INT,
                 probatio.Required("text"): str,
                 probatio.Required("quantity"): _OPT_NUM,
-                probatio.Required("status"): str,
-                probatio.Required("origin"): str,
+                probatio.Required("status"): probatio.In(
+                    [s.value for s in ShoppingStatus]
+                ),
+                probatio.Required("origin"): probatio.In(
+                    [o.value for o in ShoppingOrigin]
+                ),
                 probatio.Required("external_uid"): _OPT_STR,
                 probatio.Required("position"): int,
-                probatio.Required("completed_at"): _OPT_STR,
+                probatio.Required("completed_at"): _OPT_DATETIME,
                 probatio.Required("note"): _OPT_STR,
             }
         ],
@@ -193,7 +220,11 @@ async def async_import_json(service: InventoryService, text: str) -> dict[str, i
         raise InventoryError("invalid_import", error=str(err)) from err
     tables: dict[str, list[dict[str, Any]]] = document["tables"]
     _check_references(tables)
-    await service.async_restore(tables)
+    try:
+        await service.async_restore(tables)
+    except (sqlite3.Error, ValueError) as err:
+        # Nothing was written: the restore is one transaction.
+        raise InventoryError("invalid_import", error=str(err)) from err
     return {table: len(rows) for table, rows in tables.items()}
 
 

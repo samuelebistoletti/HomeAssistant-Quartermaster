@@ -23,6 +23,7 @@ from custom_components.quartermaster.core.cron import Cron, CronError, is_valid
 from custom_components.quartermaster.core.inventory import InventoryError
 from custom_components.quartermaster.core.zones import (
     EVENT_PHOTO_REQUEST,
+    EVENT_ZONE_CHECKED,
     validate_sources,
 )
 from custom_components.quartermaster.storage.models import Channel
@@ -401,9 +402,15 @@ async def test_housekeeping(
 
     freezer.tick(timedelta(hours=12))
     await zones.async_housekeeping()
-    # The old request expired; the zone is still stale, so a new one opens.
+    # The old request expired; the next one waits for reminder_days again.
+    assert await zones.async_open_requests() == []
+    assert len(events) == 2
+
+    freezer.tick(timedelta(days=3))
+    await zones.async_housekeeping()
     [request] = await zones.async_open_requests()
     assert request.created >= dt_util.utcnow() - timedelta(minutes=1)
+    assert len(events) == 3
 
 
 async def test_zone_entities_follow_zones(hass: HomeAssistant, zoned: Any) -> None:
@@ -447,3 +454,64 @@ async def test_check_zone_button_and_tool(hass: HomeAssistant, zoned: Any) -> No
         llm.ToolInput(tool_name=f"{DOMAIN}__check_zone", tool_args={"zone": "garage"})
     )
     assert result.data == {"status": "started", "zone": "Garage"}  # type: ignore[union-attr]
+
+
+async def test_same_picture_keeps_one_proposal(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, zoned: Any
+) -> None:
+    """An unchanged scene refreshes the zone's date and adds no proposal."""
+    entry, ai, _ = zoned
+    first = await _check(hass, "garage")
+    freezer.tick(timedelta(hours=2))
+    events = async_capture_events(hass, EVENT_ZONE_CHECKED)
+    second = await _check(hass, "garage")
+    assert len(ai.calls) == 1
+    assert second["reused_previous"] is True
+    assert second["proposal_id"] == first["proposal_id"]
+    assert len(await entry.runtime_data.proposals.async_pending()) == 1
+    assert events[-1].data["unchanged"] is True
+    await entry.runtime_data.coordinator.async_refresh()
+    updated = entry.runtime_data.coordinator.data.zone_updates["garage"]
+    assert dt_util.utcnow() - updated < timedelta(minutes=1)
+
+
+async def test_new_count_replaces_the_waiting_one(
+    hass: HomeAssistant, zoned: Any
+) -> None:
+    """A different picture gives a new proposal and closes the old one."""
+    entry, ai, camera = zoned
+    first = await _check(hass, "garage")
+    camera.seed = 2
+    ai.answer["items"][0]["quantity"] = 5
+    second = await _check(hass, "garage")
+    assert second["proposal_id"] != first["proposal_id"]
+    [pending] = await entry.runtime_data.proposals.async_pending()
+    assert pending.id == second["proposal_id"]
+
+
+async def test_essential_at_zero_is_not_missing(
+    hass: HomeAssistant, zoned: Any
+) -> None:
+    """An essential already finished and not seen does not ask for a photo."""
+    entry, ai, _ = zoned
+    inventory = entry.runtime_data.inventory
+    await inventory.async_add_product(
+        "Oil", default_zone="garage", essential=True, min_stock=1
+    )
+    ai.answer["expected_not_seen"] = ["Oil"]
+    outcome = await _check(hass, "garage")
+    assert outcome["status"] == "updated"
+    assert await entry.runtime_data.zones.async_open_requests() == []
+
+
+async def test_product_seen_twice_is_summed(hass: HomeAssistant, zoned: Any) -> None:
+    """Two rows for one product become one count, with the lower confidence."""
+    entry, ai, _ = zoned
+    ai.answer["items"].append(
+        {**ai.answer["items"][0], "quantity": 2, "confidence": 0.7}
+    )
+    outcome = await _check(hass, "garage")
+    [pending] = await entry.runtime_data.proposals.async_pending()
+    assert pending.id == outcome["proposal_id"]
+    [row] = pending.payload["items"]
+    assert (row["current"], row["proposed"], row["confidence"]) == (2, 5, 0.7)

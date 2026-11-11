@@ -9,6 +9,7 @@ from typing import Any, Literal
 from unittest.mock import patch
 
 from freezegun.api import FrozenDateTimeFactory
+from homeassistant.auth.models import User
 from homeassistant.components import conversation
 from homeassistant.core import Context, HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -16,7 +17,7 @@ from homeassistant.helpers import intent, llm
 import pytest
 from pytest_homeassistant.common import MockConfigEntry, async_capture_events
 
-from custom_components.quartermaster.const import DOMAIN
+from custom_components.quartermaster.const import CONF_WRITE_USERS, DOMAIN
 from custom_components.quartermaster.core.inventory import InventoryService
 from custom_components.quartermaster.core.voice import (
     EVENT_ASK_RESULT,
@@ -667,3 +668,31 @@ def test_strip_tool_calls() -> None:
     assert strip_tool_calls("<|python_tag|>undo_last()") == ("", True)
     # Ordinary parentheses stay.
     assert strip_tool_calls("Latte (frigo): 2") == ("Latte (frigo): 2", False)
+
+
+async def test_write_tools_follow_write_users(
+    hass: HomeAssistant,
+    hass_read_only_user: User,
+    init_integration: MockConfigEntry,
+    kitchen: InventoryService,
+) -> None:
+    """A user who may not write cannot write through the tools either."""
+    context = Context(user_id=hass_read_only_user.id)
+    refused = await _tool(
+        hass, "adjust_stock", context=context, product="passata", action="consumed"
+    )
+    assert refused["error"] == "not_allowed"
+    assert await _quantity(kitchen, "passata", "garage") == 4
+    # Reading stays open.
+    stock = await _tool(hass, "get_stock", context=context, product="passata")
+    assert "error" not in stock
+
+    hass.config_entries.async_update_entry(
+        init_integration, options={CONF_WRITE_USERS: [hass_read_only_user.id]}
+    )
+    await hass.async_block_till_done()
+    allowed = await _tool(
+        hass, "adjust_stock", context=context, product="passata", action="consumed"
+    )
+    assert "error" not in allowed
+    assert await _quantity(kitchen, "passata", "garage") == 3

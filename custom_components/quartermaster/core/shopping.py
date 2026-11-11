@@ -3,7 +3,8 @@
 - Automatic items follow the essentials to buy: one item per product, added
   when it goes below its minimum, its quantity kept current, removed when it
   is back above. If deleted by hand, it comes back at the next recalculation
-  while the product is still below its minimum (author decision).
+  while the product is still below its minimum (author decision). If checked
+  off, it stays away until the stock of the product changes or two days pass.
 - Manual and suggested items are never removed automatically.
 - Checking an item off can record the purchase of its product.
 - The optional copy to another todo entity is one-way and tracked by uid
@@ -14,6 +15,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from enum import StrEnum
 import logging
 from typing import Any
@@ -42,6 +44,10 @@ from custom_components.quartermaster.storage.models import (
 _LOGGER = logging.getLogger(__name__)
 
 TODO_DOMAIN = "todo"
+# A checked item keeps its product off the list this long while the purchase
+# is not in stock yet; completed items are deleted after COMPLETED_KEEP.
+CHECKED_GRACE = timedelta(days=2)
+COMPLETED_KEEP = timedelta(days=30)
 
 
 class ImportTarget(StrEnum):
@@ -115,10 +121,24 @@ class ShoppingService:
         }
         wanted = {entry.product.id: entry for entry in to_buy}
         changed = False
+        now = dt_util.utcnow()
+        expired = [
+            item.id
+            for item in items
+            if item.status is ShoppingStatus.COMPLETED
+            and item.completed_at is not None
+            and now - item.completed_at > COMPLETED_KEEP
+        ]
+        if expired:
+            await self._backend.async_delete_shopping_items(expired)
+            changed = True
+        checked = await self._async_just_checked(items, set(wanted) - set(open_items))
         updates: list[ShoppingItem] = []
         for entry in to_buy:
             item = open_items.get(entry.product.id)
             if item is None:
+                if entry.product.id in checked:
+                    continue
                 await self._backend.async_add_shopping_item(
                     ShoppingItem(
                         id=0,
@@ -145,6 +165,36 @@ class ShoppingService:
             await self.async_delete([item.id for item in stale])
             changed = True
         return changed
+
+    async def _async_just_checked(
+        self, items: list[ShoppingItem], product_ids: set[int]
+    ) -> set[int]:
+        """Return the products checked off and not put in stock yet.
+
+        A checked item means "bought": the product is not listed again until
+        its stock changes (it then counts for what it is) or the grace time
+        is over without the purchase ever being recorded.
+        """
+        now = dt_util.utcnow()
+        checked_at: dict[int, datetime] = {}
+        for item in items:
+            if (
+                item.status is ShoppingStatus.COMPLETED
+                and item.product_id in product_ids
+                and item.completed_at is not None
+                and now - item.completed_at <= CHECKED_GRACE
+            ):
+                previous = checked_at.get(item.product_id)
+                if previous is None or item.completed_at > previous:
+                    checked_at[item.product_id] = item.completed_at
+        result: set[int] = set()
+        for product_id, when in checked_at.items():
+            levels = await self._inventory.async_get_stock(product_id=product_id)
+            if all(
+                level.updated_at is None or level.updated_at <= when for level in levels
+            ):
+                result.add(product_id)
+        return result
 
     # Adding, editing and removing
 
@@ -260,6 +310,8 @@ class ShoppingService:
         if item_id not in order:
             raise InventoryError("item_not_found", item=str(item_id))
         order.remove(item_id)
+        if previous_id is not None and previous_id not in order:
+            raise InventoryError("item_not_found", item=str(previous_id))
         index = 0 if previous_id is None else order.index(previous_id) + 1
         order.insert(index, item_id)
         await self._backend.async_reorder_shopping_items(order)

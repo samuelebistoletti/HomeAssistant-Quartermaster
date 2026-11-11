@@ -42,7 +42,12 @@ def svc(service, **data):
 def set_agent(agent):
     r = call("config/config_entries/options/flow", {"handler": ENTRY})
     r = call(f"config/config_entries/options/flow/{r['flow_id']}", {"next_step_id": "models"})
-    current = {f["name"]: f.get("default") for f in r["data_schema"]}
+    # Optional fields carry their saved value as a suggestion, not a default:
+    # leaving them out would remove them from the options.
+    current = {
+        f["name"]: (f.get("description") or {}).get("suggested_value", f.get("default"))
+        for f in r["data_schema"]
+    }
     data = {k: v for k, v in current.items() if v is not None}
     data["agent_id"] = agent
     r = call(f"config/config_entries/options/flow/{r['flow_id']}", data)

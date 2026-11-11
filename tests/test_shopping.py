@@ -15,6 +15,7 @@ from pytest_homeassistant.common import MockConfigEntry, async_fire_time_changed
 
 from custom_components.quartermaster.const import DOMAIN
 from custom_components.quartermaster.core.inventory import (
+    InventoryError,
     InventoryService,
     StockOperation,
 )
@@ -531,3 +532,65 @@ async def test_options_flow(
     options = init_integration.options
     assert (options["shopping_mode_minutes"], options["alexa_read_only"]) == (30, True)
     assert options["structure_mode"] == "text"
+
+
+async def test_checked_item_stays_away_until_stock_changes(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, inventory: InventoryService
+) -> None:
+    """A checked automatic item is not listed again right away."""
+    await _qm(hass, "set_essential", product="milk", min_stock=2)
+    await _refresh(hass)
+    [item] = await _items(hass)
+    await _todo(hass, "update_item", item=item["uid"], status="completed")
+    await _refresh(hass)
+    assert [i["status"] for i in await _items(hass)] == ["completed"]
+
+    # The purchase arrives short of the minimum: the product is listed again.
+    freezer.tick(timedelta(minutes=5))
+    await inventory.async_set_stock("milk", 1, channel=Channel.SERVICE)
+    await _refresh(hass)
+    assert sorted(i["status"] for i in await _items(hass)) == [
+        "completed",
+        "needs_action",
+    ]
+
+    # Checked and never put in stock: back after two days, and completed
+    # items are deleted after a month.
+    [open_item] = [i for i in await _items(hass) if i["status"] == "needs_action"]
+    await _todo(hass, "update_item", item=open_item["uid"], status="completed")
+    await _refresh(hass)
+    assert {i["status"] for i in await _items(hass)} == {"completed"}
+    freezer.tick(timedelta(days=2, minutes=1))
+    await _refresh(hass)
+    assert "needs_action" in {i["status"] for i in await _items(hass)}
+    freezer.tick(timedelta(days=31))
+    await _refresh(hass)
+    assert {i["status"] for i in await _items(hass)} == {"needs_action"}
+
+
+async def test_new_batch_drops_the_old_date(
+    hass: HomeAssistant, inventory: InventoryService
+) -> None:
+    """A product finished and bought again does not keep the old expiry."""
+    await inventory.async_set_stock(
+        "milk", 1, channel=Channel.SERVICE, best_before=date(2026, 1, 1)
+    )
+    await inventory.async_adjust_stock(
+        "milk", StockOperation.FINISH, channel=Channel.SERVICE
+    )
+    await inventory.async_adjust_stock(
+        "milk", StockOperation.PURCHASE, channel=Channel.SERVICE
+    )
+    [level] = await inventory.async_get_stock(product_id=1)
+    assert (level.quantity, level.best_before) == (1, None)
+    await _refresh(hass)
+    assert hass.states.get(EXPIRING).state == "0"  # type: ignore[union-attr]
+
+
+async def test_numeric_product_name(inventory: InventoryService) -> None:
+    """A name made of digits is found by name when it is no id."""
+    beer = await inventory.async_add_product("1664", default_zone="fridge")
+    assert (await inventory.async_find_product("1664")).id == beer.id
+    assert (await inventory.async_find_product(str(beer.id))).id == beer.id
+    with pytest.raises(InventoryError):
+        await inventory.async_find_product(9999)

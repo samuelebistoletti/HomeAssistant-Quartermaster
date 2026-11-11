@@ -17,6 +17,7 @@ from custom_components.quartermaster.const import (
     DEFAULT_RECORD_PURCHASE_ON_CHECK,
 )
 from custom_components.quartermaster.coordinator import QuartermasterCoordinator
+from custom_components.quartermaster.core.inventory import InventoryError
 from custom_components.quartermaster.entity import QuartermasterEntity
 from custom_components.quartermaster.storage.models import ShoppingItem
 
@@ -85,10 +86,15 @@ class QuartermasterShoppingList(QuartermasterEntity, TodoListEntity):
         """Rename, check or uncheck an item; checking may record the purchase."""
         assert item.uid is not None
         current = next(
-            entry
-            for entry in self.coordinator.data.shopping_items
-            if str(entry.id) == item.uid
+            (
+                entry
+                for entry in self.coordinator.data.shopping_items
+                if str(entry.id) == item.uid
+            ),
+            None,
         )
+        if current is None:
+            raise InventoryError("item_not_found", item=item.uid)
         description = item.description
         if description == self._description(current) and not current.note:
             description = None  # the generated quantity text, not a note

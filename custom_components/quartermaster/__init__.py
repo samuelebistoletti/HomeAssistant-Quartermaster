@@ -9,9 +9,10 @@ import sqlite3
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryError
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.typing import ConfigType
 
 from .channels.telegram import TelegramChannel, parse_chat_ids
@@ -37,6 +38,7 @@ from .const import (
     DEFAULT_HOURLY_ANALYSIS_LIMIT,
     DEFAULT_STRUCTURE_MODE,
     DOMAIN,
+    SIGNAL_SNAPSHOT,
 )
 from .coordinator import QuartermasterCoordinator
 from .core.confirmations import ProposalService, ToolConfirmations
@@ -50,7 +52,7 @@ from .notify import NotificationRouter
 from .services import async_setup_services
 from .storage.models import Proposal
 from .storage.sqlite import SchemaTooNewError, SQLiteBackend
-from .vision.analyze import VisionService
+from .vision.analyze import MEDIA_SUBDIR, VisionService, clear_temporary_images
 from .vision.crops import CropStore
 from .vision.schema import StructureMode
 from .vision.show import ShowManager
@@ -133,6 +135,10 @@ async def async_setup_entry(
     vision.hourly_limit = int(
         entry.options.get(CONF_HOURLY_ANALYSIS_LIMIT, DEFAULT_HOURLY_ANALYSIS_LIMIT)
     )
+    if (media_root := hass.config.media_dirs.get("local")) is not None:
+        await hass.async_add_executor_job(
+            clear_temporary_images, Path(media_root) / MEDIA_SUBDIR
+        )
     crops = CropStore(hass)
     vision.crops = crops
 
@@ -201,6 +207,14 @@ async def async_setup_entry(
     notifier.async_start()
     entry.async_on_unload(notifier.async_stop)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    @callback
+    def publish() -> None:
+        async_dispatcher_send(hass, SIGNAL_SNAPSHOT, entry.runtime_data)
+
+    entry.async_on_unload(coordinator.async_add_listener(publish))
+    # Dashboards that were open before a reload get the new state at once.
+    publish()
 
 
 async def async_unload_entry(

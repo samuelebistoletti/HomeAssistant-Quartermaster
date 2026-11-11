@@ -22,6 +22,8 @@ from datetime import date, datetime, timedelta
 from enum import StrEnum
 import math
 
+from homeassistant.util import dt as dt_util
+
 from custom_components.quartermaster.storage.models import (
     JournalEntry,
     MovementKind,
@@ -189,7 +191,9 @@ def analyze(
         totals=dict(totals),
         to_buy=to_buy,
         suggestions=suggestions,
-        expiring=_expiring(products, zones_by_id, stock, now.date(), expiring_days),
+        expiring=_expiring(
+            products, zones_by_id, stock, dt_util.as_local(now).date(), expiring_days
+        ),
     )
 
 
@@ -236,7 +240,8 @@ def _finished_dates(journal: list[JournalEntry], now: datetime) -> dict[int, dat
             and entry.quantity_after == 0
             and entry.ts >= since
         ):
-            day = entry.ts.date()
+            # The day as the household lived it, not the UTC one.
+            day = dt_util.as_local(entry.ts).date()
             if entry.product_id not in dates or day > dates[entry.product_id]:
                 dates[entry.product_id] = day
     return dates

@@ -11,7 +11,7 @@ get plain text through the documented `notify.send_message` action.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from enum import StrEnum
 import logging
 from typing import TYPE_CHECKING, Any
@@ -61,18 +61,26 @@ def option_key(kind: MessageType) -> str:
     return f"notify_{kind.value}"
 
 
-def in_quiet_hours(spec: str | None, now: datetime) -> bool:
-    """Return whether a local time falls in an "HH:MM-HH:MM" window."""
+def quiet_window(spec: str | None) -> tuple[time, time] | None:
+    """Return the start and end of an "HH:MM-HH:MM" window, or None."""
     if not spec:
-        return False
+        return None
     try:
         start_text, end_text = spec.split("-")
     except ValueError:
-        return False
+        return None
     start = dt_util.parse_time(start_text.strip())
     end = dt_util.parse_time(end_text.strip())
     if start is None or end is None:
+        return None
+    return start, end
+
+
+def in_quiet_hours(spec: str | None, now: datetime) -> bool:
+    """Return whether a local time falls in an "HH:MM-HH:MM" window."""
+    if (window := quiet_window(spec)) is None:
         return False
+    start, end = window
     current = now.time()
     if start <= end:
         return start <= current < end
@@ -92,6 +100,8 @@ class Message:
     # Telegram chats that get it even without telegram_notify (the chat a
     # request came from).
     chats: list[int] = field(default_factory=list)
+    # An answer to something the user just asked: not held in quiet hours.
+    direct: bool = False
 
 
 class NotificationRouter:
@@ -142,7 +152,9 @@ class NotificationRouter:
 
     async def async_send(self, message: Message) -> None:
         """Send now, or queue it during quiet hours."""
-        if in_quiet_hours(self._options.get(CONF_QUIET_HOURS), dt_util.now()):
+        if not message.direct and in_quiet_hours(
+            self._options.get(CONF_QUIET_HOURS), dt_util.now()
+        ):
             self.queue.append(message)
             return
         await self._async_deliver(message)
@@ -213,7 +225,9 @@ class NotificationRouter:
                 "notify_photo_frame", products=", ".join(products)
             )
         chats = [int(data["chat_id"])] if data.get("chat_id") is not None else []
-        await self.async_send(Message(MessageType.PHOTO_REQUEST, text, chats=chats))
+        await self.async_send(
+            Message(MessageType.PHOTO_REQUEST, text, chats=chats, direct=bool(chats))
+        )
 
     @callback
     def _on_show(self, event: Event[dict[str, Any]]) -> None:
@@ -233,11 +247,15 @@ class NotificationRouter:
         )
         if data.get("to_list"):
             text += " " + await self._phrase("notify_show_to_list")
+        # The button undoes this movement, not whatever the camera did last.
+        undo = "/qm_undo_camera"
+        if data.get("operation_id"):
+            undo += f" {data['operation_id']}"
         await self.async_send(
             Message(
                 MessageType.CAMERA,
                 text,
-                buttons=[[(await self._phrase("button_undo"), "/qm_undo_camera")]],
+                buttons=[[(await self._phrase("button_undo"), undo)]],
                 also=list(data.get("announce") or []),
             )
         )
@@ -248,7 +266,11 @@ class NotificationRouter:
             return  # the Telegram channel replies in the chat itself
         self._task(
             self.async_send(
-                Message(MessageType.VOICE_REPLY, str(event.data.get("speech") or ""))
+                Message(
+                    MessageType.VOICE_REPLY,
+                    str(event.data.get("speech") or ""),
+                    direct=True,
+                )
             ),
             "voice",
         )
@@ -258,7 +280,7 @@ class NotificationRouter:
         data = event.data
         if data.get("status") == "failed" and data.get("reason") != "already_running":
             self._task(self._async_check_failed(data), "check")
-        if data.get("status") != "updated":
+        if data.get("status") != "updated" or data.get("unchanged"):
             return
         self._task(self._async_zone_checked(data), "check")
 

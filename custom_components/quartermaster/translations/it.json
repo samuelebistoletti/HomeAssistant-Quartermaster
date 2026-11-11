@@ -175,7 +175,8 @@
       }
     },
     "error": {
-      "invalid_roi": "Inserisci quattro frazioni tra 0 e 1, x1, y1, x2, y2, con x1 < x2 e y1 < y2."
+      "invalid_roi": "Inserisci quattro frazioni tra 0 e 1, x1, y1, x2, y2, con x1 < x2 e y1 < y2.",
+      "invalid_quiet_hours": "Indica il silenzio notturno come HH:MM-HH:MM, per esempio 22:00-07:00."
     }
   },
   "exceptions": {
@@ -991,6 +992,9 @@
           "write_users": "Gli amministratori possono sempre modificare i dati dalla dashboard e dalle azioni. Scegli gli altri utenti che possono farlo; la lettura resta aperta a tutti."
         }
       }
+    },
+    "error": {
+      "invalid_quiet_hours": "Indica il silenzio notturno come HH:MM-HH:MM, per esempio 22:00-07:00."
     }
   },
   "issues": {

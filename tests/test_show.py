@@ -389,12 +389,25 @@ async def test_single_attachment_fallback_and_trigger(
     assert len(model.calls[-1]["attachments"]) == 1
     assert await _quantity(entry) == 3
 
-    # Event entities trigger on a new state; unavailable is ignored.
+    # Event entities trigger on a new state. A state restored after a restart
+    # or a reload (the entity appears, or comes back from unavailable, with
+    # the time of an old event) is not one.
     model.answers["passage"] = lambda: {"items": []}
+    calls = len(model.calls)
+    hass.states.async_set("event.yard_motion", "2026-11-08T10:00:00+00:00")
     hass.states.async_set("event.yard_motion", "unavailable")
-    hass.states.async_set("event.yard_motion", "2026-11-08T10:00:00")
+    hass.states.async_set("event.yard_motion", "2026-11-08T10:00:00+00:00")
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert len(model.calls) == calls
+    hass.states.async_set("event.yard_motion", "2026-11-08T10:05:00+00:00")
     await hass.async_block_till_done(wait_background_tasks=True)
     assert model.calls[-1]["task_name"].startswith(f"{DOMAIN} passage")
+    # A motion sensor that comes back already on is not a trigger either.
+    calls = len(model.calls)
+    hass.states.async_set("binary_sensor.garage_motion", "unavailable")
+    hass.states.async_set("binary_sensor.garage_motion", "on")
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert len(model.calls) == calls
 
 
 async def test_tool_arms(hass: HomeAssistant, show: Any) -> None:

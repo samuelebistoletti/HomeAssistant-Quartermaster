@@ -19,6 +19,7 @@ from homeassistant.helpers import llm, service
 from homeassistant.util import dt as dt_util
 import probatio
 
+from custom_components.quartermaster.channels.websocket import can_write
 from custom_components.quartermaster.const import (
     CONF_ALEXA_READ_ONLY,
     DEFAULT_ALEXA_READ_ONLY,
@@ -132,6 +133,13 @@ class QuartermasterTool(llm.Tool):
         ):
             return _error("read_only")
         user_id = llm_context.context.user_id if llm_context.context else None
+        if self.writes and user_id is not None:
+            # Same rule as the actions and the dashboard: administrators and
+            # the users chosen in the options. Requests without a user
+            # (Telegram chats, automations) are checked by their own channel.
+            user = await hass.auth.async_get_user(user_id)
+            if not can_write(runtime, user):
+                return _error("not_allowed")
         # Home Assistant does not validate tool arguments before calling the
         # tool (spec §8: arguments validated, quantities plausible). Some
         # models send the arguments as a string or a list instead of an object.

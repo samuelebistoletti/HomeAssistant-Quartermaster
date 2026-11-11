@@ -175,7 +175,8 @@
       }
     },
     "error": {
-      "invalid_roi": "Enter four fractions between 0 and 1, x1, y1, x2, y2, with x1 < x2 and y1 < y2."
+      "invalid_roi": "Enter four fractions between 0 and 1, x1, y1, x2, y2, with x1 < x2 and y1 < y2.",
+      "invalid_quiet_hours": "Enter the quiet hours as HH:MM-HH:MM, for example 22:00-07:00."
     }
   },
   "exceptions": {
@@ -991,6 +992,9 @@
           "write_users": "Administrators can always change data from the dashboard and actions. Choose the other users who can; reading stays open to every user."
         }
       }
+    },
+    "error": {
+      "invalid_quiet_hours": "Enter the quiet hours as HH:MM-HH:MM, for example 22:00-07:00."
     }
   },
   "issues": {

@@ -60,7 +60,13 @@ from .core.inventory import InventoryError
 from .core.phrases import async_phrase
 from .core.shopping import ImportTarget
 from .core.zones import validate_sources
-from .notify import CONF_QUIET_HOURS, CONF_TELEGRAM_NOTIFY, MessageType, option_key
+from .notify import (
+    CONF_QUIET_HOURS,
+    CONF_TELEGRAM_NOTIFY,
+    MessageType,
+    option_key,
+    quiet_window,
+)
 
 
 def _days(maximum: int) -> selector.NumberSelector:
@@ -405,11 +411,17 @@ class QuartermasterConfigFlow(ConfigFlow, domain=DOMAIN):
         next_step: Callable[[], Awaitable[ConfigFlowResult]],
     ) -> ConfigFlowResult:
         """Show a step whose fields are entry options, as in the options flow."""
-        if user_input is not None:
+        errors = _option_errors(user_input or {})
+        if user_input is not None and not errors:
             self._options.update(user_input)
             return await next_step()
         return self.async_show_form(
-            step_id=step_id, data_schema=_setup_schema(step_id), last_step=False
+            step_id=step_id,
+            data_schema=self.add_suggested_values_to_schema(
+                _setup_schema(step_id), user_input or {}
+            ),
+            errors=errors,
+            last_step=False,
         )
 
 
@@ -458,6 +470,14 @@ SETUP_STEPS: dict[str, tuple[str, ...]] = {
 }
 
 
+def _option_errors(user_input: dict[str, Any]) -> dict[str, str]:
+    """Check the options that are free text."""
+    spec = user_input.get(CONF_QUIET_HOURS)
+    if spec and quiet_window(spec) is None:
+        return {CONF_QUIET_HOURS: "invalid_quiet_hours"}
+    return {}
+
+
 def _setup_schema(step_id: str) -> probatio.Schema:
     return _keys_schema(SETUP_STEPS[step_id])
 
@@ -487,7 +507,8 @@ class QuartermasterOptionsFlow(OptionsFlowWithReload):
         user_input: dict[str, Any] | None,
         schema: probatio.Schema | None = None,
     ) -> ConfigFlowResult:
-        if user_input is not None:
+        errors = _option_errors(user_input or {})
+        if user_input is not None and not errors:
             # Fields left empty in this group are removed from the options.
             kept = {
                 key: value
@@ -498,8 +519,10 @@ class QuartermasterOptionsFlow(OptionsFlowWithReload):
         return self.async_show_form(
             step_id=group,
             data_schema=self.add_suggested_values_to_schema(
-                schema or _group_schema(group), self.config_entry.options
+                schema or _group_schema(group),
+                user_input or self.config_entry.options,
             ),
+            errors=errors,
         )
 
     async def async_step_general(

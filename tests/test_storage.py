@@ -149,8 +149,25 @@ async def test_apply_changes(backend: SQLiteBackend) -> None:
 
     [level] = await backend.async_list_stock(product_id=product.id)
     assert level.quantity == 4
-    assert level.best_before == expiry  # kept when a change gives none
+    # Stock that starts again from zero is a new batch: the old date is gone.
+    assert level.best_before is None
     assert level.updated_at is not None
+
+    await backend.async_apply_changes(
+        [
+            _change(
+                product_id=product.id,
+                kind=MovementKind.PURCHASE,
+                delta=1,
+                best_before=expiry,
+            )
+        ]
+    )
+    await backend.async_apply_changes(
+        [_change(product_id=product.id, kind=MovementKind.CONSUME, delta=-1)]
+    )
+    [level] = await backend.async_list_stock(product_id=product.id)
+    assert level.best_before == expiry  # kept when a change gives none
 
 
 async def test_failed_batch_is_rolled_back(backend: SQLiteBackend) -> None:
