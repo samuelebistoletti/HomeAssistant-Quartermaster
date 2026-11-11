@@ -219,6 +219,20 @@ Dropping the carrier word changes the meaning. On the real `quartermaster.ask`, 
 
 - **Token use.** Gateway logs: an agent call carries about 4,500 input tokens (glm-4.7-flash, granite) to 6,500 (llama-4-scout, up to 20,000 with history), and a voice request takes two or more calls. Of a call, the Assist prompt is about 2,500 characters, the 15 Quartermaster tools about 6,200 (1,500 of descriptions, the rest parameter schemas) and Home Assistant's own tools about 4,500, before any exposed entity. On the free plan (10,000 neurons/day, shared with image analysis) that is roughly 30 voice requests a day with llama-4-scout and over 150 with glm-4.7-flash; the benchmarks of these two days used up the allocation. Exposing fewer entities to Assist is the main lever for the user; trimming the tool schemas would save about a tenth.
 
+### Agent benchmark, quick mode (dev instance, 2026-11-11)
+
+`scripts/dev-agent-bench --quick` (6 phrases), one agent per run, costs read from the gateway logs:
+
+| Agent | Calls | Input tokens per call | Cost per call | Result |
+| --- | --- | --- | --- | --- |
+| gemma-4-26b | 14 | about 11,700 | $0.0012 | 6 of 6 (the clarification question deferred, not checked) |
+| glm-4.7-flash | 12 | about 14,500 | $0.0009 | 5 of 5 checked (the question and the clarification deferred) |
+| llama-3.3-70b-fp8-fast | 6 | about 19,700 | $0.0058 | 1 of 6: no writes, one reply in English. Excluded |
+| phonellm-mini | – | – | – | A partner model: needs AI Gateway credits (402, code 2021) |
+
+- **Choice (author):** gemma-4-26b for the agent and for the AI Tasks; glm-4.7-flash is the cheaper fallback. The AI Task benchmark above found gemma slower and less precise on receipts than llama-4-scout: watch the first real receipts.
+- **Free allocation and billing.** After going over 10,000 neurons on the Workers Free plan, Workers AI refused every call (HTTP 429, code 4006, not the documented 3036) for more than 24 hours, also after the 00:00 UTC reset, while the dashboard showed 0/10k; Cloudflare Community reports the same with no staff answer. Upgrading to Workers Paid lifted it at once. With the gateway's Workers AI billing set to **Unified billing**, calls were charged to the prepaid credits and recorded 0 neurons: the free daily allocation does not seem to apply there (not documented). With **Standard billing** the first 10,000 neurons a day are free; gateway spend limits are documented only for Unified Billing and BYOK.
+
 ### Dashboard strategy in the "New dashboard" dialog (dev instance, 2026-11-08)
 
 The bundle was loaded with `frontend.extra_module_url` (dev setup) and checked in headless Chrome:
