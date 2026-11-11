@@ -39,7 +39,7 @@
 - A camera's count of a zone is always a proposal, of decreases only, even in automatic update mode; products seen in a larger quantity are reported, not loaded.
 
 ### Added
-- Source type `ledger` for zones kept by word (chest freezer, fridge): no photo requests and no "zone not updated" suggestion; a guided check sends the list, oldest first, with "−1", "finished" and "all right" buttons on Telegram, every `check_days` (default 30, 0 = on request), with `/check <zone>` (`/controlla`), the check button or by voice (the tool returns the five oldest products).
+- List check (source type `ledger`, also offered in the guided setup) for any zone a photo shows badly (a closed cupboard, the fridge, a freezer): no photo requests and no "zone not updated" suggestion; the check sends the list, oldest first, with "−1", "finished" and "all right" buttons on Telegram, every `check_days` (default 30, 0 = on request), with `/check <zone>` (`/controlla`), the check button or by voice (the tool returns the five oldest products).
 
 ### Fixed
 - The agent's tools and `quartermaster.ask` follow the write permissions: a user who may not write gets `not_allowed` instead of changing the inventory through Assist.

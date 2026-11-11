@@ -626,3 +626,34 @@ async def test_ledger_zone_by_voice(
     assert data["status"] == "list_sent"
     assert [item["product"] for item in data["oldest_first"]] == ["Ragù"]
     assert data["more"] == 0
+
+
+async def test_list_check_after_a_camera(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, zoned: Any
+) -> None:
+    """After a camera, the list replaces the photo request; no periodic list."""
+    entry, _, camera = zoned
+    await hass.services.async_call(
+        DOMAIN,
+        "set_zone",
+        {
+            "zone": "garage",
+            "sources": [
+                {"type": "camera", "entity_id": "camera.garage"},
+                {"type": "ledger", "check_days": 1},
+            ],
+        },
+        blocking=True,
+    )
+    lists = async_capture_events(hass, EVENT_LEDGER_CHECK)
+    camera.fail = True
+    outcome = await _check(hass, "garage")
+    assert (outcome["status"], outcome["source"]) == ("list_sent", "ledger")
+    assert outcome["reason"] is None
+    assert len(lists) == 1
+    freezer.tick(timedelta(days=5))
+    await entry.runtime_data.zones.async_housekeeping()
+    await entry.runtime_data.zones.async_housekeeping()
+    assert len(lists) == 1
+    requests = await entry.runtime_data.zones.async_open_requests()
+    assert [r for r in requests if r.zone_id == "garage"] == []

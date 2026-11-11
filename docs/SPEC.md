@@ -159,11 +159,11 @@ Le zone si creano dall'options flow o dalla dashboard e si salvano nell'archivio
   aliases: [frigo, frigorifero]
   sources: [{type: manual}]
   reminder_days: 3
-- id: chest_freezer
-  name: Pozzetto
+- id: scorte
+  name: Mobile delle scorte
   sources:
-    - type: ledger                  # tenuto a registro, sezione 5.2
-      check_days: 30                # controllo guidato; 0 = solo su richiesta
+    - type: ledger                  # controllo a elenco, sezione 5.2
+      check_days: 30                # 0 = solo su richiesta
 ```
 
 I tipi di fonte sono estensibili (per esempio sensor per una bilancia ESPHome) senza cambiare il resto del sistema.
@@ -260,13 +260,14 @@ Le telecamere di passaggio non scrivono: confermano la confidenza di un avvistam
 
 camera\_show integra le altre fonti: l'inventario della zona si aggiorna comunque con i controlli dell'algoritmo precedente.
 
-### 5.2 Zone tenute a registro (fonte ledger)
+### 5.2 Controllo a elenco (fonte ledger)
 
-Per le zone senza telecamera di cui una foto mostra poco (pozzetto, freezer, frigorifero) l'utente tiene il registro a voce o su Telegram: entrate con lo scontrino o dette ("ho messo due buste di ragù nel pozzetto"), uscite dette ("ho finito i piselli"). Una zona con la fonte ledger:
+Vale per qualsiasi zona che una foto mostra male o che non si vede facilmente: un mobile con le scorte dietro la prima fila, il frigorifero pieno, un freezer. Le variazioni arrivano come sempre: scontrini, foto inviate di proposito, frasi dette o scritte ("ho messo due vasetti di marmellata nel mobile", "ho finito i piselli"). Si sceglie nel setup guidato ("Ripassiamo l'elenco") o con la fonte ledger. Una zona con questa fonte:
 
 1. Non chiede mai foto, non riceve promemoria di foto e non genera il suggerimento "zona non aggiornata". Una foto inviata di proposito resta accettata.
 2. Ogni check\_days (predefinito 30; 0 = solo su richiesta), oppure con /controlla &lt;zona&gt; su Telegram, il pulsante di controllo, l'azione check\_zone o a voce, riceve un controllo guidato: l'elenco della zona dal più vecchio (per scadenza, poi per ultima variazione), con i pulsanti "−1", "finito" e "Tutto giusto". Si può rispondere anche a parole. A voce l'agente legge i cinque prodotti più vecchi.
-3. Per l'età dei surgelati si usa shelf\_life\_days del prodotto: un acquisto senza data riceve la data di oggi più quella durata, e calendario e messaggio delle scadenze dicono cosa consumare.
+3. Dopo una fonte camera, l'elenco sostituisce la richiesta di foto quando il fotogramma non basta, e non c'è l'invio periodico.
+4. Per i prodotti a lunga conservazione (surgelati, conserve) si usa shelf\_life\_days: un acquisto senza data riceve la data di oggi più quella durata, e calendario e messaggio delle scadenze dicono cosa consumare.
 
 Riservatezza: il config flow spiega che i fotogrammi riprendono persone prima di attivare la fonte. Al provider va solo l'area di presentazione; i fotogrammi si cancellano subito dopo l'analisi anche con l'opzione di debug attiva e non compaiono mai in log, diagnostica o notifiche, dove va solo il nome del prodotto.
 

@@ -50,7 +50,8 @@ async def test_guided_flow(hass: HomeAssistant) -> None:
     assert result["step_id"] == "zone"
     assert result["description_placeholders"] == {"zone": "Frigorifero"}
     result = await configure(
-        result["flow_id"], {"camera": "camera.fridge", "roi": "0.1 0.2 0.9 1"}
+        result["flow_id"],
+        {"camera": "camera.fridge", "roi": "0.1 0.2 0.9 1", "check": "list"},
     )
     assert result["description_placeholders"] == {"zone": "Garage scaffale"}
     result = await configure(
@@ -77,6 +78,7 @@ async def test_guided_flow(hass: HomeAssistant) -> None:
         "initial_zones": [
             {
                 "name": "Frigorifero",
+                "check": "list",
                 "camera": "camera.fridge",
                 "roi": [0.1, 0.2, 0.9, 1],
             },
@@ -124,6 +126,7 @@ async def test_initial_setup_applied_once(
                 {"name": "Frigorifero", "camera": "camera.fridge", "roi": [0, 0, 1, 1]},
                 {"name": "Dispensa"},
                 {"name": "dispensa"},
+                {"name": "Mobile", "check": "list"},
             ],
             "initial_essentials": ["Caffè", "Caffè"],
             "initial_import": {"entity_id": "todo.missing", "target": "essentials"},
@@ -136,7 +139,8 @@ async def test_initial_setup_applied_once(
     assert entry.data == {}
     inventory = entry.runtime_data.inventory
     zones = {zone.id: zone for zone in await inventory.async_list_zones()}
-    assert set(zones) == {"frigorifero", "dispensa"}
+    assert set(zones) == {"frigorifero", "dispensa", "mobile"}
+    assert zones["mobile"].sources == [{"type": "ledger"}]  # 30 days by default
     assert [source["type"] for source in zones["frigorifero"].sources] == [
         "camera",
         "manual",
@@ -152,7 +156,7 @@ async def test_initial_setup_applied_once(
     await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     inventory = entry.runtime_data.inventory
-    assert len(await inventory.async_list_zones()) == 2
+    assert len(await inventory.async_list_zones()) == 3
 
 
 async def test_options_language(hass: HomeAssistant) -> None:

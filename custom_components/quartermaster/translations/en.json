@@ -125,14 +125,16 @@
       },
       "zone": {
         "title": "Zone {zone}",
-        "description": "Optional: a camera that sees {zone}. Without one, Quartermaster asks you for a photo when needed.",
+        "description": "Optional: a camera that sees {zone}. And how to check {zone} when there is no camera, or it cannot see clearly: with a photo you send, or by going through its list on Telegram or by voice. The list suits places a photo shows badly, such as a closed cupboard, the fridge or the freezer.",
         "data": {
           "camera": "Camera",
-          "roi": "Crop"
+          "roi": "Crop",
+          "check": "Check without a camera"
         },
         "data_description": {
           "camera": "Camera that frames the zone.",
-          "roi": "The part of the frame to analyze, as fractions x1, y1, x2, y2 (for example 0.6, 0.05, 1, 1). Empty uses the whole frame."
+          "roi": "The part of the frame to analyze, as fractions x1, y1, x2, y2 (for example 0.6, 0.05, 1, 1). Empty uses the whole frame.",
+          "check": "With the list, Quartermaster never asks for photos of this zone: every 30 days (you can change it) it sends you what should be there, oldest first, and you tap what changed."
         }
       },
       "channels": {
@@ -347,6 +349,12 @@
       "options": {
         "confirm": "Confirm",
         "reject": "Reject"
+      }
+    },
+    "zone_check": {
+      "options": {
+        "photo": "Ask me for a photo",
+        "list": "Go through the list with me"
       }
     }
   },

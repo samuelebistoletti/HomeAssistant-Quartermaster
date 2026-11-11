@@ -210,6 +210,7 @@ CONF_NAME = "name"
 CONF_ZONES = "zones"
 CONF_CAMERA = "camera"
 CONF_ROI = "roi"
+CONF_CHECK = "check"
 CONF_ESSENTIALS = "essentials"
 CONF_IMPORT_TODO = "import_todo"
 CONF_IMPORT_TARGET = "import_target"
@@ -220,6 +221,11 @@ ZONE_SCHEMA = probatio.Schema(
             selector.EntitySelectorConfig(domain="camera")
         ),
         probatio.Optional(CONF_ROI): selector.TextSelector(),
+        probatio.Required(CONF_CHECK, default="photo"): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=["photo", "list"], translation_key="zone_check"
+            )
+        ),
     }
 )
 
@@ -342,6 +348,8 @@ class QuartermasterConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             zone: dict[str, Any] = {"name": name}
+            if user_input.get(CONF_CHECK) == "list":
+                zone["check"] = "list"
             if camera := user_input.get(CONF_CAMERA):
                 zone["camera"] = camera
                 if text := (user_input.get(CONF_ROI) or "").strip():

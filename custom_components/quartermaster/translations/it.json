@@ -125,14 +125,16 @@
       },
       "zone": {
         "title": "Zona {zone}",
-        "description": "Facoltativo: una telecamera che inquadra {zone}. Senza, Quartermaster ti chiede una foto quando serve.",
+        "description": "Facoltativo: una telecamera che inquadra {zone}. E come controllare {zone} senza telecamera, o quando non vede bene: con una foto che mandi tu, oppure ripassando il suo elenco su Telegram o a voce. L'elenco va bene per i posti che una foto mostra male, come un mobile chiuso, il frigorifero o il freezer.",
         "data": {
           "camera": "Telecamera",
-          "roi": "Ritaglio"
+          "roi": "Ritaglio",
+          "check": "Controllo senza telecamera"
         },
         "data_description": {
           "camera": "Telecamera che inquadra la zona.",
-          "roi": "La parte dell'immagine da analizzare, come frazioni x1, y1, x2, y2 (per esempio 0.6, 0.05, 1, 1). Vuoto usa tutta l'immagine."
+          "roi": "La parte dell'immagine da analizzare, come frazioni x1, y1, x2, y2 (per esempio 0.6, 0.05, 1, 1). Vuoto usa tutta l'immagine.",
+          "check": "Con l'elenco, Quartermaster non chiede mai foto di questa zona: ogni 30 giorni (puoi cambiarlo) ti manda cosa dovrebbe esserci, dal più vecchio, e tu tocchi ciò che è cambiato."
         }
       },
       "channels": {
@@ -347,6 +349,12 @@
       "options": {
         "confirm": "Conferma",
         "reject": "Rifiuta"
+      }
+    },
+    "zone_check": {
+      "options": {
+        "photo": "Chiedimi una foto",
+        "list": "Ripassiamo l'elenco"
       }
     }
   },

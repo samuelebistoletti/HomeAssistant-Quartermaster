@@ -54,7 +54,7 @@ Cards write through the `quartermaster` actions (no `config_entry_id` needed): `
   - `camera`: `entity_id`, `roi`, `max_age_minutes` (30), `max_checks_per_day` (4), and for interior cameras with a door sensor `trigger_entity` (binary_sensor), `trigger_state` (`off`: door closed), `trigger_delay_seconds` (3), `min_interval_minutes` (30).
   - `camera_show` and `passage`: `entity_id`, `trigger_entity`, `roi`, `capture`, `window_seconds`, `burst_interval_seconds`, `max_frames_to_model`, `cooldown_seconds`, `max_per_day`, `min_confidence`, `hours`, `announce` (notify entity ids for this zone's announcements); `camera_show` also `active`, `arm_minutes` (`confirm` is gone: cameras always ask); `passage` also `match_window_seconds`.
   - `manual`: no fields.
-  - `ledger`: `check_days` (30; 0 = guided check only on request). Zones kept by word: no photo requests, and the last check status `list_sent`.
+  - `ledger`: `check_days` (30; 0 = only on request). List check, for any zone a photo shows badly: no photo requests, last check status `list_sent`.
   Before a card enables `camera_show` or `passage` it must show the privacy notice (frames show people; only the show area goes to the AI provider; frames are deleted right after the analysis).
 - **Running out.** Suggestion reason `running_out` with `days_left` and `per_day`: at the usual pace, the product runs out within the forecast days.
 - **Analyses.** `daily_analysis_limit` next to `analyses_today`, for the AI usage tile (the integration has no cost data).

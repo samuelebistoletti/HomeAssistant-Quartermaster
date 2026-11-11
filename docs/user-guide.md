@@ -32,7 +32,7 @@ Each zone has sources in priority order. A zone check (scheduled, by voice, from
 | `manual` | Asks you for a photo, with one reminder after 12 hours. |
 | `camera_show` | Show mode: when someone shows a product to the camera, Quartermaster asks on Telegram whether it was taken, and how many, before recording anything. Off by default. |
 | `passage` | A camera where people pass (entrance, yard). It supports what a zone camera saw and asks about goods carried out; goods carried in are left to their receipt. It never writes on its own. |
-| `ledger` | Kept by word, no photos (chest freezer, fridge): a guided check sends the zone's list every `check_days` (30 by default, 0 = only on request). |
+| `ledger` | List check, for any place a photo shows badly (a closed cupboard, a fridge, a freezer): instead of a photo request, the zone's list is sent to go through, every `check_days` (30 by default, 0 = only on request). After a camera it is the fallback when the frame is unclear. |
 
 Example:
 
@@ -68,20 +68,22 @@ A camera only tells you what it saw; nothing changes until you answer. Goods com
 - **Uncertain sightings** (below `min_confidence`) wait in the dashboard's Proposals without a message, unless a passage camera sees the same product leave.
 - **Zone checks by a camera** are always proposals, and only of what went down, even in automatic mode. Products seen in a larger quantity than recorded are mentioned in the check message.
 
-### Zones kept by word
+### List check
 
-For a chest freezer, a freezer or a fridge without cameras, keep the list by voice or on Telegram: "I put two bags of ragù in the chest freezer", "I finished the peas". Give the zone a `ledger` source:
+Some places are hard to photograph or to see into: a cupboard with stock behind the first row, a full fridge, a freezer. For them, choose the list check in the guided setup ("Go through the list with me"), or give the zone a `ledger` source. Changes come in as usual: receipts, photos you send, and what you say or write ("I put two jars of jam in the cupboard", "I finished the peas").
 
 ```yaml
 action: quartermaster.set_zone
 data:
-  zone: Chest freezer
+  zone: Stock cupboard
   sources:
     - type: ledger
-      check_days: 30
+      check_days: 30        # 0: only when you ask
 ```
 
-Such a zone never asks for photos and never shows up as "not updated". Every `check_days`, or with `/check chest freezer` on Telegram (`/controlla`), the check button or by voice, Quartermaster sends its list, oldest first, with **−1**, **finished** and **All right** buttons; you can also answer in words. By voice the agent reads the five oldest products. Set `shelf_life_days` on frozen products so purchases without a date get one and the expiry calendar tells you what to use first.
+Such a zone never asks for photos and never shows up as "not updated". Every `check_days`, or with `/check <zone>` on Telegram (`/controlla`), the check button or by voice, Quartermaster sends what should be there, oldest first, with **−1**, **finished** and **All right** buttons; you can also answer in words. By voice the agent reads the five oldest products.
+
+With a camera first (`camera`, then `ledger`), the list replaces the photo request when the frame is unclear, and no periodic list is sent. Set `shelf_life_days` on products that keep long (frozen food, preserves) so purchases without a date get one and the expiry calendar tells you what to use first.
 
 ### Show mode
 

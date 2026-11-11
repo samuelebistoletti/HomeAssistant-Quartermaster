@@ -36,7 +36,7 @@ An AI agent for Home Assistant that keeps track of your pantry, fridge, freezer 
 - **Inventory by zone.** Products, quantities per zone, best-before dates and a journal of every change, each one undoable.
 - **Essentials and shopping list.** Products that must always be at home go on the shopping list by themselves when they run low. While shopping you get suggestions with a reason ("you have 1, you usually keep 4"). Checking an item off can record the purchase.
 - **Talk to it.** "I finished the milk", "do I still have coffee?", "I have 3 yogurts left", "what should I buy?". Through Assist, Alexa, Telegram or the dashboard. With two cheeses in the fridge it asks which one.
-- **Photos and cameras.** Send a photo of the fridge or let a camera check a shelf: Quartermaster proposes the changes and you confirm them, or applies them in automatic mode above a confidence threshold. An interior camera can check its zone when the door closes. With **show mode**, a product shown to a zone's camera is asked about on Telegram before it is recorded as taken: cameras never write on their own, and goods come in only with a receipt or a photo you send. A camera at the entrance supports what the zone camera saw. Zones without cameras (a chest freezer) can be **kept by word**, with a guided check of their list on Telegram every 30 days.
+- **Photos and cameras.** Send a photo of the fridge or let a camera check a shelf: Quartermaster proposes the changes and you confirm them, or applies them in automatic mode above a confidence threshold. An interior camera can check its zone when the door closes. With **show mode**, a product shown to a zone's camera is asked about on Telegram before it is recorded as taken: cameras never write on their own, and goods come in only with a receipt or a photo you send. A camera at the entrance supports what the zone camera saw. Places a photo shows badly (a closed cupboard, the fridge, a freezer) can use the **list check**: instead of asking for photos, Quartermaster sends what should be there to go through on Telegram or by voice, every 30 days or when asked.
 - **Receipts and order emails.** Photograph a receipt (Telegram, dashboard, action) or let order emails from chosen senders arrive through the IMAP integration: the purchases become a proposal to confirm.
 - **Forecast.** From the journal, a product you use regularly is suggested before it runs out ("at the usual pace it runs out in 3 days"); an essential goes straight on the list.
 - **Notifications.** Photo requests, expiring products, essentials running out, the list when you go shopping. Sent to the notify entities you choose, with quiet hours, and to Telegram with buttons.
@@ -115,7 +115,7 @@ A zone is a place where things are kept: pantry, fridge, freezer, a garage shelf
 | `manual` | Asks you for a photo, with one reminder after 12 hours. |
 | `camera_show` | Show mode: when someone shows a product to the camera, Quartermaster asks on Telegram whether it was taken, and how many, before recording anything. Off by default. |
 | `passage` | A camera where people pass (entrance, yard). It supports what a zone camera saw and asks about goods carried out; goods carried in are left to their receipt. It never writes on its own. |
-| `ledger` | Kept by word, no photos (chest freezer, fridge): a guided check sends the zone's list every `check_days` (30 by default, 0 = only on request). |
+| `ledger` | List check, for any place a photo shows badly: the zone's list is sent to go through instead of a photo request, every `check_days` (30 by default, 0 = only on request); after a camera, only when its frame is unclear. |
 
 Zones are created in the guided setup, with `quartermaster.add_zone` and `quartermaster.set_zone`, or from the dashboard. Zones without a camera can have `reminder_days`: when they have not been updated for that many days, Quartermaster asks for a photo. The [user guide](docs/user-guide.md) has examples for every source.
 
@@ -215,7 +215,7 @@ Writing actions called by a user follow the [permissions](#configuration), and s
 | `quartermaster_zone_checked` | A zone check ended | `zone_id`, `status`, `reason`, `source`, `overall_confidence` and the result |
 | `quartermaster_show_request` | A camera saw a product taken or put back; nothing is written until the user answers (`proposal_id` is null when there is nothing to confirm) | `proposal_id`, `zone_id`, `zone`, `product`, `action`, `quantity`, `current`, `confidence` |
 | `quartermaster_show_recognized` | The user confirmed a camera sighting and it was recorded | `zone_id`, `zone`, `product`, `action`, `quantity`, `operation_id`, `to_list`, `announce` |
-| `quartermaster_ledger_check` | The list of a zone kept by word was sent for a guided check | `zone_id`, `zone`, `items`, `more`, `chat_id` |
+| `quartermaster_ledger_check` | A zone's list was sent for a list check | `zone_id`, `zone`, `items`, `more`, `chat_id` |
 | `quartermaster_purchases_proposed` | A receipt or an email became a proposal | `proposal_id`, `source`, `count`, `channel` |
 | `quartermaster_ask_result` | A late `quartermaster.ask` answer is ready | `channel`, `session_key` |
 

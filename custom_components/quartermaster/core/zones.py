@@ -69,8 +69,9 @@ class SourceType(StrEnum):
     CAMERA_SHOW = "camera_show"
     PASSAGE = "passage"
     MANUAL = "manual"
-    # Kept by word: no camera and no photos (a chest freezer). A check sends
-    # the list to go through instead of asking for a picture.
+    # List check: for any place a photo shows badly (a closed cupboard, a
+    # fridge, a freezer). A check sends the zone's list to go through with
+    # the user instead of asking for a photo.
     LEDGER = "ledger"
 
 
@@ -195,7 +196,7 @@ SOURCE_SCHEMAS: dict[SourceType, probatio.Schema] = {
 
 
 def ledger_source(zone: Zone) -> dict[str, Any] | None:
-    """Return the ledger source of a zone kept by word, if it has one."""
+    """Return the list-check source of a zone, if it has one."""
     for source in zone.sources:
         if source.get("type") == SourceType.LEDGER:
             return source
@@ -751,10 +752,14 @@ class ZoneManager:
             ):
                 reminded[request.zone_id] = request.created
         for zone in zones.values():
-            if (ledger := ledger_source(zone)) is not None:
-                await self._async_ledger_due(zone, int(ledger.get("check_days", 30)))
-                continue
             has_camera = any(s.get("type") == SourceType.CAMERA for s in zone.sources)
+            if (ledger := ledger_source(zone)) is not None:
+                # With a camera the list is only the fallback of its checks.
+                if not has_camera:
+                    await self._async_ledger_due(
+                        zone, int(ledger.get("check_days", 30))
+                    )
+                continue
             if has_camera or not zone.reminder_days or zone.id in waiting:
                 continue
             # The zone's last update or, if later, the last reminder: an
@@ -778,7 +783,7 @@ class ZoneManager:
         await self._runtime.coordinator.async_request_refresh()
 
     async def _async_ledger_due(self, zone: Zone, check_days: int) -> None:
-        """Send the guided check of a ledger zone when its interval is over."""
+        """Send the list check of a zone when its interval is over."""
         if check_days <= 0 or zone.id in self._running:
             return
         key = f"ledger_check:{zone.id}"

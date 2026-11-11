@@ -31,14 +31,26 @@ _LOGGER = logging.getLogger(__name__)
 INITIAL_KEYS = (DATA_INITIAL_ZONES, DATA_INITIAL_ESSENTIALS, DATA_INITIAL_IMPORT)
 
 
-def zone_sources(camera: str | None, roi: list[float] | None) -> list[dict[str, Any]]:
-    """Return the sources of a zone from the setup: camera first, then photos."""
+def zone_sources(
+    camera: str | None, roi: list[float] | None, check: str = "photo"
+) -> list[dict[str, Any]]:
+    """Return the sources of a zone from the setup.
+
+    The camera first, if any; then how the zone is checked without it: a
+    photo request (`photo`) or the zone's list to go through (`list`), for
+    places a photo shows badly (a closed cupboard, a fridge, a freezer).
+    """
+    fallback = (
+        {"type": SourceType.LEDGER.value}
+        if check == "list"
+        else {"type": SourceType.MANUAL.value}
+    )
     if not camera:
-        return [{"type": SourceType.MANUAL.value}]
+        return [fallback]
     source: dict[str, Any] = {"type": SourceType.CAMERA.value, "entity_id": camera}
     if roi:
         source["roi"] = roi
-    return [source, {"type": SourceType.MANUAL.value}]
+    return [source, fallback]
 
 
 async def async_apply_initial_setup(
@@ -58,7 +70,10 @@ async def async_apply_initial_setup(
         try:
             created = await inventory.async_add_zone(zone["name"])
             await inventory.async_update_zone(
-                created.id, sources=zone_sources(zone.get("camera"), zone.get("roi"))
+                created.id,
+                sources=zone_sources(
+                    zone.get("camera"), zone.get("roi"), zone.get("check", "photo")
+                ),
             )
         except InventoryError as err:
             _LOGGER.warning("Initial zone %s not created: %s", zone["name"], err)
