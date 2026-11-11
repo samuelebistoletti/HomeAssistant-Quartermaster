@@ -573,12 +573,39 @@ async def test_ask_slow_reply(
     with patch("custom_components.quartermaster.core.voice.REPLY_TIMEOUT", 0.05):
         reply = await _ask(hass, "ho finito il latte", language="it")
     assert reply["in_progress"] is True
-    assert reply["speech"] == "Ci sto lavorando, ti avviso quando ho finito."
+    # No late-reply destination: no promise of a message.
+    assert reply["speech"] == "Ci sto lavorando. Tra poco chiedimi se è fatto."
     await asyncio.sleep(0.3)
     await hass.async_block_till_done()
     [event] = events
     assert event.data["speech"] == "Fatto: Milk."
     assert (event.data["channel"], event.data["session_key"]) == ("alexa", "echo")
+
+    # With one, the acknowledgement says the answer will follow.
+    hass.config_entries.async_update_entry(
+        init_integration,
+        options={**init_integration.options, "notify_voice_reply": ["notify.phone"]},
+    )
+    await hass.config_entries.async_reload(init_integration.entry_id)
+    await hass.async_block_till_done()
+    with patch("custom_components.quartermaster.core.voice.REPLY_TIMEOUT", 0.05):
+        reply = await _ask(hass, "ho finito il latte", language="it")
+    assert reply["speech"] == "Ci sto lavorando, ti avviso quando ho finito."
+    await asyncio.sleep(0.3)
+    await hass.async_block_till_done()
+
+
+async def test_written_channels_wait_for_the_reply(
+    hass: HomeAssistant, init_integration: MockConfigEntry, agent: ScriptedAgent
+) -> None:
+    """Telegram gets one complete reply, without "I'm on it" first."""
+    agent.delay = 0.2
+    with patch("custom_components.quartermaster.core.voice.REPLY_TIMEOUT", 0.05):
+        reply = await _ask(
+            hass, "ho finito il latte", language="it", channel="telegram"
+        )
+    assert reply["in_progress"] is False
+    assert reply["speech"] == "Fatto: Milk."
 
 
 async def test_ask_agent_failure(

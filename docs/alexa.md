@@ -57,7 +57,7 @@ When the agent asks something ("Quale hai finito?"), `quartermaster.ask` returns
 
 When the reply asks nothing, the reprompt is empty and the session ends.
 
-Alexa documents 8 seconds for a skill to answer. If the agent is slower than 5 seconds, Quartermaster replies "Ci sto lavorando, ti avviso quando ho finito" and sends the answer later to the notify entities chosen under **Late voice replies**. For example, pick an Echo's announce entity from the Alexa Devices integration.
+Alexa documents 8 seconds for a skill to answer. If the agent is slower than 5 seconds, Quartermaster replies "Ci sto lavorando, ti avviso quando ho finito" and sends the answer later to the notify entities chosen under **Late voice replies**. For example, pick an Echo's announce entity from the Alexa Devices integration. Without one (and without Telegram notifications) the answer cannot reach you, so Alexa says "Ci sto lavorando. Tra poco chiedimi se è fatto" instead. Telegram never gets this acknowledgement: it waits and sends the answer in one message.
 
 ## Phrases without the skill name
 

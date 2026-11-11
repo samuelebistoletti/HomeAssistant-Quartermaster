@@ -1,6 +1,7 @@
 {
   "common": {
     "ask_working": "Ci sto lavorando, ti avviso quando ho finito.",
+    "ask_working_silent": "Ci sto lavorando. Tra poco chiedimi se è fatto.",
     "ask_error": "Non ci sono riuscito, riprova.",
     "ask_incomplete": "Una parte della richiesta non è stata eseguita: controlla e riprova.",
     "telegram_help": "Scrivimi cosa hai usato o comprato (\"ho finito il latte\"), chiedimi cosa manca, oppure mandami la foto di una zona con il nome della zona come didascalia. Comandi: /lista, /spesa, /annulla, /controlla seguito da una zona.",

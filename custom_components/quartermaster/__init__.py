@@ -48,7 +48,7 @@ from .core.purchases import PurchaseService
 from .core.shopping import ShoppingService
 from .core.voice import VoiceSessions
 from .core.zones import ZoneManager
-from .notify import NotificationRouter
+from .notify import MessageType, NotificationRouter
 from .services import async_setup_services
 from .storage.models import Proposal
 from .storage.sqlite import SchemaTooNewError, SQLiteBackend
@@ -205,6 +205,7 @@ async def async_setup_entry(
     notifier = NotificationRouter(hass, entry.runtime_data)
     entry.runtime_data.notifier = notifier
     coordinator.notifier = notifier
+    voice.can_announce = lambda: notifier.can_deliver(MessageType.VOICE_REPLY)
     notifier.async_start()
     entry.async_on_unload(notifier.async_stop)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

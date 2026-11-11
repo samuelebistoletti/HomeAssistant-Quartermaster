@@ -23,6 +23,9 @@ allowance on its own. To keep runs small:
   once when the Home Assistant log shows a quota error (HTTP 429, Workers AI
   4006 or 3036), so no more requests are wasted;
 - each agent's start and end time (UTC) is printed, to look up its usage.
+
+A write that also changes another product than the one named (an undo
+nobody asked for, for example) fails, with the products in `side_effects`.
 """
 
 from datetime import UTC, datetime
@@ -160,6 +163,18 @@ def save():
     json.dump(results, open(OUT, "w"), ensure_ascii=False, indent=1)
 
 
+# The only product each write may change: anything else is a side effect
+# (an undo nobody asked for, a wrong product).
+TARGETS = {"s5": {"Latte"}, "s6": {"Yogurt"}, "s7": {"Spaghetti"}, "s8": {"Passata"},
+           "s9": {"Mozzarella"}, "s10": {"Uova"}}
+
+
+def side_effects(session, before, after):
+    changed = {n for n in set(before["stock"]) | set(after["stock"])
+               if before["stock"].get(n) != after["stock"].get(n)}
+    return sorted(changed - TARGETS.get(session, set()))
+
+
 results = []
 log_seen = len(log_tail())
 for i, agent in enumerate(AGENTS):
@@ -190,7 +205,10 @@ for i, agent in enumerate(AGENTS):
             time.sleep(20); ok = None
         else:
             ok = (not err) and bool(check(before, after, reply)) and "__" not in reply
-        r = {"agent": agent, "text": text, "kind": kind, "ok": ok, "seconds": secs, "total": round(total, 1), "deferred": deferred, "reply": reply[:220], "error": err}
+        extra = side_effects(session, before, after)
+        if extra:
+            ok = False
+        r = {"agent": agent, "text": text, "kind": kind, "ok": ok, "side_effects": extra, "seconds": secs, "total": round(total, 1), "deferred": deferred, "reply": reply[:220], "error": err}
         results.append(r)
         print(json.dumps(r, ensure_ascii=False), flush=True)
         if err or reply.startswith(ERROR_REPLIES):

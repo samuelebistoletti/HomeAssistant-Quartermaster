@@ -162,6 +162,17 @@ class NotificationRouter:
 
     # Sending
 
+    def can_deliver(self, kind: MessageType) -> bool:
+        """Whether a message of this kind has somewhere to go."""
+        if self._options.get(option_key(kind)):
+            return True
+        telegram = self._runtime.telegram
+        return bool(
+            telegram is not None
+            and self._options.get(CONF_TELEGRAM_NOTIFY)
+            and any(c > 0 for c in telegram.chats)
+        )
+
     async def async_send(self, message: Message) -> None:
         """Send now, or queue it during quiet hours."""
         if not message.direct and in_quiet_hours(

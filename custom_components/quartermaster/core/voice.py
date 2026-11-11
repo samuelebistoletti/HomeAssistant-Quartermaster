@@ -3,14 +3,16 @@
 Each session (channel + key) keeps the conversation_id of the last exchange
 and any pending clarification (the candidates returned by adjust_stock) for a
 configurable time, so an answer to a question continues the same thread even
-when it arrives as a new request. Replies not ready within 5 seconds are
-acknowledged at once and completed in the background.
+when it arrives as a new request. On channels that speak (Alexa, Assist),
+replies not ready within 5 seconds are acknowledged at once and completed in
+the background; written channels wait for the reply.
 """
 
 from __future__ import annotations
 
 import asyncio
 from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import logging
@@ -29,6 +31,10 @@ from custom_components.quartermaster.storage.models import Channel
 _LOGGER = logging.getLogger(__name__)
 
 REPLY_TIMEOUT = 5.0
+# Written channels have no deadline: one complete reply instead of "I'm on
+# it" followed by a second message.
+WRITTEN_REPLY_TIMEOUT = 90.0
+SPOKEN = frozenset({Channel.ALEXA, Channel.ASSIST})
 EVENT_ASK_RESULT = f"{DOMAIN}_ask_result"
 _QUESTION = re.compile(r"[^.!?]*\?")
 # Tool calls that some models write into the reply text instead of making
@@ -128,6 +134,8 @@ class VoiceSessions:
     running: dict[str, Session] = field(default_factory=dict)
     _tasks: set[asyncio.Task[Any]] = field(default_factory=set)
     _recent: dict[Channel, deque[float]] = field(default_factory=dict)
+    # Whether a late reply can reach the user (set by the notifications).
+    can_announce: Callable[[], bool] | None = None
 
     def _within_rate(self, channel: Channel) -> bool:
         """Allow at most ASK_PER_MINUTE requests per channel and minute."""
@@ -184,12 +192,21 @@ class VoiceSessions:
         )
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
-        done, _ = await asyncio.wait({task}, timeout=REPLY_TIMEOUT)
+        timeout = REPLY_TIMEOUT if channel in SPOKEN else WRITTEN_REPLY_TIMEOUT
+        done, _ = await asyncio.wait({task}, timeout=timeout)
         if done:
             return task.result()
         task.add_done_callback(lambda finished: self._announce(finished, session))
+        # Promise a message only when one can reach the user.
+        announced = channel is Channel.TELEGRAM or (
+            self.can_announce is not None and self.can_announce()
+        )
         return AskReply(
-            speech=await async_phrase(self.hass, language, "ask_working"),
+            speech=await async_phrase(
+                self.hass,
+                language,
+                "ask_working" if announced else "ask_working_silent",
+            ),
             continue_conversation=False,
             reprompt="",
             conversation_id=session.conversation_id,
