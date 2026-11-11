@@ -3,7 +3,7 @@
     "ask_working": "Ci sto lavorando, ti avviso quando ho finito.",
     "ask_error": "Non ci sono riuscito, riprova.",
     "ask_incomplete": "Una parte della richiesta non è stata eseguita: controlla e riprova.",
-    "telegram_help": "Scrivimi cosa hai usato o comprato (\"ho finito il latte\"), chiedimi cosa manca, oppure mandami la foto di una zona con il nome della zona come didascalia. Comandi: /lista, /spesa, /annulla, /controlla <zona>.",
+    "telegram_help": "Scrivimi cosa hai usato o comprato (\"ho finito il latte\"), chiedimi cosa manca, oppure mandami la foto di una zona con il nome della zona come didascalia. Comandi: /lista, /spesa, /annulla, /controlla seguito da una zona.",
     "telegram_list": "Lista della spesa:",
     "telegram_list_empty": "La lista della spesa è vuota.",
     "telegram_choose_check": "Quale zona controllo?",

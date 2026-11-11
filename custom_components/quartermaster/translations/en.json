@@ -3,7 +3,7 @@
     "ask_working": "I'm on it. I'll let you know when it's done.",
     "ask_error": "Sorry, I couldn't do that. Please try again.",
     "ask_incomplete": "Part of the request was not carried out: check and try again.",
-    "telegram_help": "Send me what you used or bought (\"I finished the milk\"), ask what is missing, or send a photo of a zone with the zone name as caption. Commands: /list, /shopping, /undo, /check <zone>.",
+    "telegram_help": "Send me what you used or bought (\"I finished the milk\"), ask what is missing, or send a photo of a zone with the zone name as caption. Commands: /list, /shopping, /undo, /check followed by a zone.",
     "telegram_list": "Shopping list:",
     "telegram_list_empty": "The shopping list is empty.",
     "telegram_choose_check": "Which zone should I check?",
