@@ -230,7 +230,7 @@ Dropping the carrier word changes the meaning. On the real `quartermaster.ask`, 
 | llama-3.3-70b-fp8-fast | 6 | about 19,700 | $0.0058 | 1 of 6: no writes, one reply in English. Excluded |
 | phonellm-mini | – | – | – | A partner model: needs AI Gateway credits (402, code 2021) |
 
-- **Choice (author):** gemma-4-26b for the agent and for the AI Tasks; glm-4.7-flash is the cheaper fallback. The AI Task benchmark above found gemma slower and less precise on receipts than llama-4-scout: watch the first real receipts.
+- **Choice (author):** glm-4.7-flash for the conversation agent and the text AI Task (order emails): correct in both benchmarks, faster and cheaper; gemma-4-26b for the image AI Task (zone and receipt photos), as glm-4.7-flash was tested on text only. The AI Task benchmark above found gemma slower and less precise on receipts than llama-4-scout: watch the first real receipts.
 - **Free allocation and billing.** After going over 10,000 neurons on the Workers Free plan, Workers AI refused every call (HTTP 429, code 4006, not the documented 3036) for more than 24 hours, also after the 00:00 UTC reset, while the dashboard showed 0/10k; Cloudflare Community reports the same with no staff answer. Upgrading to Workers Paid lifted it at once. With the gateway's Workers AI billing set to **Unified billing**, calls were charged to the prepaid credits and recorded 0 neurons: the free daily allocation does not seem to apply there (not documented). With **Standard billing** the first 10,000 neurons a day are free; gateway spend limits are documented only for Unified Billing and BYOK.
 
 ### Dashboard strategy in the "New dashboard" dialog (dev instance, 2026-11-08)
