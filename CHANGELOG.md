@@ -37,6 +37,7 @@
 ### Changed
 - Cameras never write (author decision). A product taken in front of a camera becomes a request on Telegram and in the dashboard, with buttons for the quantity; it is recorded as a consumption only on a yes, with Undo. A product put back cancels a request still waiting or asks to undo the confirmed consumption; goods placed with nothing to undo are not loaded (they enter with a receipt or a photo sent on purpose). Passage cameras only support a zone sighting or ask about goods carried out. The source option `confirm` is gone (ignored if stored).
 - A camera's count of a zone is always a proposal, of decreases only, even in automatic update mode; products seen in a larger quantity are reported, not loaded.
+- Products recorded in a zone that a photo or camera count does not show are proposed at zero as "not seen". Confirming the proposal leaves them alone; each one is set to zero only with its own Telegram button ("<product> finished"), by ticking it in the dashboard or by naming its key.
 
 ### Added
 - List check (source type `ledger`, also offered in the guided setup) for any zone a photo shows badly (a closed cupboard, the fridge, a freezer): no photo requests and no "zone not updated" suggestion; the check sends the list, oldest first, with "−1", "finished" and "all right" buttons on Telegram, every `check_days` (default 30, 0 = on request), with `/check <zone>` (`/controlla`), the check button or by voice (the tool returns the five oldest products).

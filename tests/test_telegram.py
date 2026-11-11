@@ -32,6 +32,7 @@ class FakeBot:
         self.answers: list[dict[str, Any]] = []
         self.folder = folder
         self.fail_download = False
+        self.ai: Any = None
         hass.services.async_register("telegram_bot", "send_message", self._send)
         hass.services.async_register(
             "telegram_bot", "answer_callback_query", self._answer
@@ -70,6 +71,7 @@ async def bot(
     (tmp_path / "downloads").mkdir()
     fake = FakeBot(hass, tmp_path / "downloads")
     ai = FakeAITask(hass)
+    fake.ai = ai
     agent_entry = MockConfigEntry(domain="test")
     agent_entry.add_to_hass(hass)
     from homeassistant.components import conversation
@@ -518,3 +520,55 @@ async def test_guided_check_of_a_zone_kept_by_word(
         args="pozzetto",
     )
     assert fake.sent[-1]["message"].startswith("Pozzetto dovrebbe essere vuoto.")
+
+
+async def test_products_not_seen_need_their_own_button(
+    hass: HomeAssistant, bot: Any
+) -> None:
+    """Option B: Confirm applies what was seen; a product not seen only by its button."""
+    entry, fake = bot
+    inventory = entry.runtime_data.inventory
+    await inventory.async_add_product("Mozzarella", default_zone="fridge")
+    await inventory.async_set_stock("mozzarella", 1, channel=Channel.SERVICE)
+    await inventory.async_add_product("Butter", default_zone="pantry")
+    await inventory.async_set_stock("butter", 1, channel=Channel.SERVICE)
+    # Butter is in another zone and Ghee is unknown: neither becomes a row.
+    fake.ai.answer = {
+        **fake.ai.answer,
+        "expected_not_seen": ["mozzarella", "Butter", "Ghee"],
+    }
+    await _event(
+        hass,
+        event_type="telegram_attachment",
+        chat_id=CHAT,
+        file_id="f1",
+        file_mime_type="image/jpeg",
+        text="frigo",
+    )
+    message = fake.sent[-1]["message"]
+    assert "Milk: 1 → 3" in message
+    assert "Mozzarella: 1 → 0 (non visto)" in message
+    assert "Butter" not in message
+    gone, last = fake.keyboard()
+    label, data = gone.split(":", 1)
+    assert label == "Mozzarella finito"
+    assert data.startswith("/qm_gone ")
+    confirm = last.split(", ")[0].split(":", 1)[1]
+
+    await _event(
+        hass, event_type="telegram_callback", chat_id=CHAT, id="c1", data=confirm
+    )
+    stock = {
+        level.product_id: level.quantity
+        for level in await inventory.async_get_stock(zone_id="fridge")
+    }
+    milk = await inventory.async_find_product("milk")
+    mozzarella = await inventory.async_find_product("mozzarella")
+    assert (stock[milk.id], stock[mozzarella.id]) == (3, 1)
+    [pending] = await entry.runtime_data.proposals.async_pending()
+    assert [row["product"] for row in pending.payload["items"]] == ["Mozzarella"]
+
+    await _event(hass, event_type="telegram_callback", chat_id=CHAT, id="c2", data=data)
+    [level] = await inventory.async_get_stock(product_id=mozzarella.id)
+    assert level.quantity == 0
+    assert await entry.runtime_data.proposals.async_pending() == []

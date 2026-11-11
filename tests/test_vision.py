@@ -551,6 +551,7 @@ async def test_confirm_tool(
 
     [pending] = (await call())["pending"]
     milk = next(item for item in pending["items"] if item["seen_as"] == "Milk")
+    assert milk["not_seen"] is False
     confirmed = await call(proposal_id=pending["proposal_id"], items=[milk["key"]])
     assert confirmed["status"] == "confirmed"
     [rest] = (await call())["pending"]

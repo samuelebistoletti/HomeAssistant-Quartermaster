@@ -30,7 +30,7 @@ Writers: administrators and the users chosen in the `write_users` option (`can_w
   "suggestions": [{"product_id", "have", "reason": "below_target|stale_zone|finished_recently|running_out", "...details": "have, target | zone, days | date | days_left, per_day"}],
   "expiring": [{"product_id", "zone_id", "quantity", "best_before", "days_left"}],
   "shopping_list": [{"item_id", "text", "product_id", "quantity", "origin": "auto|suggestion|manual", "done"}],
-  "proposals": [{"proposal_id", "kind": "count|purchase|movement", "zone_id": "null for purchase", "channel", "created", "has_image": false, "items": [{"key", "product_id", "product", "seen_as", "current", "proposed", "unit", "confidence", "notes"}], "not_seen"}],
+  "proposals": [{"proposal_id", "kind": "count|purchase|movement", "zone_id": "null for purchase", "channel", "created", "has_image": false, "items": [{"key", "product_id", "product", "seen_as", "current", "proposed", "unit", "confidence", "notes", "missing": "true for a product not seen, proposed at zero; left out of a confirm without items"}], "not_seen"}],
   "shopping_mode_until": "ISO or null",
   "analyses_today": 0,
   "daily_analysis_limit": 50,

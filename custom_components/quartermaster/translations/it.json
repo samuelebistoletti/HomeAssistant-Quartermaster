@@ -10,6 +10,8 @@
     "telegram_applied": "Aggiornato:",
     "telegram_proposal": "Vedo queste variazioni. Confermi?",
     "telegram_nothing": "Nessuna variazione in questa zona.",
+    "telegram_not_seen": "non visto",
+    "telegram_not_seen_hint": "I prodotti non visti restano come sono, a meno che tu non tocchi il loro pulsante.",
     "telegram_confirmed": "Confermato.",
     "telegram_rejected": "Rifiutato.",
     "telegram_expired": "Questa foto non è più in attesa; rimandala.",

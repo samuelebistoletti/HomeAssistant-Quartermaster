@@ -10,6 +10,8 @@
     "telegram_applied": "Updated:",
     "telegram_proposal": "I see these changes. Confirm?",
     "telegram_nothing": "Nothing changed in this zone.",
+    "telegram_not_seen": "not seen",
+    "telegram_not_seen_hint": "A product not seen is left as it is unless you tap its button.",
     "telegram_confirmed": "Confirmed.",
     "telegram_rejected": "Rejected.",
     "telegram_expired": "This photo is no longer waiting; send it again.",

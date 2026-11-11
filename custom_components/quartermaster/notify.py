@@ -22,6 +22,10 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.util import dt as dt_util
 
+from custom_components.quartermaster.channels.telegram import (
+    async_proposal_buttons,
+    async_proposal_lines,
+)
 from custom_components.quartermaster.const import DOMAIN
 from custom_components.quartermaster.core.phrases import async_phrase
 from custom_components.quartermaster.core.purchases import EVENT_PURCHASES_PROPOSED
@@ -450,19 +454,18 @@ class NotificationRouter:
                 "notify_check_more", products=", ".join(more)
             )
         buttons = None
-        if data.get("proposal_id"):
-            buttons = [
-                [
-                    (
-                        await self._phrase("button_confirm"),
-                        f"/qm_ok {data['proposal_id']}",
-                    ),
-                    (
-                        await self._phrase("button_reject"),
-                        f"/qm_no {data['proposal_id']}",
-                    ),
-                ]
-            ]
+        if proposal_id := data.get("proposal_id"):
+            rows: list[dict[str, Any]] = next(
+                (
+                    p.payload["items"]
+                    for p in await self._runtime.proposals.async_pending()
+                    if p.id == proposal_id
+                ),
+                [],
+            )
+            if rows:
+                text += "\n" + "\n".join(await async_proposal_lines(self._hass, rows))
+            buttons = await async_proposal_buttons(self._hass, proposal_id, rows)
         await self.async_send(Message(MessageType.CHECK_RESULT, text, buttons=buttons))
 
     @callback

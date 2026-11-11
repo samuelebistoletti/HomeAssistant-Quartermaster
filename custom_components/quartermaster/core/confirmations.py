@@ -20,6 +20,7 @@ from custom_components.quartermaster.core.inventory import (
     InventoryError,
     InventoryService,
     StockOperation,
+    normalize,
 )
 from custom_components.quartermaster.storage.models import (
     Channel,
@@ -80,6 +81,10 @@ TAKEN = "taken"
 RETURNED = "returned"
 # Several products changing by more than half: never applied automatically.
 LARGE_CHANGE_RATIO = 0.5
+# Row flag: a product recorded in the zone that the picture did not show. It
+# is proposed at zero but applied only when chosen by key: confirming the
+# whole proposal leaves it out (it may only be hidden behind something).
+MISSING = "missing"
 
 
 @dataclass(slots=True)
@@ -182,6 +187,9 @@ class ProposalService:
                 for row in rows
                 if row["product_id"] is not None and row["proposed"] < row["current"]
             ]
+        rows += await self._async_missing_rows(
+            zone, analysis, stock, seen=set(by_product), first_key=len(analysis.items)
+        )
         # A new count of the zone replaces the earlier ones still waiting.
         for older in await self.async_pending():
             if older.zone_id == zone.id and "not_seen" in older.payload:
@@ -192,6 +200,7 @@ class ProposalService:
             row
             for row in rows
             if row["product_id"] is not None
+            and not row.get(MISSING)
             and abs(row["proposed"] - row["current"])
             > LARGE_CHANGE_RATIO * max(row["current"], 1.0)
         ]
@@ -201,6 +210,7 @@ class ProposalService:
             for row in rows
             if auto_allowed
             and row["product_id"] is not None
+            and not row.get(MISSING)
             and row["confidence"] >= threshold
         ]
         if to_apply:
@@ -240,6 +250,52 @@ class ProposalService:
             unknown=analysis.unknown_items,
             more_than_stock=more,
         )
+
+    async def _async_missing_rows(
+        self,
+        zone: Zone,
+        analysis: ZoneAnalysis,
+        stock: dict[int, float],
+        *,
+        seen: set[int],
+        first_key: int,
+    ) -> list[dict[str, Any]]:
+        """Rows at zero for recorded products the picture did not show."""
+        rows: list[dict[str, Any]] = []
+        # By name or alias only: a category or a stem could name another
+        # product than the one the model was told to expect.
+        recorded = [
+            p
+            for p in await self._inventory.async_list_products()
+            if stock.get(p.id, 0.0) > 0
+        ]
+        for name in analysis.expected_not_seen:
+            key = normalize(name)
+            candidates = [
+                p
+                for p in recorded
+                if p.id not in seen
+                and any(normalize(n) == key for n in (p.name, *p.aliases))
+            ]
+            if len(candidates) != 1:
+                continue
+            product = candidates[0]
+            seen.add(product.id)
+            rows.append(
+                {
+                    "key": first_key + len(rows),
+                    "product_id": product.id,
+                    "product": product.name,
+                    "seen_as": name,
+                    "current": stock[product.id],
+                    "proposed": 0.0,
+                    "unit": product.unit,
+                    "confidence": analysis.overall_confidence,
+                    "notes": None,
+                    MISSING: True,
+                }
+            )
+        return rows
 
     async def async_propose(
         self,
@@ -456,10 +512,11 @@ class ProposalService:
         purchase = proposal.payload.get("kind") == PURCHASE
         if proposal.zone_id is None and not purchase:
             raise InventoryError("proposal_not_found", proposal=str(proposal_id))
+        # Without keys, everything but the rows not seen: those only by key.
         chosen = [
             row
             for row in proposal.payload["items"]
-            if keys is None or row["key"] in keys
+            if (row["key"] in keys if keys is not None else not row.get(MISSING))
         ]
         counts: list[tuple[int, str, float, float | None]] = []
         bought: list[tuple[int, float]] = []

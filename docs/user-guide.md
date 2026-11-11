@@ -104,6 +104,8 @@ Send a photo through any of these:
 
 A photo you send shows the shelf as it is: quantities follow what it shows, higher ones too (a gift, a purchase without receipt). In **confirm** mode (the **Update mode** select), changes become a proposal. Confirm or reject it from the dashboard, Telegram or by voice, correcting product and quantity if needed. A correction teaches Quartermaster the name the model used. In **automatic** mode, changes above the confidence threshold are applied and the rest are proposed. When several products would change by more than half, nothing is applied automatically.
 
+A product recorded in the zone that the picture does not show is listed as **not seen**, at zero. It may only be hidden behind something, so confirming the proposal leaves it as it is: tap its own **<product> finished** button on Telegram, or tick it in the Proposals card, to set it to zero. Otherwise it expires with the proposal. The same holds for camera counts.
+
 ## Receipts and order emails
 
 - **Receipt photo:** send it on Telegram with the caption "receipt" (or press **Receipt** among the zone buttons), choose **A receipt** in the dashboard photo card, or call `quartermaster.analyze_receipt` with a file.

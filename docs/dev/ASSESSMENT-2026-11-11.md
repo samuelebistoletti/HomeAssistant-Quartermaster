@@ -59,7 +59,7 @@ Found by reading the code, not reproduced with a test.
 
 A product not seen in a picture is only listed: vision never proposes zero. With an empty inventory the first photo or receipt gives only unknown items, which "Confirm all" drops.
 
-1. Add "not seen → 0" rows to count proposals, not selected by default, never applied automatically.
+1. Done (author's option B): "not seen → 0" rows in count proposals, never applied automatically, left out of a plain confirm and applied only by their own button or key.
 2. Add the correction "create as a new product" to `confirm_pending`, the Telegram proposal message and the Proposals card.
 3. Keep unknown items waiting instead of closing the proposal.
 

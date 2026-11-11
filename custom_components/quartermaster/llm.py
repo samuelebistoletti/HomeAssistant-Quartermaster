@@ -25,6 +25,7 @@ from custom_components.quartermaster.const import (
     DEFAULT_ALEXA_READ_ONLY,
     DOMAIN,
 )
+from custom_components.quartermaster.core.confirmations import MISSING
 from custom_components.quartermaster.core.inventory import (
     MAX_QUANTITY,
     Candidate,
@@ -866,7 +867,10 @@ class ConfirmPendingTool(QuartermasterTool):
     description = (
         "Without proposal_id, list pending proposals of changes recognized from "
         "photos. With proposal_id, confirm (optionally only some item keys, "
-        "with corrections) or reject it. Confirm only after the user agrees."
+        "with corrections) or reject it. Confirm only after the user agrees. "
+        "Items with not_seen true (a product the picture did not show, set to "
+        "zero) are left out of a plain confirm: pass their keys only when the "
+        "user says the product is finished."
     )
     parameters = probatio.Schema(
         {
@@ -916,6 +920,7 @@ class ConfirmPendingTool(QuartermasterTool):
                                         "unit",
                                     )
                                 }
+                                | {"not_seen": bool(row.get(MISSING))}
                                 for row in proposal.payload["items"]
                             ],
                         }

@@ -37,6 +37,7 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util.ulid import ulid_now
 
 from custom_components.quartermaster.const import DOMAIN
+from custom_components.quartermaster.core.confirmations import MISSING
 from custom_components.quartermaster.core.events import is_fresh_event
 from custom_components.quartermaster.core.inventory import (
     InventoryError,
@@ -72,6 +73,8 @@ PHOTO_ZONE_TTL = timedelta(minutes=10)
 CB_CONFIRM = "/qm_ok"
 CB_REJECT = "/qm_no"
 CB_QUANTITY = "/qm_qty"
+# A row not seen in a picture, confirmed on its own: "/qm_gone <proposal> <key>".
+CB_GONE = "/qm_gone"
 # Guided check of a zone kept by word: one product less or finished, done.
 CB_LEDGER = "/qm_lg"
 CB_LEDGER_OK = "/qm_lg_ok"
@@ -81,6 +84,54 @@ RECEIPT = "@receipt"
 CB_UNDO = "/qm_undo"
 CB_ADD = "/qm_add"
 CB_UNDO_CAMERA = "/qm_undo_camera"
+
+
+async def async_proposal_lines(
+    hass: HomeAssistant, rows: list[dict[str, Any]]
+) -> list[str]:
+    """One line per proposed row; rows not seen say so."""
+    not_seen = await async_phrase(hass, None, "telegram_not_seen")
+    return [
+        f"• {row['product'] or row['seen_as']}: "
+        f"{_number(row['current'])} → {_number(row['proposed'])}"
+        + (f" ({not_seen})" if row.get(MISSING) else "")
+        for row in rows
+    ]
+
+
+async def async_proposal_buttons(
+    hass: HomeAssistant, proposal_id: int, rows: list[dict[str, Any]]
+) -> list[list[tuple[str, str]]]:
+    """Confirm and reject a proposal; a button of its own per row not seen.
+
+    Confirm applies what was seen only: a product not seen may be hidden, so
+    it is set to zero only when its own button is tapped.
+    """
+    keyboard: list[list[tuple[str, str]]] = [
+        [
+            (
+                await async_phrase(
+                    hass, None, "button_ledger_finished", product=row["product"]
+                ),
+                f"{CB_GONE} {proposal_id} {row['key']}",
+            )
+        ]
+        for row in rows
+        if row.get(MISSING)
+    ]
+    last: list[tuple[str, str]] = []
+    if any(not row.get(MISSING) for row in rows):
+        last.append(
+            (
+                await async_phrase(hass, None, "button_confirm"),
+                f"{CB_CONFIRM} {proposal_id}",
+            )
+        )
+    last.append(
+        (await async_phrase(hass, None, "button_reject"), f"{CB_REJECT} {proposal_id}")
+    )
+    keyboard.append(last)
+    return keyboard
 
 
 @dataclass(slots=True)
@@ -446,22 +497,11 @@ class TelegramChannel:
             keyboard.append([(await self._phrase("button_undo"), CB_UNDO)])
         if result["proposal_id"] is not None:
             lines.append(await self._phrase("telegram_proposal"))
-            lines += [
-                f"• {row['product'] or row['seen_as']}: "
-                f"{_number(row['current'])} → {_number(row['proposed'])}"
-                for row in result["proposed"]
-            ]
-            keyboard.append(
-                [
-                    (
-                        await self._phrase("button_confirm"),
-                        f"{CB_CONFIRM} {result['proposal_id']}",
-                    ),
-                    (
-                        await self._phrase("button_reject"),
-                        f"{CB_REJECT} {result['proposal_id']}",
-                    ),
-                ]
+            lines += await async_proposal_lines(self._hass, result["proposed"])
+            if any(row.get(MISSING) for row in result["proposed"]):
+                lines.append(await self._phrase("telegram_not_seen_hint"))
+            keyboard += await async_proposal_buttons(
+                self._hass, result["proposal_id"], result["proposed"]
             )
         if not lines:
             lines.append(await self._phrase("telegram_nothing"))
@@ -480,6 +520,15 @@ class TelegramChannel:
         if command == CB_CONFIRM and args:
             await runtime.proposals.async_confirm(
                 int(args[0]), channel=Channel.TELEGRAM, user_id=None
+            )
+            answer = await self._phrase("telegram_confirmed")
+        elif command == CB_GONE and len(args) == 2:
+            # A product the picture did not show, finished after all.
+            await runtime.proposals.async_confirm(
+                int(args[0]),
+                keys=[int(args[1])],
+                channel=Channel.TELEGRAM,
+                user_id=None,
             )
             answer = await self._phrase("telegram_confirmed")
         elif command == CB_QUANTITY and len(args) == 2:

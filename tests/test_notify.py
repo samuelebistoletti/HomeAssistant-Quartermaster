@@ -359,3 +359,35 @@ async def test_camera_request_buttons(hass: HomeAssistant, notified: Any) -> Non
     await _settle(hass)
     assert sent[-1]["message"].startswith("Ho visto mettere 2 Passata in Garage.")
     assert "inline_keyboard" not in sent[-1]
+
+
+async def test_check_result_lists_products_not_seen(
+    hass: HomeAssistant, notified: Any
+) -> None:
+    """A camera count names the products it did not see, marked as such."""
+    entry, notify = notified
+    proposal = await entry.runtime_data.proposals.async_propose(
+        "fridge",
+        [
+            {
+                "key": 0,
+                "product_id": 1,
+                "product": "Mozzarella",
+                "seen_as": "mozzarella",
+                "current": 1,
+                "proposed": 0,
+                "unit": None,
+                "confidence": 0.9,
+                "missing": True,
+            }
+        ],
+        channel=Channel.CAMERA,
+        user_id=None,
+        extra={"not_seen": ["mozzarella"]},
+    )
+    hass.bus.async_fire(
+        f"{DOMAIN}_zone_checked",
+        {"zone_id": "fridge", "status": "updated", "proposal_id": proposal.id},
+    )
+    await _settle(hass)
+    assert notify.messages[-1][1].endswith("\n• Mozzarella: 1 → 0 (non visto)")
