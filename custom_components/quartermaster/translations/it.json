@@ -6,6 +6,7 @@
     "telegram_help": "Scrivimi cosa hai usato o comprato (\"ho finito il latte\"), chiedimi cosa manca, oppure mandami la foto di una zona con il nome della zona come didascalia. Comandi: /lista, /spesa, /annulla, /controlla <zona>.",
     "telegram_list": "Lista della spesa:",
     "telegram_list_empty": "La lista della spesa è vuota.",
+    "telegram_choose_check": "Quale zona controllo?",
     "telegram_choose_zone": "Quale zona c'è nella foto?",
     "telegram_applied": "Aggiornato:",
     "telegram_proposal": "Vedo queste variazioni. Confermi?",

@@ -522,6 +522,27 @@ async def test_guided_check_of_a_zone_kept_by_word(
     assert fake.sent[-1]["message"].startswith("Pozzetto dovrebbe essere vuoto.")
 
 
+async def test_check_from_the_command_menu_asks_the_zone(
+    hass: HomeAssistant, bot: Any
+) -> None:
+    """/controlla without a zone (the bot's menu) offers the zones as buttons."""
+    _entry, fake = bot
+    await _event(
+        hass, event_type="telegram_command", chat_id=CHAT, command="/controlla", args=""
+    )
+    assert fake.sent[-1]["message"] == "Quale zona controllo?"
+    assert fake.keyboard() == ["Fridge:/qm_chk fridge, Pantry:/qm_chk pantry"]
+    await _event(
+        hass,
+        event_type="telegram_callback",
+        chat_id=CHAT,
+        id="z1",
+        data="/qm_chk fridge",
+    )
+    assert fake.sent[-1]["chat_id"] == [CHAT]
+    assert fake.sent[-1]["message"].startswith("Mandami una foto di Fridge")
+
+
 async def test_products_not_seen_need_their_own_button(
     hass: HomeAssistant, bot: Any
 ) -> None:

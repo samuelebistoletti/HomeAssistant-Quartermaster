@@ -134,7 +134,7 @@ Then:
 - write normally ("I finished the milk") and Quartermaster answers through your agent;
 - send a photo with the zone name as caption, or without a caption and pick the zone with the buttons;
 - send a receipt with the caption "receipt" (in Italian "scontrino"), or press **Receipt** among the zone buttons;
-- commands: `/list` (`/lista`), `/shopping` (`/spesa`), `/undo` (`/annulla`), `/check <zone>` (`/controlla`);
+- commands: `/list` (`/lista`), `/shopping` (`/spesa`), `/undo` (`/annulla`), `/check <zone>` (`/controlla`; without a zone it offers the zones as buttons);
 - proposals and suggestions come with buttons to confirm, reject or add to the list.
 
 A photo request started from a chat goes back to that chat.
@@ -145,10 +145,11 @@ Telegram suggests commands when you type `/` only if the bot has a command list,
 lista - Lista della spesa
 spesa - Suggerimenti per la spesa
 annulla - Annulla l'ultima operazione
+controlla - Controlla una zona
 help - Cosa posso fare
 ```
 
-or the English names (`list`, `shopping`, `undo`, `help`): Quartermaster accepts both.
+or the English names (`list`, `shopping`, `undo`, `check`, `help`): Quartermaster accepts both.
 
 ### Alexa
 

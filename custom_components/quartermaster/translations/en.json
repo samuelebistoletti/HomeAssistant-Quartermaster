@@ -6,6 +6,7 @@
     "telegram_help": "Send me what you used or bought (\"I finished the milk\"), ask what is missing, or send a photo of a zone with the zone name as caption. Commands: /list, /shopping, /undo, /check <zone>.",
     "telegram_list": "Shopping list:",
     "telegram_list_empty": "The shopping list is empty.",
+    "telegram_choose_check": "Which zone should I check?",
     "telegram_choose_zone": "Which zone is in the photo?",
     "telegram_applied": "Updated:",
     "telegram_proposal": "I see these changes. Confirm?",

@@ -79,6 +79,8 @@ CB_GONE = "/qm_gone"
 CB_LEDGER = "/qm_lg"
 CB_LEDGER_OK = "/qm_lg_ok"
 CB_ZONE = "/qm_zone"
+# A zone picked after /check without a zone: "/qm_chk <zone>".
+CB_CHECK = "/qm_chk"
 # Zone ids are slugs, so this can never be one.
 RECEIPT = "@receipt"
 CB_UNDO = "/qm_undo"
@@ -345,34 +347,45 @@ class TelegramChannel:
             await self.async_send_suggestions(chat_id)
         elif name in ("undo", "annulla"):
             await self._async_undo(chat_id, None)
-        elif name in ("check", "controlla") and args.strip():
-            # A zone kept by word answers with its list; a camera is read; a
-            # zone with photos asks this chat for one.
-            outcome = await runtime.zones.async_check_zone(
-                args.strip(), channel=Channel.TELEGRAM, chat_id=chat_id
+        elif name in ("check", "controlla") and not args.strip():
+            # From the bot's command menu, which sends no zone: pick one.
+            zones = list(runtime.coordinator.data.zones.values())
+            keyboard = [
+                [
+                    (_label(zone.name), f"{CB_CHECK} {zone.id}")
+                    for zone in zones[i : i + 2]
+                ]
+                for i in range(0, len(zones), 2)
+            ]
+            await self.async_send(
+                chat_id, await self._phrase("telegram_choose_check"), keyboard
             )
-            if outcome.status is CheckStatus.UPDATED:
-                await self.async_send(
-                    chat_id,
-                    await self._phrase(
-                        "notify_check_result",
-                        zone=args.strip(),
-                        applied=str(outcome.result.get("applied") or 0),
-                        proposed="1" if outcome.result.get("proposal_id") else "0",
-                    ),
-                )
-            elif outcome.status is CheckStatus.FAILED:
-                reason = await self._phrase(
-                    f"reason_{outcome.reason or 'analysis_failed'}"
-                )
-                await self.async_send(
-                    chat_id,
-                    await self._phrase(
-                        "notify_check_failed", zone=args.strip(), reason=reason
-                    ),
-                )
+        elif name in ("check", "controlla"):
+            await self._async_check(chat_id, args.strip())
         else:
             await self.async_send(chat_id, await self._phrase("telegram_help"))
+
+    async def _async_check(self, chat_id: int, zone_ref: str) -> None:
+        """Check a zone for this chat and say how it went."""
+        # A zone kept by word answers with its list; a camera is read; a zone
+        # with photos asks this chat for one.
+        outcome = await self._runtime.zones.async_check_zone(
+            zone_ref, channel=Channel.TELEGRAM, chat_id=chat_id
+        )
+        zones = self._runtime.coordinator.data.zones
+        zone = zones[outcome.zone_id].name if outcome.zone_id in zones else zone_ref
+        if outcome.status is CheckStatus.UPDATED:
+            text = await self._phrase(
+                "notify_check_result",
+                zone=zone,
+                applied=str(outcome.result.get("applied") or 0),
+                proposed="1" if outcome.result.get("proposal_id") else "0",
+            )
+            await self.async_send(chat_id, text)
+        elif outcome.status is CheckStatus.FAILED:
+            reason = await self._phrase(f"reason_{outcome.reason or 'analysis_failed'}")
+            text = await self._phrase("notify_check_failed", zone=zone, reason=reason)
+            await self.async_send(chat_id, text)
 
     # Photos
 
@@ -569,6 +582,10 @@ class TelegramChannel:
                 else:
                     await self._async_analyze(chat_id, held.data, args[1])
                 return
+        elif command == CB_CHECK and args:
+            await self._async_answer(query_id, "")
+            await self._async_check(chat_id, args[0])
+            return
         elif command == CB_UNDO:
             await self._async_undo(chat_id, query_id)
             return
