@@ -606,6 +606,18 @@
             "lascia stare",
             "niente"
           ]
+        },
+        {
+          "name": "QuartermasterIT_reply_more",
+          "samples": [
+            "e poi",
+            "continua",
+            "vai avanti",
+            "avanti",
+            "e gli altri",
+            "altri",
+            "e dopo"
+          ]
         }
       ],
       "types": []

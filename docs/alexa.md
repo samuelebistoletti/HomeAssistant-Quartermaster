@@ -53,7 +53,7 @@ Home Assistant does not tell `intent_script` which language the request was in. 
 
 ## Questions and the microphone
 
-When the agent asks something ("Quale hai finito?"), `quartermaster.ask` returns `continue_conversation: true` and a short reprompt, so Alexa keeps the microphone open for the answer. The answer arrives as a new request, and Quartermaster keeps the thread for the session time in the options (default 120 seconds). Answers such as "la mozzarella" or "quella in frigo" go through the query intent; a bare "sì", "va bene", "no" or "yes" goes through the yes/no intents of each language (`QuartermasterIT_reply_yes`, ...).
+When the agent asks something ("Quale hai finito?"), `quartermaster.ask` returns `continue_conversation: true` and a short reprompt, so Alexa keeps the microphone open for the answer. The answer arrives as a new request, and Quartermaster keeps the thread for the session time in the options (default 120 seconds). Answers such as "la mozzarella" or "quella in frigo" go through the query intent; a bare "sì", "va bene", "no" or "yes" goes through the yes/no intents of each language (`QuartermasterIT_reply_yes`, ...), and "e poi", "continua" or "and then" through `QuartermasterIT_reply_more` / `QuartermasterEN_reply_more`, which reads the rest of a list (the list check of a zone kept by word). After updating, import the interaction models again.
 
 When the reply asks nothing, the reprompt is empty and the session ends.
 

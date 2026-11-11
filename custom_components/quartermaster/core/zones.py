@@ -365,10 +365,8 @@ class ZoneManager:
             self._running.discard(zone.id)
             await runtime.coordinator.async_request_refresh()
 
-    async def _async_ledger_check(
-        self, zone: Zone, chat_id: int | None
-    ) -> CheckOutcome:
-        """Send the zone's list, oldest first, to be gone through by the user."""
+    async def async_ledger_items(self, zone: Zone) -> list[dict[str, Any]]:
+        """Return what the zone should hold, oldest first (best-before, change)."""
         inventory = self._runtime.inventory
         products = {p.id: p for p in await inventory.async_list_products()}
         levels = [
@@ -384,7 +382,7 @@ class ZoneManager:
                 products[level.product_id].name,
             )
         )
-        items = [
+        return [
             {
                 "product_id": level.product_id,
                 "product": products[level.product_id].name,
@@ -397,8 +395,16 @@ class ZoneManager:
                 if level.updated_at
                 else None,
             }
-            for level in levels[:LEDGER_LIST_MAX]
+            for level in levels
         ]
+
+    async def _async_ledger_check(
+        self, zone: Zone, chat_id: int | None
+    ) -> CheckOutcome:
+        """Send the zone's list, oldest first, to be gone through by the user."""
+        everything = await self.async_ledger_items(zone)
+        items = everything[:LEDGER_LIST_MAX]
+        more = len(everything) - len(items)
         await self._backend.async_set_setting(
             f"ledger_check:{zone.id}", dt_util.utcnow().isoformat()
         )
@@ -408,7 +414,7 @@ class ZoneManager:
                 "zone_id": zone.id,
                 "zone": zone.name,
                 "items": items,
-                "more": len(levels) - len(items),
+                "more": more,
                 "chat_id": chat_id,
             },
         )
@@ -416,7 +422,7 @@ class ZoneManager:
             zone.id,
             CheckStatus.LIST_SENT,
             source=SourceType.LEDGER.value,
-            result={"items": items, "more": len(levels) - len(items)},
+            result={"items": items, "more": more},
         )
 
     async def _async_camera_source(

@@ -625,7 +625,34 @@ async def test_ledger_zone_by_voice(
     data = dict(result.data)  # type: ignore[union-attr]
     assert data["status"] == "list_sent"
     assert [item["product"] for item in data["oldest_first"]] == ["Ragù"]
-    assert data["more"] == 0
+    assert (data["more"], data["next_start"]) == (0, None)
+
+    # "And then?": seven products, read five at a time; nothing sent again.
+    inventory = chest.runtime_data.inventory
+    for n in range(6):
+        await inventory.async_add_product(f"Bag {n}", default_zone="chest_freezer")
+        await inventory.async_set_stock(f"bag {n}", 1, channel=Channel.SERVICE)
+    sent: list[Any] = []
+    hass.bus.async_listen(f"{DOMAIN}_ledger_check", sent.append)
+
+    async def check(**args: Any) -> dict[str, Any]:
+        result = await api.async_call_tool(
+            llm.ToolInput(
+                tool_name=f"{DOMAIN}__check_zone",
+                tool_args={"zone": "chest freezer", **args},
+            )
+        )
+        return dict(result.data)  # type: ignore[union-attr]
+
+    first = await check()
+    assert (len(first["oldest_first"]), first["more"], first["next_start"]) == (5, 2, 5)
+    rest = await check(start=first["next_start"])
+    assert rest["status"] == "list_sent"
+    assert (len(rest["oldest_first"]), rest["more"], rest["next_start"]) == (2, 0, None)
+    await hass.async_block_till_done()
+    assert len(sent) == 1
+    names = [i["product"] for i in first["oldest_first"] + rest["oldest_first"]]
+    assert len(set(names)) == 7
 
 
 async def test_list_check_after_a_camera(

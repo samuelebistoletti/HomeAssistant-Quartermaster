@@ -41,6 +41,9 @@ LOCALES: dict[str, dict] = {
         ],
         "yes": ["sì", "si", "certo", "va bene", "esatto", "giusto", "ok", "sì grazie", "confermo"],
         "no": ["no", "no grazie", "non ora", "lascia stare", "niente"],
+        # "And then?": the rest of a list read by voice. No sample may start
+        # with a carrier word.
+        "more": ["e poi", "continua", "vai avanti", "avanti", "e gli altri", "altri", "e dopo"],
     },
     "en": {
         "locales": ["en-US", "en-GB"],
@@ -54,6 +57,7 @@ LOCALES: dict[str, dict] = {
         ],
         "yes": ["yes", "yeah", "sure", "okay", "yes please", "correct", "that's right", "confirm"],
         "no": ["no", "no thanks", "not now", "never mind", "nothing"],
+        "more": ["and then", "go on", "continue", "keep going", "what else", "more", "next"],
     },
 }
 
@@ -81,6 +85,7 @@ def model(lang: str) -> dict:
     intents += [
         {"name": f"Quartermaster{lang.upper()}_reply_yes", "samples": spec["yes"]},
         {"name": f"Quartermaster{lang.upper()}_reply_no", "samples": spec["no"]},
+        {"name": f"Quartermaster{lang.upper()}_reply_more", "samples": spec["more"]},
     ]
     return {"interactionModel": {"languageModel": {"invocationName": spec["invocation"], "intents": intents, "types": []}}}
 
@@ -175,13 +180,14 @@ def intent_script() -> str:
     parts = [HEADER]
     first = True
     for lang, spec in LOCALES.items():
-        parts.append(f"\n  # {lang}: one intent per carrier word, then bare yes / no answers.\n")
+        parts.append(f"\n  # {lang}: one intent per carrier word, then bare yes / no / and then? answers.\n")
         for carrier in spec["carriers"]:
             parts.append(entry(intent_name(lang, carrier), f"{carrier} {{{{ query | default('') }}}}", lang, first))
             first = False
         yes, no = spec["yes"][0], spec["no"][0]
         parts.append(entry(f"Quartermaster{lang.upper()}_reply_yes", yes, lang, False))
         parts.append(entry(f"Quartermaster{lang.upper()}_reply_no", no, lang, False))
+        parts.append(entry(f"Quartermaster{lang.upper()}_reply_more", f"{spec['more'][0]}?", lang, False))
     parts.append(FOOTER)
     return "".join(parts)
 

@@ -32,7 +32,7 @@ intent_script:
     speech:
       text: ""
 
-  # it: one intent per carrier word, then bare yes / no answers.
+  # it: one intent per carrier word, then bare yes / no / and then? answers.
 
   QuartermasterIT_se:
     action:
@@ -677,7 +677,20 @@ intent_script:
     speech: *qm_speech
     reprompt: *qm_reprompt
 
-  # en: one intent per carrier word, then bare yes / no answers.
+  QuartermasterIT_reply_more:
+    action:
+      - action: quartermaster.ask
+        data:
+          text: "e poi?"
+          channel: alexa
+          language: it
+        response_variable: qm
+      - stop: ""
+        response_variable: qm
+    speech: *qm_speech
+    reprompt: *qm_reprompt
+
+  # en: one intent per carrier word, then bare yes / no / and then? answers.
 
   QuartermasterEN_if:
     action:
@@ -1087,6 +1100,19 @@ intent_script:
       - action: quartermaster.ask
         data:
           text: "no"
+          channel: alexa
+          language: en
+        response_variable: qm
+      - stop: ""
+        response_variable: qm
+    speech: *qm_speech
+    reprompt: *qm_reprompt
+
+  QuartermasterEN_reply_more:
+    action:
+      - action: quartermaster.ask
+        data:
+          text: "and then?"
           channel: alexa
           language: en
         response_variable: qm

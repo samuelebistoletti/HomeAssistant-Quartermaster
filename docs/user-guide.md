@@ -81,7 +81,7 @@ data:
       check_days: 30        # 0: only when you ask
 ```
 
-Such a zone never asks for photos and never shows up as "not updated". Every `check_days`, or with `/check <zone>` on Telegram (`/controlla`), the check button or by voice, Quartermaster sends what should be there, oldest first, with **−1**, **finished** and **All right** buttons; you can also answer in words. By voice the agent reads the five oldest products.
+Such a zone never asks for photos and never shows up as "not updated". Every `check_days`, or with `/check <zone>` on Telegram (`/controlla`), the check button or by voice, Quartermaster sends what should be there, oldest first, with **−1**, **finished** and **All right** buttons; you can also answer in words. By voice the agent reads the five oldest products; say "and then?" ("e poi?") for the next five.
 
 With a camera first (`camera`, then `ledger`), the list replaces the photo request when the frame is unclear, and no periodic list is sent. Set `shelf_life_days` on products that keep long (frozen food, preserves) so purchases without a date get one and the expiry calendar tells you what to use first.
 

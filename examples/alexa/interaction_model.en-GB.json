@@ -401,6 +401,18 @@
             "never mind",
             "nothing"
           ]
+        },
+        {
+          "name": "QuartermasterEN_reply_more",
+          "samples": [
+            "and then",
+            "go on",
+            "continue",
+            "keep going",
+            "what else",
+            "more",
+            "next"
+          ]
         }
       ],
       "types": []

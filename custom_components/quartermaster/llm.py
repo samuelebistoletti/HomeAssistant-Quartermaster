@@ -37,7 +37,7 @@ from custom_components.quartermaster.core.voice import (
     TELEGRAM_SESSION_PREFIX,
     PendingClarification,
 )
-from custom_components.quartermaster.core.zones import ledger_source
+from custom_components.quartermaster.core.zones import CheckStatus, ledger_source
 from custom_components.quartermaster.storage.models import (
     Channel,
     MovementKind,
@@ -957,9 +957,19 @@ class CheckZoneTool(QuartermasterTool):
         "Start checking a zone (camera, or a photo request to the user). It runs "
         "in the background: say that the check has started. A zone kept by word "
         "(status list_sent) returns its oldest products instead: read them and "
-        "ask what changed."
+        'ask what changed. When the user asks for the rest ("and then?", '
+        '"e poi?"), call it again with start set to next_start: that only '
+        "reads the next products and sends nothing."
     )
-    parameters = probatio.Schema({probatio.Required("zone"): str})
+    parameters = probatio.Schema(
+        {
+            probatio.Required("zone"): str,
+            probatio.Optional(
+                "start",
+                description="Zone kept by word: next_start of the previous answer",
+            ): probatio.All(int, probatio.Range(min=0)),
+        }
+    )
     annotations = WRITES
     writes = True
 
@@ -980,14 +990,21 @@ class CheckZoneTool(QuartermasterTool):
             chat_id = int(session.key.removeprefix(TELEGRAM_SESSION_PREFIX))
         if ledger_source(zone) is not None:
             # A zone kept by word has no camera to wait for: its list comes
-            # back at once (and goes to the chat or the notifications).
-            outcome = await runtime.zones.async_check_zone(
-                zone.id, channel=channel, user_id=user_id, chat_id=chat_id
-            )
-            items = outcome.result.get("items", [])
+            # back at once (and goes to the chat or the notifications). A
+            # later start only reads on: the list was sent already.
+            start = args.get("start", 0)
+            if start:
+                status = CheckStatus.LIST_SENT.value
+            else:
+                outcome = await runtime.zones.async_check_zone(
+                    zone.id, channel=channel, user_id=user_id, chat_id=chat_id
+                )
+                status = outcome.status.value
+            items = await runtime.zones.async_ledger_items(zone)
+            end = start + LEDGER_SPOKEN
             return _result(
                 {
-                    "status": outcome.status.value,
+                    "status": status,
                     "zone": zone.name,
                     "oldest_first": [
                         {
@@ -996,10 +1013,10 @@ class CheckZoneTool(QuartermasterTool):
                             "unit": item["unit"],
                             "since": item["since"],
                         }
-                        for item in items[:LEDGER_SPOKEN]
+                        for item in items[start:end]
                     ],
-                    "more": outcome.result.get("more", 0)
-                    + max(len(items) - LEDGER_SPOKEN, 0),
+                    "more": max(len(items) - end, 0),
+                    "next_start": end if len(items) > end else None,
                 }
             )
         entry = runtime.coordinator.config_entry
