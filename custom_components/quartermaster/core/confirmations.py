@@ -613,6 +613,10 @@ class ProposalService:
             correction = corrections.get(row["key"], {})
             if not correction.get("new_product"):
                 continue
+            if proposal.channel is Channel.CAMERA:
+                # A camera never loads goods: they come with a receipt or a
+                # photo sent on purpose.
+                raise InventoryError("camera_no_new_product")
             name = " ".join(str(correction.get("name") or row["seen_as"]).split())
             if not name:
                 raise InventoryError("invalid_name")

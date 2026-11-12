@@ -236,6 +236,9 @@
     "ambiguous_product": {
       "message": "{product} matches more than one product: {candidates}. Say which one."
     },
+    "camera_no_new_product": {
+      "message": "A camera sighting cannot add a product: send a photo of the shelf or the receipt."
+    },
     "product_exists": {
       "message": "A product called {product} already exists."
     },

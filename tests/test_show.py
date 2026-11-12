@@ -418,6 +418,21 @@ async def test_nothing_shown_and_unclear(hass: HomeAssistant, show: Any) -> None
     }
     result = await manager.async_handle_trigger("garage:0")
     assert (result["status"], result["action"]) == ("proposed", "unclear")
+    # A camera never loads goods: an unknown sighting cannot become a product.
+    proposals = entry.runtime_data.proposals
+    [caviar] = await proposals.async_pending()
+    with pytest.raises(InventoryError) as err:
+        await proposals.async_confirm(
+            caviar.id,
+            corrections={0: {"new_product": True}},
+            channel=Channel.SERVICE,
+            user_id=None,
+        )
+    assert err.value.translation_key == "camera_no_new_product"
+    outcome = await proposals.async_confirm(
+        caviar.id, channel=Channel.SERVICE, user_id=None
+    )
+    assert (outcome.applied, len(outcome.waiting)) == ([], 1)
     model.answers["show"] = _taken(passata, 0.95, "unclear")
     assert (await manager.async_handle_trigger("garage:0"))["status"] == "proposed"
     assert await _quantity(entry) == 4

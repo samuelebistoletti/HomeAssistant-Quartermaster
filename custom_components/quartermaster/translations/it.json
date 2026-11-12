@@ -236,6 +236,9 @@
     "ambiguous_product": {
       "message": "{product} corrisponde a più prodotti: {candidates}. Indica quale."
     },
+    "camera_no_new_product": {
+      "message": "Un avvistamento della telecamera non può aggiungere un prodotto: manda una foto dello scaffale o lo scontrino."
+    },
     "product_exists": {
       "message": "Esiste già un prodotto chiamato {product}."
     },
