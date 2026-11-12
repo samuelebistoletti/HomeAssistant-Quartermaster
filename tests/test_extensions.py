@@ -176,6 +176,54 @@ async def test_receipt_proposal_confirmed(
     assert level.quantity == 1
 
 
+async def test_receipt_unknown_item_becomes_a_new_product(
+    hass: HomeAssistant, shop: Any
+) -> None:
+    """Gap A: an unknown item of a receipt needs a zone to become a product."""
+    entry, _ = shop
+    await entry.runtime_data.purchases.async_from_receipt(
+        _receipt(), channel=Channel.SERVICE, user_id=None
+    )
+    [proposal] = await entry.runtime_data.proposals.async_pending()
+    key = next(
+        row["key"] for row in proposal.payload["items"] if row["seen_as"] == "Biscotti"
+    )
+    inventory = entry.runtime_data.inventory
+    for correction, error in (
+        ({"key": key, "new_product": True}, "zone_required"),
+        ({"key": key, "new_product": True, "zone": "attic"}, "zone_not_found"),
+    ):
+        with pytest.raises(InventoryError) as err:
+            await hass.services.async_call(
+                DOMAIN,
+                "confirm_pending",
+                {"proposal_id": proposal.id, "corrections": [correction]},
+                blocking=True,
+            )
+        assert err.value.translation_key == error
+    assert [p.name for p in await inventory.async_list_products()] == ["Milk"]
+    milk = await inventory.async_find_product("milk")
+    [level] = await inventory.async_get_stock(product_id=milk.id)
+    assert level.quantity == 1  # a refused correction writes nothing
+
+    await hass.services.async_call(
+        DOMAIN,
+        "confirm_pending",
+        {
+            "proposal_id": proposal.id,
+            "items": [key],
+            "corrections": [{"key": key, "new_product": True, "zone": "Fridge"}],
+        },
+        blocking=True,
+    )
+    biscotti = await inventory.async_find_product("biscotti")
+    assert biscotti.default_zone_id == "fridge"
+    [level] = await inventory.async_get_stock(product_id=biscotti.id)
+    assert level.quantity == 1
+    [entry_] = await inventory.async_list_journal(limit=1)
+    assert entry_.kind is MovementKind.PURCHASE
+
+
 async def test_receipt_unreadable(hass: HomeAssistant, shop: Any) -> None:
     """A receipt the model cannot read is refused, nothing is proposed."""
     entry, ai = shop

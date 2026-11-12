@@ -88,6 +88,16 @@ MISSING = "missing"
 
 
 @dataclass(slots=True)
+class ConfirmOutcome:
+    """What a confirmation wrote, and the unknown rows left waiting."""
+
+    applied: list[dict[str, Any]]
+    # Rows matching no product, chosen without a correction naming one or
+    # creating one: they stay in the proposal and expire with it.
+    waiting: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(slots=True)
 class ProposalOutcome:
     """What an analysis led to."""
 
@@ -463,7 +473,8 @@ class ProposalService:
                 pending.append(proposal)
         return pending
 
-    async def _async_get(self, proposal_id: int) -> Proposal:
+    async def async_get(self, proposal_id: int) -> Proposal:
+        """Return a pending proposal."""
         for proposal in await self.async_pending():
             if proposal.id == proposal_id:
                 return proposal
@@ -471,7 +482,7 @@ class ProposalService:
 
     async def async_reject(self, proposal_id: int) -> Proposal:
         """Reject a proposal; nothing is written."""
-        proposal = await self._async_get(proposal_id)
+        proposal = await self.async_get(proposal_id)
         proposal.status = ProposalStatus.REJECTED
         await self._backend.async_update_proposal(proposal)
         await self._async_closed(proposal)
@@ -485,11 +496,14 @@ class ProposalService:
         corrections: dict[int, dict[str, Any]] | None = None,
         channel: Channel,
         user_id: str | None,
-    ) -> list[dict[str, Any]]:
+    ) -> ConfirmOutcome:
         """Apply the chosen items (all by default), with corrections.
 
         A correction may name the right product and quantity; the name the
-        model used is then learned as an alias of that product.
+        model used is then learned as an alias of that product. A correction
+        with `new_product` creates the product (named as seen, or `name`) in
+        the proposal's zone, or in `zone` for a purchase. Unknown items
+        chosen without such a correction stay waiting.
         """
         async with self._confirm_lock:
             return await self._async_confirm(
@@ -503,11 +517,13 @@ class ProposalService:
         corrections: dict[int, dict[str, Any]],
         channel: Channel,
         user_id: str | None,
-    ) -> list[dict[str, Any]]:
-        proposal = await self._async_get(proposal_id)
+    ) -> ConfirmOutcome:
+        proposal = await self.async_get(proposal_id)
         if proposal.payload.get("kind") == MOVEMENT:
-            return await self._async_confirm_movement(
-                proposal, corrections.get(0, {}), channel, user_id
+            return ConfirmOutcome(
+                await self._async_confirm_movement(
+                    proposal, corrections.get(0, {}), channel, user_id
+                )
             )
         purchase = proposal.payload.get("kind") == PURCHASE
         if proposal.zone_id is None and not purchase:
@@ -518,21 +534,30 @@ class ProposalService:
             for row in proposal.payload["items"]
             if (row["key"] in keys if keys is not None else not row.get(MISSING))
         ]
+        created = await self._async_new_products(
+            proposal, chosen, corrections, purchase
+        )
         counts: list[tuple[int, str, float, float | None]] = []
         bought: list[tuple[int, float]] = []
         applied: list[dict[str, Any]] = []
+        waiting: list[dict[str, Any]] = []
         for row in chosen:
             correction = corrections.get(row["key"], {})
             product_id = row["product_id"]
-            if correction.get("product"):
+            name = row["product"]
+            if (product := created.get(row["key"])) is None and correction.get(
+                "product"
+            ):
                 product = await self._inventory.async_find_product(
                     correction["product"]
                 )
+            if product is not None:
                 if product.id != product_id:
                     await self._inventory.async_add_alias(product.id, row["seen_as"])
-                product_id = product.id
+                product_id, name = product.id, product.name
             if product_id is None:
-                continue  # an unknown product needs a correction naming it
+                waiting.append(row)
+                continue
             quantity = float(correction.get("quantity", row["proposed"]))
             if purchase:
                 bought.append((product_id, quantity))
@@ -541,7 +566,15 @@ class ProposalService:
                 counts.append(
                     (product_id, proposal.zone_id, quantity, row["confidence"])
                 )
-            applied.append({**row, "product_id": product_id, "proposed": quantity})
+            applied.append(
+                {
+                    **row,
+                    "product_id": product_id,
+                    "product": name,
+                    "proposed": quantity,
+                    "new_product": row["key"] in created,
+                }
+            )
         if counts:
             await self._inventory.async_apply_counts(
                 counts, channel=channel, user_id=user_id
@@ -550,16 +583,60 @@ class ProposalService:
             await self._inventory.async_record_purchases(
                 bought, channel=channel, user_id=user_id
             )
-        chosen_keys = {row["key"] for row in chosen}
-        remaining = [
-            row for row in proposal.payload["items"] if row["key"] not in chosen_keys
-        ]
+        done = {row["key"] for row in applied}
+        remaining = [row for row in proposal.payload["items"] if row["key"] not in done]
         if remaining:
-            # Items not chosen stay pending in the same proposal.
+            # Items not chosen, and unknown ones, stay pending in the proposal.
             proposal.payload = {**proposal.payload, "items": remaining}
         else:
             proposal.status = ProposalStatus.CONFIRMED
         await self._backend.async_update_proposal(proposal)
         if proposal.status is ProposalStatus.CONFIRMED:
             await self._async_closed(proposal)
-        return applied
+        return ConfirmOutcome(applied, waiting)
+
+    async def _async_new_products(
+        self,
+        proposal: Proposal,
+        chosen: list[dict[str, Any]],
+        corrections: dict[int, dict[str, Any]],
+        purchase: bool,
+    ) -> dict[int, Product]:
+        """Create the products asked for by `new_product` corrections, by key.
+
+        Every name and zone is checked before the first product is created,
+        so a refused correction creates nothing.
+        """
+        wanted: list[tuple[int, str, str, str | None]] = []
+        names: set[str] = set()
+        for row in chosen:
+            correction = corrections.get(row["key"], {})
+            if not correction.get("new_product"):
+                continue
+            name = " ".join(str(correction.get("name") or row["seen_as"]).split())
+            if not name:
+                raise InventoryError("invalid_name")
+            if purchase:
+                if not correction.get("zone"):
+                    raise InventoryError("zone_required", product=name)
+                zone_id = (await self._inventory.async_find_zone(correction["zone"])).id
+            else:
+                assert proposal.zone_id is not None
+                zone_id = proposal.zone_id
+            if normalize(name) in names or await self._product_exists(name):
+                raise InventoryError("product_exists", product=name)
+            names.add(normalize(name))
+            wanted.append((row["key"], name, zone_id, row["unit"]))
+        return {
+            key: await self._inventory.async_add_product(
+                name, default_zone=zone_id, unit=unit
+            )
+            for key, name, zone_id, unit in wanted
+        }
+
+    async def _product_exists(self, name: str) -> bool:
+        key = normalize(name)
+        return any(
+            normalize(product.name) == key
+            for product in await self._inventory.async_list_products()
+        )

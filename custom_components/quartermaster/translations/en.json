@@ -14,6 +14,12 @@
     "telegram_nothing": "Nothing changed in this zone.",
     "telegram_not_seen": "not seen",
     "telegram_not_seen_hint": "A product not seen is left as it is unless you tap its button.",
+    "telegram_unknown": "unknown product",
+    "telegram_unknown_hint": "An unknown product waits until you tap its ➕ button; otherwise it expires with the proposal.",
+    "telegram_confirmed_unknown_waiting": "Confirmed. Unknown products are still waiting: tap ➕ to add them.",
+    "telegram_new_product": "{product} added as a new product.",
+    "telegram_new_product_zone": "Where does {product} go?",
+    "button_new_product": "➕ New {product}",
     "telegram_confirmed": "Confirmed.",
     "telegram_rejected": "Rejected.",
     "telegram_expired": "This photo is no longer waiting; send it again.",
@@ -733,7 +739,7 @@
         },
         "corrections": {
           "name": "Corrections",
-          "description": "List of items to fix, each with key, product and quantity; the name the model used is learned as an alias."
+          "description": "List of items to fix, each with key, product and quantity; the name the model used is learned as an alias. new_product true creates the product (named as read, or name) in the proposal's zone, or in zone for a receipt. Unknown items without a correction stay waiting."
         }
       }
     },

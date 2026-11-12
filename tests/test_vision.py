@@ -359,6 +359,97 @@ async def test_confirm_with_corrections_learns_aliases(
     assert err.value.translation_key == "proposal_not_found"
 
 
+async def test_unknown_items_wait_and_become_new_products(
+    hass: HomeAssistant, setup: tuple[MockConfigEntry, FakeAITask], photo: Path
+) -> None:
+    """Gap A: confirm all keeps unknown items waiting; new_product creates them."""
+    entry, _ = setup
+    inventory: InventoryService = entry.runtime_data.inventory
+    result = await _analyze(hass, photo)
+    keys = {row["seen_as"]: row["key"] for row in result["proposed"]}
+    response = await hass.services.async_call(
+        DOMAIN,
+        "confirm_pending",
+        {"proposal_id": result["proposal_id"]},
+        blocking=True,
+        return_response=True,
+    )
+    assert response is not None
+    assert {row["seen_as"] for row in response["applied"]} == {"Milk", "Yoghurt"}  # type: ignore[union-attr]
+    assert response["waiting"] == [keys["Kefir"]]
+    # The proposal stays open with the unknown item only.
+    [pending] = await entry.runtime_data.proposals.async_pending()
+    assert [row["seen_as"] for row in pending.payload["items"]] == ["Kefir"]
+
+    response = await hass.services.async_call(
+        DOMAIN,
+        "confirm_pending",
+        {
+            "proposal_id": result["proposal_id"],
+            "corrections": [{"key": keys["Kefir"], "new_product": True}],
+        },
+        blocking=True,
+        return_response=True,
+    )
+    assert response is not None
+    [applied] = response["applied"]  # type: ignore[misc]
+    assert (applied["product"], applied["new_product"]) == ("Kefir", True)
+    kefir = await inventory.async_find_product("kefir")
+    assert kefir.default_zone_id == "fridge"
+    [level] = await inventory.async_get_stock(product_id=kefir.id)
+    assert (level.zone_id, level.quantity) == ("fridge", 1)
+    assert await entry.runtime_data.proposals.async_pending() == []
+
+
+async def test_new_product_with_another_name_and_refusals(
+    hass: HomeAssistant, setup: tuple[MockConfigEntry, FakeAITask], photo: Path
+) -> None:
+    """A given name keeps the reading as an alias; a taken name creates nothing."""
+    entry, fake = setup
+    inventory: InventoryService = entry.runtime_data.inventory
+    fake.answer = {
+        **fake.answer,
+        "items": [
+            {"product": "Kefir", "quantity": 1, "confidence": 0.8},
+            {"product": "Ghee jar", "quantity": 2, "confidence": 0.8},
+        ],
+    }
+    result = await _analyze(hass, photo)
+    keys = {row["seen_as"]: row["key"] for row in result["proposed"]}
+
+    async def confirm(*corrections: dict[str, Any]) -> None:
+        await hass.services.async_call(
+            DOMAIN,
+            "confirm_pending",
+            {"proposal_id": result["proposal_id"], "corrections": list(corrections)},
+            blocking=True,
+        )
+
+    # Two rows asking for one name, or a name already taken: nothing is created.
+    for corrections in (
+        [
+            {"key": keys["Kefir"], "new_product": True, "name": "Ghee"},
+            {"key": keys["Ghee jar"], "new_product": True, "name": "ghee"},
+        ],
+        [{"key": keys["Kefir"], "new_product": True, "name": "milk"}],
+    ):
+        with pytest.raises(ServiceValidationError) as err:
+            await confirm(*corrections)
+        assert err.value.translation_key == "product_exists"
+        assert len(await inventory.async_list_products()) == 2
+
+    await confirm(
+        {"key": keys["Ghee jar"], "new_product": True, "name": "Ghee", "quantity": 3}
+    )
+    ghee = await inventory.async_find_product("ghee jar")  # the reading, as alias
+    assert ghee.name == "Ghee"
+    [level] = await inventory.async_get_stock(product_id=ghee.id)
+    assert level.quantity == 3
+    # Kefir was not corrected: it keeps waiting.
+    [pending] = await entry.runtime_data.proposals.async_pending()
+    assert [row["seen_as"] for row in pending.payload["items"]] == ["Kefir"]
+
+
 async def test_reject_and_unchanged_image(
     hass: HomeAssistant, setup: tuple[MockConfigEntry, FakeAITask], photo: Path
 ) -> None:
@@ -550,12 +641,25 @@ async def test_confirm_tool(
         return dict(result.data)
 
     [pending] = (await call())["pending"]
+    assert pending["kind"] == "count"
     milk = next(item for item in pending["items"] if item["seen_as"] == "Milk")
-    assert milk["not_seen"] is False
-    confirmed = await call(proposal_id=pending["proposal_id"], items=[milk["key"]])
+    assert (milk["not_seen"], milk["unknown"]) == (False, False)
+    kefir = next(item for item in pending["items"] if item["seen_as"] == "Kefir")
+    assert kefir["unknown"] is True
+    confirmed = await call(
+        proposal_id=pending["proposal_id"], items=[milk["key"], kefir["key"]]
+    )
     assert confirmed["status"] == "confirmed"
+    assert confirmed["waiting_unknown"] == [{"key": kefir["key"], "seen_as": "Kefir"}]
+    created = await call(
+        proposal_id=pending["proposal_id"],
+        items=[kefir["key"]],
+        corrections=[{"key": kefir["key"], "new_product": True}],
+    )
+    [applied] = created["applied"]
+    assert (applied["product"], applied["new_product"]) == ("Kefir", True)
     [rest] = (await call())["pending"]
-    assert milk["key"] not in [item["key"] for item in rest["items"]]
+    assert {milk["key"], kefir["key"]}.isdisjoint(item["key"] for item in rest["items"])
     await call(proposal_id=rest["proposal_id"], decision="reject")
     assert (await call())["pending"] == []
 

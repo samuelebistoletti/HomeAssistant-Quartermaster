@@ -27,6 +27,7 @@ from custom_components.quartermaster.channels.telegram import (
     async_proposal_lines,
 )
 from custom_components.quartermaster.const import DOMAIN
+from custom_components.quartermaster.core.inventory import InventoryError
 from custom_components.quartermaster.core.phrases import async_phrase
 from custom_components.quartermaster.core.purchases import EVENT_PURCHASES_PROPOSED
 from custom_components.quartermaster.core.suggestions import Suggestion
@@ -445,13 +446,20 @@ class NotificationRouter:
     async def _async_purchases(self, data: dict[str, Any]) -> None:
         proposal_id = data["proposal_id"]
         text = await self._phrase("notify_purchases", count=data.get("count", 0))
-        buttons = [
-            [
-                (await self._phrase("button_confirm"), f"/qm_ok {proposal_id}"),
-                (await self._phrase("button_reject"), f"/qm_no {proposal_id}"),
-            ]
-        ]
+        rows = await self._async_rows(proposal_id)
+        if rows:
+            text += "\n" + "\n".join(await async_proposal_lines(self._hass, rows))
+        buttons = await async_proposal_buttons(self._hass, proposal_id, rows)
         await self.async_send(Message(MessageType.PURCHASES, text, buttons=buttons))
+
+    async def _async_rows(self, proposal_id: int) -> list[dict[str, Any]]:
+        """Return the rows of a pending proposal, none when it is gone."""
+        try:
+            proposal = await self._runtime.proposals.async_get(proposal_id)
+        except InventoryError:
+            return []
+        rows: list[dict[str, Any]] = proposal.payload["items"]
+        return rows
 
     async def _async_zone_checked(self, data: dict[str, Any]) -> None:
         text = await self._phrase(
@@ -466,14 +474,7 @@ class NotificationRouter:
             )
         buttons = None
         if proposal_id := data.get("proposal_id"):
-            rows: list[dict[str, Any]] = next(
-                (
-                    p.payload["items"]
-                    for p in await self._runtime.proposals.async_pending()
-                    if p.id == proposal_id
-                ),
-                [],
-            )
+            rows = await self._async_rows(proposal_id)
             if rows:
                 text += "\n" + "\n".join(await async_proposal_lines(self._hass, rows))
             buttons = await async_proposal_buttons(self._hass, proposal_id, rows)

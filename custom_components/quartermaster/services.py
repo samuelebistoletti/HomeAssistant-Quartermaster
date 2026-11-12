@@ -100,6 +100,7 @@ ATTR_DECISION = "decision"
 ATTR_ITEMS = "items"
 ATTR_CORRECTIONS = "corrections"
 ATTR_KEY = "key"
+ATTR_NEW_PRODUCT = "new_product"
 ATTR_MINUTES = "minutes"
 ATTR_SOURCES = "sources"
 ATTR_CHECK_SCHEDULE = "check_schedule"
@@ -262,6 +263,9 @@ CONFIRM_PENDING_SCHEMA = probatio.Schema(
                 probatio.Required(ATTR_KEY): cv.positive_int,
                 probatio.Optional(ATTR_PRODUCT): cv.string,
                 probatio.Optional(ATTR_QUANTITY): QUANTITY,
+                probatio.Optional(ATTR_NEW_PRODUCT): cv.boolean,
+                probatio.Optional(ATTR_NAME): cv.string,
+                probatio.Optional(ATTR_ZONE): cv.string,
             }
         ],
     }
@@ -654,18 +658,25 @@ async def _async_confirm_pending(call: ServiceCall) -> ServiceResponse:
     if call.data[ATTR_DECISION] == "reject":
         await runtime.proposals.async_reject(proposal_id)
         applied: list[dict[str, Any]] = []
+        waiting: list[int] = []
     else:
-        applied = await runtime.proposals.async_confirm(
+        outcome = await runtime.proposals.async_confirm(
             proposal_id,
             keys=call.data.get(ATTR_ITEMS),
             corrections={c[ATTR_KEY]: c for c in call.data[ATTR_CORRECTIONS]},
             channel=Channel.SERVICE,
             user_id=call.context.user_id,
         )
+        applied = outcome.applied
+        waiting = [row["key"] for row in outcome.waiting]
     await runtime.coordinator.async_refresh()
     if not call.return_response:
         return None
-    return {"decision": call.data[ATTR_DECISION], "applied": applied}
+    return {
+        "decision": call.data[ATTR_DECISION],
+        "applied": applied,
+        "waiting": waiting,
+    }
 
 
 def _cleared(call: ServiceCall, key: str) -> Any:

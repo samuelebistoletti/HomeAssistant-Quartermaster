@@ -593,3 +593,92 @@ async def test_products_not_seen_need_their_own_button(
     [level] = await inventory.async_get_stock(product_id=mozzarella.id)
     assert level.quantity == 0
     assert await entry.runtime_data.proposals.async_pending() == []
+
+
+async def test_unknown_items_get_a_new_product_button(
+    hass: HomeAssistant, bot: Any
+) -> None:
+    """Gap A: Confirm leaves unknown items waiting; their New button creates them."""
+    entry, fake = bot
+    inventory = entry.runtime_data.inventory
+    fake.ai.answer = {
+        **fake.ai.answer,
+        "items": [
+            *fake.ai.answer["items"],
+            {"product": "Kefir", "quantity": 2, "confidence": 0.8},
+        ],
+    }
+    await _event(
+        hass,
+        event_type="telegram_attachment",
+        chat_id=CHAT,
+        file_id="f1",
+        file_mime_type="image/jpeg",
+        text="frigo",
+    )
+    message = fake.sent[-1]["message"]
+    assert "• Kefir: 2 (prodotto sconosciuto)" in message
+    assert "pulsante ➕" in message
+    new, last = fake.keyboard()
+    label, data = new.split(":", 1)
+    assert label == "➕ Nuovo Kefir"
+    assert data.startswith("/qm_new ")
+    confirm = last.split(", ")[0].split(":", 1)[1]
+
+    await _event(
+        hass, event_type="telegram_callback", chat_id=CHAT, id="c1", data=confirm
+    )
+    assert fake.answers[-1]["message"].startswith("Confermato. I prodotti sconosciuti")
+    [pending] = await entry.runtime_data.proposals.async_pending()
+    assert [row["seen_as"] for row in pending.payload["items"]] == ["Kefir"]
+
+    await _event(hass, event_type="telegram_callback", chat_id=CHAT, id="c2", data=data)
+    assert fake.answers[-1]["message"] == "Kefir aggiunto come nuovo prodotto."
+    kefir = await inventory.async_find_product("kefir")
+    [level] = await inventory.async_get_stock(product_id=kefir.id)
+    assert (level.zone_id, level.quantity) == ("fridge", 2)
+    assert await entry.runtime_data.proposals.async_pending() == []
+
+
+async def test_unknown_receipt_item_asks_its_zone(
+    hass: HomeAssistant, bot: Any
+) -> None:
+    """A receipt has no zone: New asks for one, then creates and buys the product."""
+    entry, fake = bot
+    fake.ai.answer = {
+        **fake.ai.answer,
+        "items": [{"product": "Biscotti", "quantity": 1, "confidence": 0.8}],
+    }
+    await _event(
+        hass,
+        event_type="telegram_attachment",
+        chat_id=CHAT,
+        file_id="r1",
+        file_mime_type="image/jpeg",
+        text="Scontrino",
+    )
+    assert "• Biscotti: 1 (prodotto sconosciuto)" in fake.sent[-1]["message"]
+    new, last = fake.keyboard()
+    assert last.split(":", 1)[1].startswith("/qm_no ")  # nothing known to confirm
+    await _event(
+        hass,
+        event_type="telegram_callback",
+        chat_id=CHAT,
+        id="n1",
+        data=new.split(":", 1)[1],
+    )
+    assert fake.sent[-1]["message"] == "Dove va Biscotti?"
+    zones = [button for row in fake.keyboard() for button in row.split(", ")]
+    assert [button.split(":", 1)[0] for button in zones] == ["Fridge", "Pantry"]
+    await _event(
+        hass,
+        event_type="telegram_callback",
+        chat_id=CHAT,
+        id="n2",
+        data=zones[1].split(":", 1)[1],
+    )
+    assert fake.answers[-1]["message"] == "Biscotti aggiunto come nuovo prodotto."
+    inventory = entry.runtime_data.inventory
+    biscotti = await inventory.async_find_product("biscotti")
+    [level] = await inventory.async_get_stock(product_id=biscotti.id)
+    assert (level.zone_id, level.quantity) == ("pantry", 1)

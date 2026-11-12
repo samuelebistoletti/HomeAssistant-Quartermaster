@@ -870,7 +870,11 @@ class ConfirmPendingTool(QuartermasterTool):
         "with corrections) or reject it. Confirm only after the user agrees. "
         "Items with not_seen true (a product the picture did not show, set to "
         "zero) are left out of a plain confirm: pass their keys only when the "
-        "user says the product is finished."
+        "user says the product is finished. Items with unknown true match no "
+        "product: a plain confirm leaves them waiting. Ask the user whether to "
+        "create them; if yes, pass a correction with new_product true (and "
+        "name when the user gives another name); a receipt (kind purchase) "
+        "also needs the zone."
     )
     parameters = probatio.Schema(
         {
@@ -882,6 +886,9 @@ class ConfirmPendingTool(QuartermasterTool):
                     probatio.Required("key"): int,
                     probatio.Optional("product"): str,
                     probatio.Optional("quantity"): QUANTITY,
+                    probatio.Optional("new_product"): bool,
+                    probatio.Optional("name"): str,
+                    probatio.Optional("zone"): str,
                 }
             ],
         }
@@ -905,6 +912,7 @@ class ConfirmPendingTool(QuartermasterTool):
                     "pending": [
                         {
                             "proposal_id": proposal.id,
+                            "kind": proposal.payload.get("kind", "count"),
                             "zone": zones[proposal.zone_id].name
                             if proposal.zone_id in zones
                             else None,
@@ -920,7 +928,10 @@ class ConfirmPendingTool(QuartermasterTool):
                                         "unit",
                                     )
                                 }
-                                | {"not_seen": bool(row.get(MISSING))}
+                                | {
+                                    "not_seen": bool(row.get(MISSING)),
+                                    "unknown": row["product_id"] is None,
+                                }
                                 for row in proposal.payload["items"]
                             ],
                         }
@@ -931,7 +942,7 @@ class ConfirmPendingTool(QuartermasterTool):
         if args.get("decision") == "reject":
             await proposals.async_reject(args["proposal_id"])
             return _result({"status": "rejected"})
-        applied = await proposals.async_confirm(
+        outcome = await proposals.async_confirm(
             args["proposal_id"],
             keys=args.get("items"),
             corrections={c["key"]: c for c in args.get("corrections", [])},
@@ -942,8 +953,17 @@ class ConfirmPendingTool(QuartermasterTool):
             {
                 "status": "confirmed",
                 "applied": [
-                    {"product_id": row["product_id"], "quantity": row["proposed"]}
-                    for row in applied
+                    {
+                        "product_id": row["product_id"],
+                        "product": row["product"],
+                        "quantity": row["proposed"],
+                        "new_product": row.get("new_product", False),
+                    }
+                    for row in outcome.applied
+                ],
+                "waiting_unknown": [
+                    {"key": row["key"], "seen_as": row["seen_as"]}
+                    for row in outcome.waiting
                 ],
             }
         )

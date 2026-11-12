@@ -40,6 +40,7 @@
 - Telegram waits for the answer and sends one message instead of "I'm on it" and a second one; Alexa no longer promises a later message when no destination for late voice replies is set.
 - List check by voice: "and then?" ("e poi?", "continua") reads the next five products; new Alexa intents in the interaction models (import them again).
 - Telegram `/check` (`/controlla`) without a zone, as sent by the bot's command menu, offers the zones as buttons.
+- Unknown products in a photo or receipt no longer vanish when the proposal is confirmed: they stay waiting and expire with it. Each can be created as a new product, named as read or as given, with the quantity seen: its "➕ New" button on Telegram (a receipt asks for the zone), the Proposals card, or the correction `new_product` (with `name`, and `zone` for a receipt) in `confirm_pending` and the agent's tool. `confirm_pending` now also returns the keys still `waiting`.
 - Products recorded in a zone that a photo or camera count does not show are proposed at zero as "not seen". Confirming the proposal leaves them alone; each one is set to zero only with its own Telegram button ("<product> finished"), by ticking it in the dashboard or by naming its key.
 
 ### Added

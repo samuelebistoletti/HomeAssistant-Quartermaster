@@ -106,12 +106,14 @@ A photo you send shows the shelf as it is: quantities follow what it shows, high
 
 A product recorded in the zone that the picture does not show is listed as **not seen**, at zero. It may only be hidden behind something, so confirming the proposal leaves it as it is: tap its own **<product> finished** button on Telegram, or tick it in the Proposals card, to set it to zero. Otherwise it expires with the proposal. The same holds for camera counts.
 
+A product the inventory does not know yet (the first photo of a new home, a gift) is listed as **unknown product**. Confirming the proposal leaves it waiting: tap its **➕ New <product>** button on Telegram, choose **New product** in the Proposals card, or ask by voice, and it is created with the name the model read (the dashboard and voice can give another name) and the quantity seen, in the zone of the photo. Otherwise it expires with the proposal.
+
 ## Receipts and order emails
 
 - **Receipt photo:** send it on Telegram with the caption "receipt" (or press **Receipt** among the zone buttons), choose **A receipt** in the dashboard photo card, or call `quartermaster.analyze_receipt` with a file.
 - **Order emails:** set up the IMAP integration for the mailbox that receives order and delivery emails, then choose its entry and the allowed senders (a whole address or a domain) under **Configure → Shopping list**. Only new emails from those senders are read, with the AI Task for text if set.
 
-The purchases always become a proposal: confirm, correct or reject them as for photos. A correction teaches Quartermaster the name on the receipt. Confirmed purchases go to each product's default zone, with a best-before date from its shelf life when known.
+The purchases always become a proposal: confirm, correct or reject them as for photos. A correction teaches Quartermaster the name on the receipt. Confirmed purchases go to each product's default zone, with a best-before date from its shelf life when known. An unknown product on a receipt waits like one in a photo; its **➕ New** button first asks in which zone it goes, and that becomes its default zone.
 
 ## Shopping
 

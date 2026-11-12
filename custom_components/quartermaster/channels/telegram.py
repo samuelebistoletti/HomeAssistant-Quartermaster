@@ -37,7 +37,7 @@ from homeassistant.util import dt as dt_util
 from homeassistant.util.ulid import ulid_now
 
 from custom_components.quartermaster.const import DOMAIN
-from custom_components.quartermaster.core.confirmations import MISSING
+from custom_components.quartermaster.core.confirmations import MISSING, PURCHASE
 from custom_components.quartermaster.core.events import is_fresh_event
 from custom_components.quartermaster.core.inventory import (
     InventoryError,
@@ -56,6 +56,7 @@ from custom_components.quartermaster.core.voice import (
 from custom_components.quartermaster.core.zones import CheckStatus
 from custom_components.quartermaster.storage.models import (
     Channel,
+    Proposal,
     ShoppingOrigin,
     ShoppingStatus,
 )
@@ -75,6 +76,10 @@ CB_REJECT = "/qm_no"
 CB_QUANTITY = "/qm_qty"
 # A row not seen in a picture, confirmed on its own: "/qm_gone <proposal> <key>".
 CB_GONE = "/qm_gone"
+# An unknown item created as a new product: "/qm_new <proposal> <key>"; a
+# receipt asks for its zone first: "/qm_newz <proposal> <key> <zone>".
+CB_NEW = "/qm_new"
+CB_NEW_ZONE = "/qm_newz"
 # Guided check of a zone kept by word: one product less or finished, done.
 CB_LEDGER = "/qm_lg"
 CB_LEDGER_OK = "/qm_lg_ok"
@@ -91,38 +96,56 @@ CB_UNDO_CAMERA = "/qm_undo_camera"
 async def async_proposal_lines(
     hass: HomeAssistant, rows: list[dict[str, Any]]
 ) -> list[str]:
-    """One line per proposed row; rows not seen say so."""
+    """One line per proposed row; rows not seen and unknown ones say so.
+
+    Purchase rows have no current quantity: only the quantity bought.
+    """
     not_seen = await async_phrase(hass, None, "telegram_not_seen")
-    return [
-        f"• {row['product'] or row['seen_as']}: "
-        f"{_number(row['current'])} → {_number(row['proposed'])}"
-        + (f" ({not_seen})" if row.get(MISSING) else "")
-        for row in rows
-    ]
+    unknown = await async_phrase(hass, None, "telegram_unknown")
+    lines = []
+    for row in rows:
+        change = (
+            _number(row["proposed"])
+            if row["current"] is None
+            else f"{_number(row['current'])} → {_number(row['proposed'])}"
+        )
+        note = (
+            f" ({not_seen})"
+            if row.get(MISSING)
+            else f" ({unknown})"
+            if row["product_id"] is None
+            else ""
+        )
+        lines.append(f"• {row['product'] or row['seen_as']}: {change}{note}")
+    return lines
 
 
 async def async_proposal_buttons(
     hass: HomeAssistant, proposal_id: int, rows: list[dict[str, Any]]
 ) -> list[list[tuple[str, str]]]:
-    """Confirm and reject a proposal; a button of its own per row not seen.
+    """Confirm and reject a proposal; own buttons for rows not seen or unknown.
 
     Confirm applies what was seen only: a product not seen may be hidden, so
-    it is set to zero only when its own button is tapped.
+    it is set to zero only when its own button is tapped; an unknown item is
+    created as a new product only by its own button, and otherwise waits.
     """
-    keyboard: list[list[tuple[str, str]]] = [
-        [
-            (
-                await async_phrase(
-                    hass, None, "button_ledger_finished", product=row["product"]
-                ),
-                f"{CB_GONE} {proposal_id} {row['key']}",
+    keyboard: list[list[tuple[str, str]]] = []
+    for row in rows:
+        if row.get(MISSING):
+            label = await async_phrase(
+                hass, None, "button_ledger_finished", product=row["product"]
             )
-        ]
-        for row in rows
-        if row.get(MISSING)
-    ]
+            command = CB_GONE
+        elif row["product_id"] is None:
+            label = await async_phrase(
+                hass, None, "button_new_product", product=row["seen_as"]
+            )
+            command = CB_NEW
+        else:
+            continue
+        keyboard.append([(_label(label), f"{command} {proposal_id} {row['key']}")])
     last: list[tuple[str, str]] = []
-    if any(not row.get(MISSING) for row in rows):
+    if any(not row.get(MISSING) and row["product_id"] is not None for row in rows):
         last.append(
             (
                 await async_phrase(hass, None, "button_confirm"),
@@ -453,22 +476,12 @@ class TelegramChannel:
             await self.async_send(chat_id, await self._phrase("telegram_nothing"))
             return
         lines = [await self._phrase("telegram_purchases")]
-        lines += [
-            f"• {row['product'] or row['seen_as']}: {_number(row['proposed'])}"
-            for row in result["items"]
-        ]
-        keyboard = [
-            [
-                (
-                    await self._phrase("button_confirm"),
-                    f"{CB_CONFIRM} {result['proposal_id']}",
-                ),
-                (
-                    await self._phrase("button_reject"),
-                    f"{CB_REJECT} {result['proposal_id']}",
-                ),
-            ]
-        ]
+        lines += await async_proposal_lines(self._hass, result["items"])
+        if any(row["product_id"] is None for row in result["items"]):
+            lines.append(await self._phrase("telegram_unknown_hint"))
+        keyboard = await async_proposal_buttons(
+            self._hass, result["proposal_id"], result["items"]
+        )
         await self.async_send(chat_id, "\n".join(lines), keyboard)
 
     async def _async_ask_zone(self, chat_id: int, photo: bytes) -> None:
@@ -513,6 +526,8 @@ class TelegramChannel:
             lines += await async_proposal_lines(self._hass, result["proposed"])
             if any(row.get(MISSING) for row in result["proposed"]):
                 lines.append(await self._phrase("telegram_not_seen_hint"))
+            if any(row["product_id"] is None for row in result["proposed"]):
+                lines.append(await self._phrase("telegram_unknown_hint"))
             keyboard += await async_proposal_buttons(
                 self._hass, result["proposal_id"], result["proposed"]
             )
@@ -531,10 +546,26 @@ class TelegramChannel:
         runtime = self._runtime
         answer = ""
         if command == CB_CONFIRM and args:
-            await runtime.proposals.async_confirm(
+            outcome = await runtime.proposals.async_confirm(
                 int(args[0]), channel=Channel.TELEGRAM, user_id=None
             )
-            answer = await self._phrase("telegram_confirmed")
+            answer = await self._phrase(
+                "telegram_confirmed_unknown_waiting"
+                if outcome.waiting
+                else "telegram_confirmed"
+            )
+        elif command == CB_NEW and len(args) == 2:
+            proposal = await runtime.proposals.async_get(int(args[0]))
+            if proposal.payload.get("kind") == PURCHASE:
+                # A receipt has no zone: ask where the new product goes.
+                await self._async_answer(query_id, "")
+                await self._async_ask_new_zone(chat_id, proposal, int(args[1]))
+                return
+            answer = await self._async_new_product(int(args[0]), int(args[1]))
+        elif command == CB_NEW_ZONE and len(args) == 3:
+            answer = await self._async_new_product(
+                int(args[0]), int(args[1]), zone=args[2]
+            )
         elif command == CB_GONE and len(args) == 2:
             # A product the picture did not show, finished after all.
             await runtime.proposals.async_confirm(
@@ -602,6 +633,43 @@ class TelegramChannel:
             answer = await self._phrase("telegram_added")
         await runtime.coordinator.async_refresh()
         await self._async_answer(query_id, answer)
+
+    async def _async_ask_new_zone(
+        self, chat_id: int, proposal: Proposal, key: int
+    ) -> None:
+        """Ask in which zone an unknown item of a receipt goes."""
+        row = next(row for row in proposal.payload["items"] if row["key"] == key)
+        zones = list(self._runtime.coordinator.data.zones.values())
+        keyboard = [
+            [
+                (_label(zone.name), f"{CB_NEW_ZONE} {proposal.id} {key} {zone.id}")
+                for zone in zones[i : i + 2]
+            ]
+            for i in range(0, len(zones), 2)
+        ]
+        await self.async_send(
+            chat_id,
+            await self._phrase("telegram_new_product_zone", product=row["seen_as"]),
+            keyboard,
+        )
+
+    async def _async_new_product(
+        self, proposal_id: int, key: int, *, zone: str | None = None
+    ) -> str:
+        """Create an unknown item as a new product, named as it was read."""
+        correction: dict[str, Any] = {"new_product": True}
+        if zone is not None:
+            correction["zone"] = zone
+        outcome = await self._runtime.proposals.async_confirm(
+            proposal_id,
+            keys=[key],
+            corrections={key: correction},
+            channel=Channel.TELEGRAM,
+            user_id=None,
+        )
+        return await self._phrase(
+            "telegram_new_product", product=outcome.applied[0]["product"]
+        )
 
     async def _async_undo(
         self,

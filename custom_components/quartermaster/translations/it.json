@@ -14,6 +14,12 @@
     "telegram_nothing": "Nessuna variazione in questa zona.",
     "telegram_not_seen": "non visto",
     "telegram_not_seen_hint": "I prodotti non visti restano come sono, a meno che tu non tocchi il loro pulsante.",
+    "telegram_unknown": "prodotto sconosciuto",
+    "telegram_unknown_hint": "Un prodotto sconosciuto resta in attesa finché non tocchi il suo pulsante ➕; altrimenti scade con la proposta.",
+    "telegram_confirmed_unknown_waiting": "Confermato. I prodotti sconosciuti sono ancora in attesa: tocca ➕ per aggiungerli.",
+    "telegram_new_product": "{product} aggiunto come nuovo prodotto.",
+    "telegram_new_product_zone": "Dove va {product}?",
+    "button_new_product": "➕ Nuovo {product}",
     "telegram_confirmed": "Confermato.",
     "telegram_rejected": "Rifiutato.",
     "telegram_expired": "Questa foto non è più in attesa; rimandala.",
@@ -733,7 +739,7 @@
         },
         "corrections": {
           "name": "Correzioni",
-          "description": "Elenco delle voci da correggere, ognuna con key, product e quantity; il nome usato dal modello viene imparato come alias."
+          "description": "Elenco delle voci da correggere, ognuna con key, product e quantity; il nome usato dal modello viene imparato come alias. new_product true crea il prodotto (con il nome letto, o name) nella zona della proposta, o in zone per uno scontrino. Le voci sconosciute senza correzione restano in attesa."
         }
       }
     },
