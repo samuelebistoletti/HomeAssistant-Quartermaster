@@ -1,7 +1,7 @@
 """camera_show and passage cameras: products shown or carried past a camera.
 
-Spec §5.1, extended by the author's decisions (TECHNICAL_NOTES, "Cameras as
-observation points"):
+Spec §5.1, extended by the author's decisions (TECHNICAL_NOTES, "Zones,
+sources and cameras"):
 
 - A trigger (new event of an event entity, or a binary_sensor turning on)
   starts a burst capture through the documented camera.snapshot action.

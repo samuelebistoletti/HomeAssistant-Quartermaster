@@ -1,6 +1,6 @@
 # Assessment of the integration and the dashboard (2026-11-11)
 
-Full review of `HomeAssistant-Quartermaster` and `HomeAssistant-Quartermaster-Dashboard`: code, tests, workflows, specification, technical notes and working memory. This file records what was found, what was fixed the same day, what is still open and the plan for it. Decisions taken while fixing are in `TECHNICAL_NOTES.md` ("Assessment and fixes").
+Full review of `HomeAssistant-Quartermaster` and `HomeAssistant-Quartermaster-Dashboard`: code, tests, workflows, specification, technical notes and working memory. This file records what was found, what was fixed the same day, what is still open and the plan for it. Decisions taken while fixing are in `TECHNICAL_NOTES.md`; the open points are now GitHub issues. This report is a snapshot of 2026-11-11 and is not kept up to date.
 
 ## State
 

@@ -1,8 +1,16 @@
 # Quartermaster — Home Assistant integration
 
-Custom Home Assistant integration (Marketplace/HACS, domain `quartermaster`): an AI agent for household inventory by zone, essentials and the shopping list. The binding specification is `docs/SPEC.md`; deviations and decisions are in `TECHNICAL_NOTES.md`; where the work stands is in `docs/dev/MEMORY.md`. Read all three before starting. The dashboard lives in the sibling repository `HomeAssistant-Quartermaster-Dashboard`.
+Custom Home Assistant integration (Marketplace, domain `quartermaster`): an AI agent for household inventory by zone, essentials and the shopping list. The dashboard (strategy and cards) lives in the sibling repository `HomeAssistant-Quartermaster-Dashboard`.
 
 This file is shared with every contributor and agent. Keep it short, factual and free of personal or machine-specific content.
+
+## Where to read
+
+- `docs/dev/MEMORY.md`: where the work stands and what comes next. Read it at the start of every session; update it at the end.
+- `docs/SPEC.md`: the binding specification. Read the section for the behaviour before changing it.
+- `TECHNICAL_NOTES.md`: the current decisions and every deviation from the spec, by topic. Read the topic before changing that area or proposing a design.
+- GitHub issues: open work and known bugs (see Agent skills).
+- `CONTRIBUTING.md`: machine setup, dev instance, Cloudflare gateway patch.
 
 ## Commands
 
@@ -20,33 +28,34 @@ scripts/dev-cloudflare-gateway               # optional: patched Cloudflare AI G
 
 - `custom_components/quartermaster/`: the integration (`core/`, `storage/`, `vision/`, `channels/`, platforms, `llm.py`, `translations/`, `brand/`).
 - `tests/`: pytest-homeassistant tests.
-- `docs/`: spec, user docs, `dev/MEMORY.md`; `examples/`: automations and Alexa models.
-- `.github/workflows/`: tests, security, hassfest, hacs, codeql, issues, tag-and-release.
+- `docs/`: spec, user docs, dashboard API contract, `dev/`; `examples/`: automations, Alexa models, Phase 0 probes.
+- `scripts/`: lint, dev tools, `alexa-models` (generates the Alexa models; a test checks they are current).
 
 ## Rules
 
-- Follow the current official documentation (contributors.home-assistant.io, home-assistant.io, Marketplace docs, Alexa Skills Kit, Cloudflare), not memory. If the docs do not cover a point, stop, ask the author, then record the decision in `TECHNICAL_NOTES.md`.
-- No undocumented Home Assistant internals. No Python requirements beyond what Home Assistant ships, unless the author agrees.
-- Typed, async code; blocking work (SQLite, Pillow) runs in the executor. Per-entry objects live in `entry.runtime_data`.
-- Everything user-facing is multilingual (at least English and Italian), Alexa included. Strings, exceptions included, go through translation keys in `translations/en.json` (complete) and `translations/it.json`; no `strings.json`.
+- Follow the current official documentation (contributors.home-assistant.io, home-assistant.io, Marketplace docs, Alexa Skills Kit, Cloudflare), not memory. Where the docs are silent, stop, ask the author, then record the decision in `TECHNICAL_NOTES.md`.
+- Use only documented Home Assistant APIs and the Python packages Home Assistant ships; anything else needs the author's agreement and a note in `TECHNICAL_NOTES.md`.
+- Typed, async code with tests (a bug fix comes with its regression test); blocking work (SQLite, Pillow) runs in the executor. Per-entry objects live in `entry.runtime_data`.
+- Everything user-facing is multilingual (at least English and Italian), Alexa included. Strings, exceptions included, go through translation keys in `translations/en.json` (complete) and `translations/it.json`; there is no `strings.json`.
 - LLM tools are named `quartermaster__<name>`, return `llm.ToolResult`, set `integration` and declare `llm.ToolAnnotations`.
-- Code, comments and docs in English. Changing a `unique_id` is a breaking change: document it in `CHANGELOG.md`.
-- No secrets, personal data or real home details in code, examples, fixtures or docs. Personal environment notes go to `*.local.md` (gitignored).
-- Development and tests run on the dev instance only. On the author's real instance: reads only, and only when asked.
-- No debug flags enabled in commits.
-- Always the latest stable version of everything: Home Assistant (the minimum is the latest stable; older releases are not supported), libraries, GitHub Actions, Docker images, third-party integrations. Adopt new majors instead of pinning back; the only exception is a pin that must match Home Assistant's own manifests.
-- Before committing run `.venv/bin/ruff format --check .` too; after every push wait for all GitHub Actions runs of the commit and fix any failure at once.
+- Code, comments, commits and docs in English (`docs/SPEC.md` is the author's, in Italian).
+- Every user-visible change goes into `CHANGELOG.md` under `[Unreleased]`; a changed `unique_id` is a breaking change and says so. Every deviation from the spec goes into `TECHNICAL_NOTES.md`.
+- Code, examples, fixtures and docs use invented data only; personal environment notes go to `*.local.md` (gitignored).
+- Develop and test on the dev instance. The author's real instance is read-only, and only when the author asks.
+- Commit with debug flags off.
+- Use the latest stable version of everything: Home Assistant (minimum = latest stable), libraries, GitHub Actions, Docker images, third-party integrations. Adopt new majors; pin back only to match Home Assistant's own manifests.
+- Work on `main`. The pre-commit hook (`.githooks/pre-commit`, enabled with `git config core.hooksPath .githooks`) runs `ruff format --check`, `ruff check` and mypy; fix its failures with `bash scripts/lint`. Run the tests before committing. After every push, check all GitHub Actions runs of the commit and fix any failure at once.
 
 ## Decisions (do not re-litigate without a new reason)
 
-- Minimum Home Assistant 2026.11.0 (Python ≥ 3.14.2), in `manifest.json` and `hacs.json`.
+- Minimum Home Assistant 2026.11.0 (Python ≥ 3.14.2), set in `hacs.json`.
 - SQLite via the standard library; AI through `ai_task.generate_data` and the user's conversation agent; no provider clients.
-- Frontend only from the dashboard repository (dashboard strategy + cards); the integration ships no JavaScript.
+- Frontend only from the dashboard repository; the integration ships no JavaScript.
 - Action buttons only on Telegram and in the dashboard; other notify entities get plain text.
 
 ## Release
 
-Bumping `version` in `custom_components/quartermaster/manifest.json` on `main` runs `tag-and-release.yaml`: tests and security checks, then the tag `v<version>`, the ZIP and the GitHub release from the matching `CHANGELOG.md` section. `0.0.0` is the unreleased placeholder and is never published. Never bump the version, tag or release unless the author asks.
+Bumping `version` in `custom_components/quartermaster/manifest.json` on `main` runs `tag-and-release.yaml`: tests and security checks, then the tag `v<version>`, the ZIP and the GitHub release from the matching `CHANGELOG.md` section. `0.0.0` is the unreleased placeholder and is never published. Bump the version, tag or release only when the author asks. Release in pairs with the dashboard.
 
 ## Agent skills
 

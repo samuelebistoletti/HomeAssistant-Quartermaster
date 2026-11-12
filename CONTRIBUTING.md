@@ -55,6 +55,9 @@ python -m pytest
 # Tests, lint and type check on the host
 python3.14 -m venv .venv && .venv/bin/pip install -r requirements_test.txt
 
+# Check-only pre-commit hook: ruff format, ruff check and mypy, as in CI
+git config core.hooksPath .githooks
+
 # Home Assistant on http://localhost:8123 and ha-mcp on http://localhost:8086
 docker compose up -d
 

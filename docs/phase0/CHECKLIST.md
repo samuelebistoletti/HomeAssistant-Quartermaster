@@ -1,6 +1,6 @@
 # Phase 0 — practical checks
 
-Checks run together by the author and the agent. Record every outcome in `TECHNICAL_NOTES.md` (section "Phase 0 — practical checks") and tick it here. Probes live in `examples/phase0/` and `scripts/phase0/`. They are for checks only and never ship in the integration.
+Checks run together by the author and the agent. Record every outcome in the matching topic of `TECHNICAL_NOTES.md` and tick it here. Probes live in `examples/phase0/` and `scripts/phase0/`. They are for checks only and never ship in the integration.
 
 Rules:
 - Dev instance (`docker compose up -d`) unless stated otherwise.
@@ -27,7 +27,7 @@ Steps:
 2. Send to the bot, in order: a text, the command `/start`, a photo with caption `frigo`, a photo without caption, an image sent as a file (document), a text from a group the bot is in but that is not allowlisted, then tap the probe buttons.
 3. Read the result: `docker compose logs homeassistant | grep quartermaster_phase0.telegram`.
 
-Record (2026-11-10, HA 2026.11.0, polling; details in TECHNICAL_NOTES "Telegram on the dev instance"):
+Record (2026-11-10, HA 2026.11.0, polling; details in TECHNICAL_NOTES, "Channels"):
 - [x] Event types and attributes seen on the **event entity**: `file_id`, `file_mime_type`, caption in `text`, `chat_id`, `user_id`.
 - [x] Whether the same events arrive on the **bus** (undocumented path), and any differences.
 - [x] `telegram_bot.download_file` response (`file_path`), the location and size of the file, and whether a photo arrives at its largest size.
@@ -71,7 +71,7 @@ Steps:
 | 12 | Model built with a bare `{query}` sample (temporary edit) | Does the console accept it, and is the slot text whole? |
 
 Record:
-- [x] Results 1–12 (2026-11-10, Alexa+, it-IT; details in TECHNICAL_NOTES "Alexa with a real Echo, Alexa+"):
+- [x] Results 1–12 (2026-11-10, Alexa+, it-IT; details in TECHNICAL_NOTES, "Alexa"):
   1. Refused ("at least 2 words"); "dispensa di casa" warned (no prepositions). Author chose "dispensa smart".
   2. "Dimmi", microphone open.
   3. `ho ancora il latte`.

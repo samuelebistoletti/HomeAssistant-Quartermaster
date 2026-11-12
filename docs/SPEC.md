@@ -718,14 +718,7 @@ Criteri: un utente nuovo installa e configura tutto seguendo solo il README; val
 
 ## 16. Istruzioni per Claude Code
 
-- Lavora una fase alla volta e fermati ai criteri di accettazione mostrando i risultati.
-- Basa ogni scelta sulla documentazione ufficiale corrente (sezione 17); non andare a memoria. Se la documentazione non copre un punto, fermati e chiedi all'autore, poi annota la decisione in TECHNICAL\_NOTES.md.
-- Non usare API interne non documentate di Home Assistant.
-- Non introdurre dipendenze Python esterne senza chiedere; preferisci la libreria standard e ciò che Home Assistant già include.
-- Codice tipizzato e asincrono, con test; lavoro bloccante (SQLite, Pillow) sempre nell'executor.
-- Sviluppa sull'istanza di sviluppo; sull'istanza reale dell'autore solo letture, salvo consenso esplicito.
-- Nessun segreto nel repository; nessun dato personale negli esempi o nelle fixture.
-- Aggiorna il CHANGELOG e annota in TECHNICAL\_NOTES.md ogni scostamento da questa specifica.
+Le regole di lavoro per Claude Code e per chiunque contribuisca stanno in `CLAUDE.md` alla radice del repository; le decisioni e ogni scostamento da questa specifica in `TECHNICAL_NOTES.md`.
 
 ## 17. Base documentale
 

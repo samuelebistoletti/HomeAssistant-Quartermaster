@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Check-only gate before every commit: the same ruff and mypy checks CI runs.
+# Enable once per clone: git config core.hooksPath .githooks
+# (scripts/setup does it in the dev container). Fix failures with scripts/lint.
+
+set -e
+
+cd "$(git rev-parse --show-toplevel)"
+
+# The tools of the virtual environment when there is one (host), otherwise
+# the ones on PATH (dev container), as in scripts/lint.
+BIN=""
+if [ -x .venv/bin/ruff ]; then
+    BIN=.venv/bin/
+fi
+
+"${BIN}ruff" format --check .
+"${BIN}ruff" check .
+"${BIN}mypy"
