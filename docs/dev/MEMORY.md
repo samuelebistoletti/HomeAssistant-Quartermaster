@@ -8,7 +8,8 @@ Where the work stands, shared between sessions and machines. Rules live in `CLAU
 - Done on 2026-11-11: the assessment fixes, cameras that only ask, the list check (`ledger` zones), "not seen → 0" rows, the model choice (gemma-4-26b agent and images, glm-4.7-flash text). The assessment report (`docs/dev/ASSESSMENT-2026-11-11.md`) is a frozen snapshot; its open points are now issues.
 - Open work: GitHub issues in both repositories. `ready-for-agent` issues can be picked up; `ready-for-human` ones wait for the author (decisions and field tests).
 - Postponed (2026-11-12, still planned): a full review of the whole codebase in both repositories (module by module against `docs/SPEC.md` and the rules, or `/code-review` against the first commit `6a673f8`, plus `security-audit`); findings become GitHub issues. Start it only when the author asks.
-- Next, suggested order: integration #1 (unknown items as new products), #3 (placed goods vs receipts), #2 with dashboard #3 (product life cycle), dashboard #2 (movement requests), then the smaller fixes; field validation (#18, #19) whenever the author is available; #16 and #17 before 1.0.
+- Done on 2026-11-12: integration #1 (unknown items wait and become new products: `new_product` correction, Telegram New buttons, Proposals card), tested in pytest and the dashboard tests; on the dev instance only the action schema was checked, the full photo and receipt flow with the test bot is still to try.
+- Next, suggested order: integration #3 (placed goods vs receipts), #2 with dashboard #3 (product life cycle), dashboard #2 (movement requests), then the smaller fixes; field validation (#18, #19) whenever the author is available; #16 and #17 before 1.0.
 
 ## Machine setup
 
