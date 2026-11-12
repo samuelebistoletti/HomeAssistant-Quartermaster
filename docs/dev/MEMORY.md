@@ -7,7 +7,8 @@ Where the work stands, shared between sessions and machines. Rules live in `CLAU
 - Everything is on `main` and pushed in both repositories; CI green. No release yet (`0.0.0`).
 - Done on 2026-11-11: the assessment fixes, cameras that only ask, the list check (`ledger` zones), "not seen → 0" rows, the model choice (gemma-4-26b agent and images, glm-4.7-flash text). The assessment report (`docs/dev/ASSESSMENT-2026-11-11.md`) is a frozen snapshot; its open points are now issues.
 - Open work: GitHub issues in both repositories. `ready-for-agent` issues can be picked up; `ready-for-human` ones wait for the author (decisions and field tests).
-- Suggested order: integration #1 (unknown items as new products), #3 (placed goods vs receipts), #2 with dashboard #3 (product life cycle), dashboard #2 (movement requests), then the smaller fixes; field validation (#18, #19) whenever the author is available; #16 and #17 before 1.0.
+- Next (agreed 2026-11-12): a full code review of both repositories in a fresh session (`/code-review ultra`, started by the author, or `/code-review` against the first commit, plus `security-audit`); findings become GitHub issues.
+- Then, suggested order: integration #1 (unknown items as new products), #3 (placed goods vs receipts), #2 with dashboard #3 (product life cycle), dashboard #2 (movement requests), then the smaller fixes; field validation (#18, #19) whenever the author is available; #16 and #17 before 1.0.
 
 ## Machine setup
 

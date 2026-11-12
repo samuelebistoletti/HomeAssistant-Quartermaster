@@ -44,7 +44,13 @@ scripts/dev-cloudflare-gateway               # optional: patched Cloudflare AI G
 - Develop and test on the dev instance. The author's real instance is read-only, and only when the author asks.
 - Commit with debug flags off.
 - Use the latest stable version of everything: Home Assistant (minimum = latest stable), libraries, GitHub Actions, Docker images, third-party integrations. Adopt new majors; pin back only to match Home Assistant's own manifests.
-- Work on `main`. The pre-commit hook (`.githooks/pre-commit`, enabled with `git config core.hooksPath .githooks`) runs `ruff format --check`, `ruff check` and mypy; fix its failures with `bash scripts/lint`. Run the tests before committing. After every push, check all GitHub Actions runs of the commit and fix any failure at once.
+- Commit and push directly on `main`. The pre-commit hook (`.githooks/pre-commit`, enabled with `git config core.hooksPath .githooks`) runs `ruff format --check`, `ruff check` and mypy; fix its failures with `bash scripts/lint`. Run the tests before committing.
+- After every push, run one `gh run list` for the commit; while runs are still going, watch them in the background and keep working, then report the result and fix any failure at once.
+
+## Working with people
+
+- Reply in the language the person writes in; code, commits and docs stay in English.
+- When someone must act by hand (Cloudflare, AWS, the Alexa console, BotFather, the Home Assistant UI, a terminal), give numbered click-by-click steps: exact menu paths, field names, values and commands in code blocks, and what they should see at the end. Check the outcome yourself from logs or APIs instead of asking what happened.
 
 ## Decisions (do not re-litigate without a new reason)
 
