@@ -7,11 +7,18 @@ append it to `MIGRATIONS`.
 
 from __future__ import annotations
 
-from . import m001_initial, m002_operation_id, m003_shopping_order, m004_photo_requests
+from . import (
+    m001_initial,
+    m002_operation_id,
+    m003_shopping_order,
+    m004_photo_requests,
+    m005_zone_settings,
+)
 
 MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     (1, m001_initial.STATEMENTS),
     (2, m002_operation_id.STATEMENTS),
     (3, m003_shopping_order.STATEMENTS),
     (4, m004_photo_requests.STATEMENTS),
+    (5, m005_zone_settings.STATEMENTS),
 )

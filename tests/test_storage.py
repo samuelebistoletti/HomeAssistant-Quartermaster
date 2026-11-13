@@ -288,6 +288,63 @@ async def test_migration_from_version_1(hass: HomeAssistant, tmp_path: Path) -> 
     await store.async_close()
 
 
+ZONE_KEYS = (
+    "last_check:{}",
+    "failures:{}",
+    "ledger_check:{}",
+    "source_reads:{}:0",
+    "show_count:{}:1",
+)
+
+
+async def test_delete_zone_drops_its_settings(backend: SQLiteBackend) -> None:
+    """Deleting a zone deletes its per-zone settings and nobody else's."""
+    for zone_id in ("fridge", "fridge_2", "fridgex"):
+        await backend.async_save_zone(Zone(id=zone_id, name=zone_id))
+        for key in ZONE_KEYS:
+            await backend.async_set_setting(key.format(zone_id), "1")
+    await backend.async_set_setting("other", "1")
+
+    await backend.async_delete_zone("fridge")
+
+    for key in ZONE_KEYS:
+        assert await backend.async_get_setting(key.format("fridge")) is None
+        for kept in ("fridge_2", "fridgex"):
+            assert await backend.async_get_setting(key.format(kept)) == "1"
+    assert await backend.async_get_setting("other") == "1"
+
+
+async def test_migration_drops_settings_of_deleted_zones(
+    hass: HomeAssistant, tmp_path: Path
+) -> None:
+    """Upgrading deletes per-zone settings left by zones deleted earlier."""
+    path = tmp_path / "pantry.db"
+    conn = sqlite3.connect(path)
+    with conn:
+        for version, statements in MIGRATIONS:
+            if version > 4:
+                break
+            for statement in statements:
+                conn.execute(statement)
+        conn.execute("INSERT INTO settings VALUES ('schema_version', '4')")
+        conn.execute("INSERT INTO zones (id, name) VALUES ('pantry', 'Pantry')")
+        for zone_id in ("pantry", "gone"):
+            for key in ZONE_KEYS:
+                conn.execute(
+                    "INSERT INTO settings VALUES (?, '1')", (key.format(zone_id),)
+                )
+        conn.execute("INSERT INTO settings VALUES ('other', '1')")
+    conn.close()
+
+    store = SQLiteBackend(hass, path)
+    await store.async_open()
+    for key in ZONE_KEYS:
+        assert await store.async_get_setting(key.format("gone")) is None
+        assert await store.async_get_setting(key.format("pantry")) == "1"
+    assert await store.async_get_setting("other") == "1"
+    await store.async_close()
+
+
 async def test_dump_and_restore(backend: SQLiteBackend) -> None:
     """A dump restored over other data gives back the same tables."""
     product = await _seed(backend)

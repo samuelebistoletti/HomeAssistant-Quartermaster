@@ -54,6 +54,10 @@ VOLATILE_TABLES: tuple[str, ...] = (
     "zone_snapshots",
     "photo_requests",
 )
+# Settings that belong to one zone, deleted with it: keyed `<prefix>:<zone id>`
+# and `<prefix>:<zone id>:<source>`.
+ZONE_SETTINGS: tuple[str, ...] = ("last_check", "failures", "ledger_check")
+SOURCE_SETTINGS: tuple[str, ...] = ("source_reads", "show_count")
 JSON_COLUMNS: dict[str, frozenset[str]] = {
     "zones": frozenset({"aliases", "sources"}),
     "products": frozenset({"aliases"}),
@@ -340,12 +344,22 @@ class SQLiteBackend(StorageBackend):
             )
 
     async def async_delete_zone(self, zone_id: str) -> None:
-        """Delete a zone; its stock rows go with it."""
+        """Delete a zone; its stock rows and settings go with it."""
         await self._run(self._delete_zone, zone_id)
 
     def _delete_zone(self, zone_id: str) -> None:
         with self._transaction() as conn:
             conn.execute("DELETE FROM zones WHERE id = ?", (zone_id,))
+            conn.executemany(
+                "DELETE FROM settings WHERE key = ?",
+                [(f"{prefix}:{zone_id}",) for prefix in ZONE_SETTINGS],
+            )
+            for prefix in SOURCE_SETTINGS:
+                start = f"{prefix}:{zone_id}:"
+                conn.execute(
+                    "DELETE FROM settings WHERE substr(key, 1, ?) = ?",
+                    (len(start), start),
+                )
 
     # Products
 
