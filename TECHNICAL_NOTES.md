@@ -20,7 +20,7 @@ When a decision changes, edit its row in place (with the date and who decided) i
 | §4, §6.8 list and suggestions "in the same transaction" | Recomputed by a debounced coordinator within about a second | The list is derived data and can always be rebuilt |
 | §4 journal | `journal.operation_id` (ULID) added: undo works per operation | Author (2026-11-08) |
 | §5 debug retention of photos | No such option | Privacy; not needed so far; author |
-| §5 step 2 `max_age_minutes` | Accepted in the source schema, not enforced: `camera.snapshot` gives no frame time; stale frames show up as unchanged images | No documented frame timestamp |
+| §5 step 2 `max_age_minutes` | Removed from the source schema and the spec (stripped from stored sources when they are validated again): `camera.snapshot` and `async_get_image` give no frame time; stale frames show up as unchanged images | No documented frame timestamp |
 | §6.5 crop in proposals vs §5.1 privacy | Zone and proposal crops are kept until decided; camera_show and passage frames are never kept | §5.1 privacy wins |
 | §17.2 Python-side phrases | Spoken and sent phrases under `common` in the translations, read with `homeassistant.helpers.translation.async_get_translations` (public, not in the integration guides) | Author (2026-11-08) |
 | §8 user list | `hass.auth.async_get_users()` lists the users for `write_users` (public, not in the developer docs; there is no user selector); the check itself uses the documented `async_get_user` and `is_admin` | Author (2026-11-08): if the call changes, only the options step breaks |

@@ -36,6 +36,7 @@
 
 ### Changed
 - Cameras never write (author decision). A product taken in front of a camera becomes a request on Telegram and in the dashboard, with buttons for the quantity; it is recorded as a consumption only on a yes, with Undo. A product put back cancels a request still waiting or asks to undo the confirmed consumption; goods placed with nothing to undo are not loaded (they enter with a receipt or a photo sent on purpose). Passage cameras only support a zone sighting or ask about goods carried out. The source option `confirm` is gone (ignored if stored).
+- The camera source option `max_age_minutes` is removed: a camera frame has no documented time, so it was never enforced (sources stored with it are accepted and lose it when saved again).
 - A camera's count of a zone is always a proposal, of decreases only, even in automatic update mode; products seen in a larger quantity are reported, not loaded.
 - Telegram waits for the answer and sends one message instead of "I'm on it" and a second one; Alexa no longer promises a later message when no destination for late voice replies is set.
 - List check by voice: "and then?" ("e poi?", "continua") reads the next five products; new Alexa intents in the interaction models (import them again).

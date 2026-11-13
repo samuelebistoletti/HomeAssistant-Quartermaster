@@ -140,9 +140,6 @@ SOURCE_SCHEMAS: dict[SourceType, probatio.Schema] = {
             probatio.Required("type"): SourceType.CAMERA.value,
             probatio.Required("entity_id"): _CAMERA,
             probatio.Optional("roi"): _roi,
-            probatio.Optional("max_age_minutes", default=30): probatio.All(
-                int, probatio.Range(min=1, max=1440)
-            ),
             probatio.Optional("max_checks_per_day", default=4): probatio.All(
                 int, probatio.Range(min=1, max=96)
             ),
@@ -195,6 +192,11 @@ SOURCE_SCHEMAS: dict[SourceType, probatio.Schema] = {
 }
 
 
+# `confirm`: cameras always ask now. `max_age_minutes`: a camera frame has no
+# documented time, so it could not be enforced.
+REMOVED_OPTIONS = frozenset({"confirm", "max_age_minutes"})
+
+
 def source_key(zone_id: str, source: dict[str, Any]) -> str:
     """Return a key for a source that stays when its zone's sources move.
 
@@ -225,8 +227,10 @@ def validate_sources(sources: list[Any]) -> list[dict[str, Any]]:
             raise InventoryError(
                 "invalid_source", index=str(index + 1), error="not an object"
             )
-        # Dropped option (cameras always ask now); stored sources may have it.
-        source = {key: value for key, value in source.items() if key != "confirm"}
+        # Removed options; sources stored earlier may still have them.
+        source = {
+            key: value for key, value in source.items() if key not in REMOVED_OPTIONS
+        }
         try:
             kind = SourceType(str(source.get("type")))
             validated.append(dict(SOURCE_SCHEMAS[kind](source)))

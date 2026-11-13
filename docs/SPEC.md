@@ -145,7 +145,6 @@ Le zone si creano dall'options flow o dalla dashboard e si salvano nell'archivio
     - type: camera
       entity_id: camera.garage
       roi: [0.62, 0.05, 1.0, 1.0]   # ritaglio x1,y1,x2,y2 in frazioni
-      max_age_minutes: 30
       max_checks_per_day: 2         # utile per telecamere a batteria
     - type: camera_show             # facoltativa, sezione 5.1
       entity_id: camera.garage
@@ -194,7 +193,7 @@ Per i provider che gestiscono male le strutture annidate esiste una modalità di
 Ogni controllo di zona (programmato, chiesto a voce, da Telegram, dalla dashboard, da un pulsante o da un'azione) segue lo stesso algoritmo:
 
 1. Scorrere le fonti della zona in ordine di priorità (la fonte camera\_show non partecipa: ha un flusso proprio, sezione 5.1).
-2. Fonte camera: leggere il fotogramma dall'entità camera. Scartarlo se la lettura fallisce o supera 15 secondi, se è più vecchio di max\_age\_minutes, se dopo il ritaglio il lato corto è sotto 640 px, se è troppo scuro o sfocato (luminosità media e varianza del laplaciano calcolate con Pillow), o se è stato superato max\_checks\_per\_day.
+2. Fonte camera: leggere il fotogramma dall'entità camera. Scartarlo se la lettura fallisce o supera 15 secondi, se dopo il ritaglio il lato corto è sotto 640 px, se è troppo scuro o sfocato (luminosità media e varianza del laplaciano calcolate con Pillow), o se è stato superato max\_checks\_per\_day.
 3. Calcolare un hash percettivo (dHash con Pillow): se l'immagine è quasi identica all'ultima analizzata, riusare il risultato precedente senza chiamare il modello.
 4. Salvare il ritaglio nella cartella media dell'integrazione e chiamare ai\_task.generate\_data con istruzioni, prodotti attesi nella zona, schema di output e immagine come allegato.
 5. Se overall\_confidence è sotto la soglia della zona o un essenziale atteso non è stato visto, il risultato è insufficiente: passare alla fonte successiva.

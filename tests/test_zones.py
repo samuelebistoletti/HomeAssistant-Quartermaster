@@ -80,7 +80,13 @@ def test_validate_sources() -> None:
     """Sources get their defaults; bad ones name the source and the problem."""
     sources = validate_sources(
         [
-            {"type": "camera", "entity_id": "camera.garage", "roi": [0.6, 0, 1, 1]},
+            {
+                "type": "camera",
+                "entity_id": "camera.garage",
+                "roi": [0.6, 0, 1, 1],
+                # Removed option, still present in sources stored earlier.
+                "max_age_minutes": 30,
+            },
             {
                 "type": "camera_show",
                 "entity_id": "camera.garage",
@@ -98,6 +104,7 @@ def test_validate_sources() -> None:
         ]
     )
     assert sources[0]["max_checks_per_day"] == 4
+    assert "max_age_minutes" not in sources[0]
     assert (sources[1]["active"], sources[1]["min_confidence"]) == ("when_armed", 0.8)
     assert "confirm" not in sources[1]
     assert sources[2]["match_window_seconds"] == 300
