@@ -192,6 +192,10 @@ SOURCE_SCHEMAS: dict[SourceType, probatio.Schema] = {
 }
 
 
+# Movements are kept for undo, the 60-day forecast and the history (author,
+# 2026-11-13).
+JOURNAL_RETENTION = timedelta(days=180)
+
 # `confirm`: cameras always ask now. `max_age_minutes`: a camera frame has no
 # documented time, so it could not be enforced.
 REMOVED_OPTIONS = frozenset({"confirm", "max_age_minutes"})
@@ -801,6 +805,7 @@ class ZoneManager:
                 await self.async_request_photo(
                     zone, "reminder", channel=Channel.SCHEDULER
                 )
+        await self._backend.async_prune_journal(dt_util.utcnow() - JOURNAL_RETENTION)
         if (crops := self._runtime.vision.crops) is not None:
             pending = await self._runtime.proposals.async_pending()
             await crops.async_prune("proposal", {str(p.id) for p in pending})

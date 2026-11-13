@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from pathlib import Path
 import sqlite3
 
+from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 import pytest
@@ -345,6 +346,37 @@ async def test_migration_drops_settings_of_deleted_zones(
         assert await store.async_get_setting(key.format("pantry")) == kept
     assert await store.async_get_setting("other") == "1"
     await store.async_close()
+
+
+async def test_prune_journal(
+    backend: SQLiteBackend, freezer: FrozenDateTimeFactory
+) -> None:
+    """Old movements go; a newer undo of an old one stays, without its link."""
+    product = await _seed(backend)
+    freezer.move_to("2026-01-01T10:00:00+00:00")
+    [old] = await backend.async_apply_changes([_change(product_id=product.id, delta=2)])
+    freezer.move_to("2026-06-01T10:00:00+00:00")
+    [undo] = await backend.async_apply_changes(
+        [
+            _change(
+                product_id=product.id,
+                kind=MovementKind.UNDO,
+                delta=-2,
+                undoes_id=old.id,
+            )
+        ]
+    )
+    [kept] = await backend.async_apply_changes(
+        [_change(product_id=product.id, delta=1)]
+    )
+
+    removed = await backend.async_prune_journal(dt_util.utcnow() - timedelta(days=30))
+
+    assert removed == 1
+    journal = await backend.async_list_journal(limit=10)
+    assert [entry.id for entry in journal] == [kept.id, undo.id]
+    assert journal[1].undoes_id is None
+    assert (await backend.async_list_stock())[0].quantity == 1
 
 
 async def test_dump_and_restore(backend: SQLiteBackend) -> None:

@@ -141,6 +141,8 @@ Every change is in the journal and can be undone:
 - the History view of the dashboard, operation by operation;
 - `quartermaster.undo_last`.
 
+The journal keeps movements for 180 days; older ones are deleted, the stock itself stays.
+
 ## Backup
 
 Your inventory is in `<config>/quartermaster/pantry.db` and is included in Home Assistant backups. To move it elsewhere, run `quartermaster.export_data`, which writes JSON (everything) or CSV (products and stock) to `<config>/quartermaster/exports/`. `quartermaster.import_data` with a JSON export restores exactly the same state.

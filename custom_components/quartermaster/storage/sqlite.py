@@ -574,6 +574,25 @@ class SQLiteBackend(StorageBackend):
         ).fetchall()
         return [_journal(row) for row in rows]
 
+    async def async_prune_journal(self, before: datetime) -> int:
+        """Delete journal entries older than `before`; return how many.
+
+        A newer undo of a deleted entry stays, without its link.
+        """
+        return await self._run(self._prune_journal, before.isoformat())
+
+    def _prune_journal(self, before: str) -> int:
+        with self._transaction() as conn:
+            conn.execute(
+                """
+                UPDATE journal SET undoes_id = NULL
+                WHERE ts >= ?
+                    AND undoes_id IN (SELECT id FROM journal WHERE ts < ?)
+                """,
+                (before, before),
+            )
+            return conn.execute("DELETE FROM journal WHERE ts < ?", (before,)).rowcount
+
     async def async_last_undoable(
         self,
         *,

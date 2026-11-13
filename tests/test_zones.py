@@ -376,6 +376,28 @@ async def test_schedule_runs_checks(
     assert journal_channel == "updated"
 
 
+async def test_housekeeping_prunes_journal(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, zoned: Any
+) -> None:
+    """Movements older than 180 days are deleted by the hourly housekeeping."""
+    entry, _, _ = zoned
+    inventory = entry.runtime_data.inventory
+    rice = await inventory.async_add_product("Rice", default_zone="pantry")
+    await inventory.async_set_stock("rice", 1, channel=Channel.SERVICE)
+    freezer.tick(timedelta(days=179))
+    await inventory.async_set_stock("rice", 2, channel=Channel.SERVICE)
+
+    async def kept() -> list[float]:
+        journal = await inventory.async_list_journal(product_id=rice.id)
+        return [entry.quantity_after for entry in journal]
+
+    await entry.runtime_data.zones.async_housekeeping()
+    assert await kept() == [2, 1]
+    freezer.tick(timedelta(days=2))
+    await entry.runtime_data.zones.async_housekeeping()
+    assert await kept() == [2]
+
+
 async def test_housekeeping(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory, zoned: Any
 ) -> None:

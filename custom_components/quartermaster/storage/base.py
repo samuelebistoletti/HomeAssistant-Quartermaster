@@ -95,6 +95,10 @@ class StorageBackend(ABC):
         """Return the newest journal entries first."""
 
     @abstractmethod
+    async def async_prune_journal(self, before: datetime) -> int:
+        """Delete journal entries older than `before`; return how many."""
+
+    @abstractmethod
     async def async_last_undoable(
         self,
         *,

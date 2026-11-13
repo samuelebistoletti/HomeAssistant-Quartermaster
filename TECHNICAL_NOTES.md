@@ -8,6 +8,7 @@ When a decision changes, edit its row in place (with the date and who decided) i
 
 | Spec | Deviation | Reason |
 | --- | --- | --- |
+| §4 journal "storico completo" | Movements older than 180 days are deleted by the hourly housekeeping (`zones.JOURNAL_RETENTION`); a newer undo of a deleted movement stays without its link | Bounded file size; undo, the 60-day forecast and the history only need recent movements (author, 2026-11-13) |
 | §6.1 tool names `QuartermasterListZones`, ... | Tools are named `quartermaster__list_zones`, `quartermaster__get_stock`, ... | Tools contributed through `llm.py` must be named `<domain>__<name>`; unprefixed names stop working in 2027.3 (contributors.home-assistant.io/core/internals/llm-api/) |
 | §9.3 PRs to home-assistant/brands | No brands PR: the integration ships `brand/` (`icon.png` 256², `icon@2x.png` 512², `logo.png` / `logo@2x.png` and `dark_` variants, height 256 / 512; generated placeholders) | Since 2026.3 local brand images take precedence and pass the catalog check (contributors.home-assistant.io/core/integrations/brands/) |
 | §9.1 / §11 tag equal to `version` | Tags `v<version>`; manifest `version` without `v` | Author (2026-11-07); a `v` prefix is not documented for the Marketplace |
