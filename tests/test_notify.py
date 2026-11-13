@@ -361,6 +361,53 @@ async def test_camera_request_buttons(hass: HomeAssistant, notified: Any) -> Non
     assert "inline_keyboard" not in sent[-1]
 
 
+async def test_put_away_summary(
+    hass: HomeAssistant, notified: Any, freezer: FrozenDateTimeFactory
+) -> None:
+    """Goods put away within two minutes give one summary; differences only told."""
+    _entry, notify = notified
+    for product_id, product, seen, bought in (
+        (1, "Latte", 1, 3),
+        (2, "Pasta", 2, 2),
+        (1, "Latte", 3, 3),
+    ):
+        hass.bus.async_fire(
+            f"{DOMAIN}_show_put_away",
+            {
+                "zone_id": "garage",
+                "zone": "Garage",
+                "product_id": product_id,
+                "product": product,
+                "seen": seen,
+                "bought": bought,
+            },
+        )
+    await _settle(hass)
+    assert notify.messages == []
+    freezer.tick(timedelta(minutes=2, seconds=1))
+    async_fire_time_changed(hass)
+    await _settle(hass)
+    assert notify.messages == [
+        (
+            "notify.phone",
+            "Spesa messa via: Latte 3 visti su 3 comprati, Pasta 2 visti su 2 comprati.",
+        )
+    ]
+    hass.bus.async_fire(
+        f"{DOMAIN}_show_put_away",
+        {"product_id": 1, "product": "Latte", "seen": 4, "bought": 3, "zone": "Garage"},
+    )
+    await _settle(hass)
+    freezer.tick(timedelta(minutes=2, seconds=1))
+    async_fire_time_changed(hass)
+    await _settle(hass)
+    assert notify.messages[-1][1] == (
+        "Spesa messa via: Latte 4 visti su 3 comprati.\n"
+        "Ho visto 4 Latte, gli acquisti delle ultime 24 ore dicono 3: "
+        "non ho cambiato nulla."
+    )
+
+
 async def test_check_result_lists_products_not_seen(
     hass: HomeAssistant, notified: Any
 ) -> None:

@@ -64,7 +64,7 @@ Zones without a camera can have `reminder_days`: when they have not been updated
 A camera only tells you what it saw; nothing changes until you answer. Goods come in with a confirmed receipt or with a photo you send of the shelf, never from a camera:
 
 - **Taken:** "Garage shelf: did you take 1 passata? You had 4, 3 would be left." Buttons: the quantity seen, one more, all, and No. On an answer the consumption is recorded and the outcome comes with **Undo**. Unanswered requests expire after 24 hours and change nothing.
-- **Put back:** while the request for the take is still waiting, the two cancel out. After you confirmed the take, Quartermaster asks whether to undo it. Otherwise it tells you it saw the goods and waits for the receipt or a photo.
+- **Put back:** while the request for the take is still waiting, the two cancel out. After you confirmed the take, Quartermaster asks whether to undo it. When the product was bought in the last 24 hours (a confirmed receipt, an order email or any purchase you recorded), the sighting only confirms the shopping: one message a couple of minutes later sums up what was put away ("Shopping put away: Milk 3 seen of 3 bought") and mentions any difference without changing anything. Otherwise it tells you it saw the goods and asks for the receipt or a photo.
 - **Uncertain sightings** (below `min_confidence`) wait in the dashboard's Proposals without a message, unless a passage camera sees the same product leave.
 - **Zone checks by a camera** are always proposals, and only of what went down, even in automatic mode. Products seen in a larger quantity than recorded are mentioned in the check message.
 

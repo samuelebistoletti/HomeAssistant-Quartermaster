@@ -65,6 +65,7 @@ from custom_components.quartermaster.core.inventory import InventoryError
 from custom_components.quartermaster.core.zones import SourceType
 from custom_components.quartermaster.storage.models import (
     Channel,
+    MovementKind,
     Product,
     Proposal,
     Zone,
@@ -91,6 +92,10 @@ EVENT_SHOW_RECOGNIZED = f"{DOMAIN}_show_recognized"
 # A sighting waits for the user's answer (or, for goods put on a shelf with
 # nothing to undo, only tells them: `proposal_id` is then None).
 EVENT_SHOW_REQUEST = f"{DOMAIN}_show_request"
+# Goods put on a shelf that recent purchases account for: only reported.
+EVENT_SHOW_PUT_AWAY = f"{DOMAIN}_show_put_away"
+# Purchases a placed sighting is matched with (author, 2026-11-11).
+PURCHASE_WINDOW = timedelta(hours=24)
 # Mean absolute difference (0-255) from the reference that counts as change.
 CHANGE_THRESHOLD = 12.0
 SUSPEND_AFTER = 3
@@ -264,6 +269,8 @@ class ShowManager:
         self.observations: list[Observation] = []
         self.last_show: dict[str, dict[str, Any]] = {}
         self.suspended: set[str] = set()
+        # Placed sightings matched with purchases: product id -> (time, quantity).
+        self.put_away: dict[int, list[tuple[datetime, float]]] = {}
 
     # Setup
 
@@ -671,8 +678,11 @@ class ShowManager:
         - taken: a request to confirm the consumption;
         - returned while that request is still waiting: both cancel out;
         - returned after the consumption was confirmed: a request to undo it;
-        - returned otherwise: nothing to record (goods enter with a receipt
-          or a photo sent on purpose), the user is told.
+        - returned otherwise: nothing is recorded (goods enter with a
+          receipt or a photo sent on purpose). When purchases of the last 24
+          hours account for it, the sighting only confirms them (seen of
+          bought, a difference reported); otherwise the user is asked for the
+          receipt.
         """
         if not observation.product_id or observation.action not in (TAKEN, RETURNED):
             observation.proposal_id = await self._async_propose_unknown(
@@ -687,6 +697,10 @@ class ShowManager:
                 await self._async_drop_proposal(past)
                 return "cancelled"
             if past is None or past.operation_id is None:
+                if await self._async_put_away(
+                    observation, zone, product, confidence, threshold
+                ):
+                    return "put_away"
                 self._fire_request(
                     observation, zone, product, None, 0.0, confidence, threshold
                 )
@@ -744,6 +758,60 @@ class ShowManager:
                 "confidence": confidence,
             },
         )
+
+    async def _async_put_away(
+        self,
+        observation: Observation,
+        zone: Zone,
+        product: Product,
+        confidence: float,
+        threshold: float,
+    ) -> bool:
+        """Match goods put on a shelf with the purchases of the last 24 hours.
+
+        Purchases come from the journal (receipts, order emails, and any
+        other purchase recorded), less those undone. Nothing is written: the
+        sighting only confirms them, and `seen` adds up the placed sightings
+        since the first of those purchases.
+        """
+        now = dt_util.utcnow()
+        since = now - PURCHASE_WINDOW
+        journal = await self._runtime.inventory.async_list_journal(
+            limit=200, product_id=product.id
+        )
+        undone = {entry.undoes_id for entry in journal if entry.undoes_id}
+        purchases = [
+            entry
+            for entry in journal
+            if entry.kind is MovementKind.PURCHASE
+            and entry.ts >= since
+            and entry.id not in undone
+            and entry.delta > 0
+        ]
+        if not purchases:
+            return False
+        first = min(entry.ts for entry in purchases)
+        placed = [
+            (ts, quantity)
+            for ts, quantity in self.put_away.get(product.id, [])
+            if ts >= since
+        ]
+        placed.append((now, observation.quantity))
+        self.put_away[product.id] = placed
+        if confidence < threshold:
+            return True
+        self._hass.bus.async_fire(
+            EVENT_SHOW_PUT_AWAY,
+            {
+                "zone_id": zone.id,
+                "zone": zone.name,
+                "product_id": product.id,
+                "product": product.name,
+                "seen": sum(q for ts, q in placed if ts >= first),
+                "bought": sum(entry.delta for entry in purchases),
+            },
+        )
+        return True
 
     def _recent_take(self, observation: Observation, zone: Zone) -> Observation | None:
         """Return the same product taken from the zone a moment ago, if any."""

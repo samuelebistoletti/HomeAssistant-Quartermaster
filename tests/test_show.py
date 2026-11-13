@@ -20,6 +20,7 @@ from custom_components.quartermaster.storage.models import Channel, MovementKind
 from custom_components.quartermaster.vision.quality import Frame
 from custom_components.quartermaster.vision.schema import StructureMode
 from custom_components.quartermaster.vision.show import (
+    EVENT_SHOW_PUT_AWAY,
     EVENT_SHOW_RECOGNIZED,
     EVENT_SHOW_REQUEST,
     _in_hours,
@@ -241,6 +242,40 @@ async def test_show_taken_and_returned(hass: HomeAssistant, show: Any) -> None:
     assert await _quantity(entry) == 4
     assert await entry.runtime_data.proposals.async_pending() == []
     assert not any((Path(hass.config.media_dirs["local"]) / DOMAIN / "tmp").iterdir())
+
+
+async def test_placed_goods_match_recent_purchases(
+    hass: HomeAssistant, show: Any
+) -> None:
+    """Gap E3: goods put away only confirm the last 24 hours of purchases."""
+    entry, _scene, model, passata = show
+    manager = entry.runtime_data.show
+    inventory = entry.runtime_data.inventory
+    manager.async_arm("garage")
+    put_away = async_capture_events(hass, EVENT_SHOW_PUT_AWAY)
+    requests = async_capture_events(hass, EVENT_SHOW_REQUEST)
+    await inventory.async_record_purchases([(passata, 2)], channel=Channel.TELEGRAM)
+    model.answers["show"] = _taken(passata, 0.9, "returned")
+    for seen in (1, 2, 3):
+        result = await manager.async_handle_trigger("garage:0")
+        assert result["status"] == "put_away"
+        assert (put_away[-1].data["seen"], put_away[-1].data["bought"]) == (seen, 2)
+    assert put_away[-1].data["product"] == "Passata"
+    assert await _quantity(entry) == 6  # 4 + the purchase; the camera adds nothing
+    assert requests == []
+    assert await entry.runtime_data.proposals.async_pending() == []
+
+    # Below min_confidence: still matched, but nobody is told.
+    model.answers["show"] = _taken(passata, 0.5, "returned")
+    assert (await manager.async_handle_trigger("garage:0"))["status"] == "put_away"
+    assert len(put_away) == 3
+
+    # An undone purchase no longer counts: the receipt is asked for.
+    await inventory.async_undo_last(channel=Channel.TELEGRAM)
+    model.answers["show"] = _taken(passata, 0.9, "returned")
+    result = await manager.async_handle_trigger("garage:0")
+    assert result["status"] == "needs_receipt"
+    assert requests[-1].data["proposal_id"] is None
 
 
 async def test_taken_then_returned_before_answering(

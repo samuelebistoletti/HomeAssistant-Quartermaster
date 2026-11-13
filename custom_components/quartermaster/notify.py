@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any
 from homeassistant.const import ATTR_ENTITY_ID, STATE_UNAVAILABLE
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.event import async_track_time_change
+from homeassistant.helpers.event import async_call_later, async_track_time_change
 from homeassistant.util import dt as dt_util
 
 from custom_components.quartermaster.channels.telegram import (
@@ -38,6 +38,7 @@ from custom_components.quartermaster.core.zones import (
 )
 from custom_components.quartermaster.storage.models import Channel, MovementKind
 from custom_components.quartermaster.vision.show import (
+    EVENT_SHOW_PUT_AWAY,
     EVENT_SHOW_RECOGNIZED,
     EVENT_SHOW_REQUEST,
 )
@@ -48,6 +49,8 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 CONF_QUIET_HOURS = "quiet_hours"
+# Goods put away within this time are summed up in one message.
+PUT_AWAY_WINDOW = timedelta(minutes=2)
 CONF_TELEGRAM_NOTIFY = "telegram_notify"
 EXPIRING_HOUR = 9
 WEEKLY_WEEKDAY = 0  # Monday
@@ -125,6 +128,9 @@ class NotificationRouter:
         self._unsubs: list[CALLBACK_TYPE] = []
         self.queue: list[Message] = []
         self._known_to_buy: set[int] | None = None
+        # Put-away sightings waiting for their summary, by product id.
+        self._put_away: dict[int, dict[str, Any]] = {}
+        self._put_away_timer: CALLBACK_TYPE | None = None
 
     @property
     def _options(self) -> dict[str, Any]:
@@ -138,6 +144,7 @@ class NotificationRouter:
             bus.async_listen(EVENT_PHOTO_REQUEST, self._on_photo_request),
             bus.async_listen(EVENT_SHOW_RECOGNIZED, self._on_show),
             bus.async_listen(EVENT_SHOW_REQUEST, self._on_show_request),
+            bus.async_listen(EVENT_SHOW_PUT_AWAY, self._on_put_away),
             bus.async_listen(EVENT_LEDGER_CHECK, self._on_ledger_check),
             bus.async_listen(EVENT_ASK_RESULT, self._on_ask_result),
             bus.async_listen(f"{DOMAIN}_zone_checked", self._on_zone_checked),
@@ -151,6 +158,9 @@ class NotificationRouter:
         """Stop listening."""
         while self._unsubs:
             self._unsubs.pop()()
+        if self._put_away_timer is not None:
+            self._put_away_timer()
+            self._put_away_timer = None
 
     def _task(self, job: Any, name: str) -> None:
         entry = self._runtime.coordinator.config_entry
@@ -369,6 +379,43 @@ class NotificationRouter:
                 )
             )
         await self.async_send(Message(MessageType.CAMERA, text, buttons=[[*row, no]]))
+
+    @callback
+    def _on_put_away(self, event: Event[dict[str, Any]]) -> None:
+        """Collect goods put away; one summary after a quiet moment."""
+        self._put_away[int(event.data["product_id"])] = dict(event.data)
+        if self._put_away_timer is None:
+            self._put_away_timer = async_call_later(
+                self._hass, PUT_AWAY_WINDOW, self._on_put_away_due
+            )
+
+    @callback
+    def _on_put_away_due(self, _now: datetime) -> None:
+        self._put_away_timer = None
+        items, self._put_away = list(self._put_away.values()), {}
+        self._task(self._async_put_away(items), "put away")
+
+    async def _async_put_away(self, items: list[dict[str, Any]]) -> None:
+        """Confirm purchases with what the cameras saw; differences only reported."""
+        parts = [
+            await self._phrase(
+                "notify_put_away_item",
+                product=item["product"],
+                seen=f"{item['seen']:g}",
+                bought=f"{item['bought']:g}",
+            )
+            for item in items
+        ]
+        text = await self._phrase("notify_put_away", items=", ".join(parts))
+        for item in items:
+            if item["seen"] != item["bought"]:
+                text += "\n" + await self._phrase(
+                    "notify_put_away_differs",
+                    product=item["product"],
+                    seen=f"{item['seen']:g}",
+                    bought=f"{item['bought']:g}",
+                )
+        await self.async_send(Message(MessageType.CAMERA, text))
 
     @callback
     def _on_show(self, event: Event[dict[str, Any]]) -> None:

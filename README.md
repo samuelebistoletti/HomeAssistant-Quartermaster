@@ -215,6 +215,7 @@ Writing actions called by a user follow the [permissions](#configuration), and s
 | `quartermaster_photo_request` | A zone needs a photo | `request_id`, `zone_id`, `zone`, `reason`, `channel`, `reminder`, `products`, `chat_id` |
 | `quartermaster_zone_checked` | A zone check ended | `zone_id`, `status`, `reason`, `source`, `overall_confidence` and the result |
 | `quartermaster_show_request` | A camera saw a product taken or put back; nothing is written until the user answers (`proposal_id` is null when there is nothing to confirm) | `proposal_id`, `zone_id`, `zone`, `product`, `action`, `quantity`, `current`, `confidence` |
+| `quartermaster_show_put_away` | A camera saw goods put away that the purchases of the last 24 hours account for; nothing is written | `zone_id`, `zone`, `product_id`, `product`, `seen` (placed sightings since the first of those purchases), `bought` |
 | `quartermaster_show_recognized` | The user confirmed a camera sighting and it was recorded | `zone_id`, `zone`, `product`, `action`, `quantity`, `operation_id`, `to_list`, `announce` |
 | `quartermaster_ledger_check` | A zone's list was sent for a list check | `zone_id`, `zone`, `items`, `more`, `chat_id` |
 | `quartermaster_purchases_proposed` | A receipt or an email became a proposal | `proposal_id`, `source`, `count`, `channel` |
