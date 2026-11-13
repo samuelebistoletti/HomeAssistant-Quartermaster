@@ -1149,6 +1149,18 @@
     "show_suspended": {
       "title": "Show mode suspended in {zone}",
       "description": "Three triggers in a row produced no change in the show area of {zone}, so camera_show is suspended. Check the camera, the trigger entity and the region of interest, then turn show mode on again to resume."
+    },
+    "missing_entity_ai_task_image": {
+      "title": "AI Task entity for images not found",
+      "description": "Quartermaster is set to read photos with {entity}, which no longer exists. Photo, receipt and camera analyses fail until you choose another AI Task entity in the Quartermaster options or restore that one."
+    },
+    "missing_entity_ai_task_text": {
+      "title": "AI Task entity for text not found",
+      "description": "Quartermaster is set to read texts (receipts by email, order confirmations) with {entity}, which no longer exists. Choose another AI Task entity in the Quartermaster options or restore that one."
+    },
+    "missing_entity_agent_id": {
+      "title": "Conversation agent not found",
+      "description": "Quartermaster is set to answer through the conversation agent {entity}, which no longer exists. Voice and chat requests fail until you choose another agent in the Quartermaster options or restore that one."
     }
   }
 }

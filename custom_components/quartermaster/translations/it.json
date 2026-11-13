@@ -1149,6 +1149,18 @@
     "show_suspended": {
       "title": "Modalità mostra prodotto sospesa in {zone}",
       "description": "Tre inneschi di fila non hanno prodotto cambiamenti nell'area di presentazione di {zone}, quindi camera_show è sospesa. Controlla la telecamera, l'entità di innesco e l'area, poi riaccendi la modalità mostra prodotto per riprendere."
+    },
+    "missing_entity_ai_task_image": {
+      "title": "Entità AI Task per le immagini non trovata",
+      "description": "Quartermaster legge le foto con {entity}, che non esiste più. Le analisi di foto, scontrini e telecamere non funzionano finché non scegli un'altra entità AI Task nelle opzioni di Quartermaster o non ripristini quella."
+    },
+    "missing_entity_ai_task_text": {
+      "title": "Entità AI Task per i testi non trovata",
+      "description": "Quartermaster legge i testi (scontrini via email, conferme d'ordine) con {entity}, che non esiste più. Scegli un'altra entità AI Task nelle opzioni di Quartermaster o ripristina quella."
+    },
+    "missing_entity_agent_id": {
+      "title": "Agente di conversazione non trovato",
+      "description": "Quartermaster risponde tramite l'agente di conversazione {entity}, che non esiste più. Le richieste a voce e in chat non funzionano finché non scegli un altro agente nelle opzioni di Quartermaster o non ripristini quello."
     }
   }
 }

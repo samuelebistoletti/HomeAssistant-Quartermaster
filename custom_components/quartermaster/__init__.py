@@ -48,6 +48,7 @@ from .core.purchases import PurchaseService
 from .core.shopping import ShoppingService
 from .core.voice import VoiceSessions
 from .core.zones import ZoneManager
+from .health import MissingEntityWatcher
 from .notify import MessageType, NotificationRouter
 from .services import async_setup_services
 from .storage.models import Proposal
@@ -208,6 +209,9 @@ async def async_setup_entry(
     voice.can_announce = lambda: notifier.can_deliver(MessageType.VOICE_REPLY)
     notifier.async_start()
     entry.async_on_unload(notifier.async_stop)
+    health = MissingEntityWatcher(hass, entry)
+    health.async_start()
+    entry.async_on_unload(health.async_stop)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     @callback

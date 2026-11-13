@@ -236,6 +236,7 @@ IMAP's `imap_content` event (filtered on `entry_id`, `initial`, allowed senders)
 | Language | Option `language` (en, it) for phrases sent without a language, then the system language; entity names follow the user's UI language |
 | Permissions | Writes for administrators and `write_users`. Entities (todo, buttons, select, switch) rely on Home Assistant entity permissions (README states the limit) |
 | Diagnostics | Options with entity ids, chats and agent redacted; only counts, source types and statuses |
+| Missing AI entities | A repair issue per configured `ai_task_image`, `ai_task_text` or `agent_id` entity that is gone (`health.py`), checked at setup and on entity registry and state changes. Present means known to the entity registry or having a state, so an integration still starting raises nothing; agents given by config entry id are not checked. Unloading clears the issues |
 | Dashboard | Accepted for now (author, 2026-11-08): tile links from the current URL, picker language, upload errors translated by the dashboard, Go shopping not permission-checked, a reload after adding or deleting a zone |
 
 ## AI providers
@@ -255,7 +256,8 @@ IMAP's `imap_content` event (filtered on `entry_id`, `initial`, allowed senders)
 | --- | --- |
 | Tests | pytest-homeassistant pinned in `requirements_test.txt` (it pins `homeassistant` to the same version), configured in `pyproject.toml`; `custom_components/__init__.py` makes the package importable; the fixtures load the core `homeassistant` component and HA conversation's three requirements (from its manifest) |
 | Beta CI | `pip install --pre --upgrade pytest-homeassistant` on top of the pin |
-| Coverage | 90 % gate on the whole integration (the spec asks for `core` and `storage`) |
+| Coverage | 90 % gate on the whole integration in pytest, and a second `coverage report` gate of 90 % on `core/` and `storage/` alone in CI (spec §11) |
+| Security tools | bandit and pip-audit pinned in `requirements.txt`, next to ruff, so Dependabot updates them |
 | Types | mypy strict on `custom_components/quartermaster` |
 | Dev tools | `scripts/dev-bootstrap` uses aiohttp via `uv run --with aiohttp`; Phase 0 probes in `examples/phase0/` and `scripts/phase0/` never ship (procedure: `docs/phase0/CHECKLIST.md`) |
 | Domain | `quartermaster` is also used by `quartermaster-app/ha-quartermaster` (releases since 2026-10): both cannot be installed together and the catalog may object. Kept by the author (2026-11-07); the README does not mention it |
