@@ -9,6 +9,7 @@ from typing import Any
 from homeassistant.auth.models import User
 from homeassistant.core import Context, HomeAssistant
 from homeassistant.exceptions import ServiceValidationError, Unauthorized
+import probatio
 import pytest
 from pytest_homeassistant.common import MockConfigEntry
 
@@ -106,6 +107,47 @@ async def test_product_and_stock_actions(
     assert (essential["min_stock"], essential["target_stock"]) == (2, 6)
     removed = await _call(hass, entry, "set_essential", product="milk", essential=False)
     assert removed["essential"] is False
+
+
+async def test_dashboard_channel(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """The cards' writes are journaled as dashboard; other channels are refused."""
+    entry = init_integration
+    await _kitchen(hass, entry)
+    inventory = entry.runtime_data.inventory
+    await inventory.async_add_product("Milk", default_zone="fridge")
+    await _call(
+        hass, entry, "set_stock", product="milk", quantity=3, channel="dashboard"
+    )
+    await _call(
+        hass,
+        entry,
+        "adjust_stock",
+        product="milk",
+        operation="consume",
+        channel="dashboard",
+    )
+    await _call(hass, entry, "move_stock", product="milk", to_zone="pantry")
+    await _call(hass, entry, "undo_last", channel="dashboard")
+    journal = await inventory.async_list_journal()
+    assert [(e.kind.value, e.channel.value) for e in journal] == [
+        ("undo", "dashboard"),
+        ("undo", "dashboard"),
+        ("move", "service"),
+        ("move", "service"),
+        ("consume", "dashboard"),
+        ("inventory", "dashboard"),
+    ]
+    with pytest.raises(probatio.Invalid, match="channel"):
+        await _call(
+            hass,
+            entry,
+            "adjust_stock",
+            product="milk",
+            operation="consume",
+            channel="alexa",
+        )
 
 
 async def test_actions_without_response(

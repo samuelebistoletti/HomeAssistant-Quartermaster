@@ -130,10 +130,17 @@ QUANTITY = probatio.All(probatio.Coerce(float), probatio.Range(min=0, max=MAX_QU
 # Optional: Quartermaster allows a single entry, which is used when omitted
 # (deviation from the action-setup rule, see TECHNICAL_NOTES).
 ENTRY = {probatio.Optional(ATTR_CONFIG_ENTRY_ID): cv.string}
+# Actions that write the journal: the dashboard cards say so (additive).
+JOURNALED = {
+    probatio.Optional(ATTR_CHANNEL, default="service"): probatio.In(
+        ["service", "dashboard"]
+    )
+}
 
 ADJUST_STOCK_SCHEMA = probatio.Schema(
     {
         **ENTRY,
+        **JOURNALED,
         probatio.Required(ATTR_PRODUCT): cv.string,
         probatio.Optional(
             ATTR_OPERATION, default=StockOperation.CONSUME
@@ -144,7 +151,7 @@ ADJUST_STOCK_SCHEMA = probatio.Schema(
     }
 )
 UNDO_LAST_SCHEMA = probatio.Schema(
-    {**ENTRY, probatio.Optional(ATTR_OPERATION_ID): cv.string}
+    {**ENTRY, **JOURNALED, probatio.Optional(ATTR_OPERATION_ID): cv.string}
 )
 ADD_ZONE_SCHEMA = probatio.Schema(
     {
@@ -160,6 +167,7 @@ REMOVE_ZONE_SCHEMA = probatio.Schema({**ENTRY, probatio.Required(ATTR_ZONE): cv.
 SET_STOCK_SCHEMA = probatio.Schema(
     {
         **ENTRY,
+        **JOURNALED,
         probatio.Required(ATTR_PRODUCT): cv.string,
         probatio.Required(ATTR_QUANTITY): QUANTITY,
         probatio.Optional(ATTR_ZONE): cv.string,
@@ -207,6 +215,7 @@ UPDATE_PRODUCT_SCHEMA = probatio.Schema(
 ARCHIVE_PRODUCT_SCHEMA = probatio.Schema(
     {
         **ENTRY,
+        **JOURNALED,
         probatio.Required(ATTR_PRODUCT): cv.string,
         probatio.Optional(ATTR_ARCHIVED, default=True): cv.boolean,
     }
@@ -214,6 +223,7 @@ ARCHIVE_PRODUCT_SCHEMA = probatio.Schema(
 MOVE_STOCK_SCHEMA = probatio.Schema(
     {
         **ENTRY,
+        **JOURNALED,
         probatio.Required(ATTR_PRODUCT): cv.string,
         probatio.Required(ATTR_TO_ZONE): cv.string,
         probatio.Optional(ATTR_FROM_ZONE): cv.string,
@@ -299,6 +309,7 @@ ANALYZE_RECEIPT_SCHEMA = probatio.Schema(
 CONFIRM_PENDING_SCHEMA = probatio.Schema(
     {
         **ENTRY,
+        **JOURNALED,
         probatio.Required(ATTR_PROPOSAL_ID): cv.positive_int,
         probatio.Optional(ATTR_DECISION, default="confirm"): probatio.In(
             ["confirm", "reject"]
@@ -436,7 +447,7 @@ async def _async_adjust_stock(call: ServiceCall) -> ServiceResponse:
         quantity=call.data.get(ATTR_QUANTITY),
         zone_ref=call.data.get(ATTR_ZONE),
         best_before=call.data.get(ATTR_BEST_BEFORE),
-        channel=Channel.SERVICE,
+        channel=ASK_CHANNELS[call.data[ATTR_CHANNEL]],
         user_id=call.context.user_id,
     )
     return _movement(movement) if call.return_response else None
@@ -445,7 +456,7 @@ async def _async_adjust_stock(call: ServiceCall) -> ServiceResponse:
 async def _async_undo_last(call: ServiceCall) -> ServiceResponse:
     await _async_check_writer(call)
     originals, undos = await _inventory(call).async_undo_last(
-        channel=Channel.SERVICE,
+        channel=ASK_CHANNELS[call.data[ATTR_CHANNEL]],
         user_id=call.context.user_id,
         operation_id=call.data.get(ATTR_OPERATION_ID),
     )
@@ -464,7 +475,7 @@ async def _async_set_stock(call: ServiceCall) -> ServiceResponse:
         call.data[ATTR_QUANTITY],
         zone_ref=call.data.get(ATTR_ZONE),
         best_before=call.data.get(ATTR_BEST_BEFORE),
-        channel=Channel.SERVICE,
+        channel=ASK_CHANNELS[call.data[ATTR_CHANNEL]],
         user_id=call.context.user_id,
     )
     return _movement(movement) if call.return_response else None
@@ -544,7 +555,7 @@ async def _async_archive_product(call: ServiceCall) -> ServiceResponse:
     product, movements = await _inventory(call).async_archive_product(
         call.data[ATTR_PRODUCT],
         archived=call.data[ATTR_ARCHIVED],
-        channel=Channel.SERVICE,
+        channel=ASK_CHANNELS[call.data[ATTR_CHANNEL]],
         user_id=call.context.user_id,
     )
     if not call.return_response:
@@ -563,7 +574,7 @@ async def _async_move_stock(call: ServiceCall) -> ServiceResponse:
         to_zone=call.data[ATTR_TO_ZONE],
         from_zone=call.data.get(ATTR_FROM_ZONE),
         quantity=call.data.get(ATTR_QUANTITY),
-        channel=Channel.SERVICE,
+        channel=ASK_CHANNELS[call.data[ATTR_CHANNEL]],
         user_id=call.context.user_id,
     )
     return (
@@ -773,7 +784,7 @@ async def _async_confirm_pending(call: ServiceCall) -> ServiceResponse:
             proposal_id,
             keys=call.data.get(ATTR_ITEMS),
             corrections={c[ATTR_KEY]: c for c in call.data[ATTR_CORRECTIONS]},
-            channel=Channel.SERVICE,
+            channel=ASK_CHANNELS[call.data[ATTR_CHANNEL]],
             user_id=call.context.user_id,
         )
         applied = outcome.applied

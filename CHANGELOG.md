@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- `channel` (`service` or `dashboard`) on `adjust_stock`, `set_stock`, `archive_product`, `move_stock`, `confirm_pending` and `undo_last`, recorded in the journal, so the history tells the dashboard's changes apart.
 - Repair issue when the AI Task entity for images or text or the conversation agent chosen in the options no longer exists; it goes when the entity is back or another is chosen.
 - Project skeleton: single-instance config flow, English and Italian translations, placeholder brand images, development environment (dev container, Home Assistant and ha-mcp in Docker) and CI (tests against the stable and beta Home Assistant, security, hassfest, Marketplace validation, CodeQL).
 - Inventory database (SQLite in the configuration folder, numbered migrations) with zones, products, essentials, stock and a journal of every movement.

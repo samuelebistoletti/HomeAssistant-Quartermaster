@@ -4,6 +4,14 @@ adjust_stock:
       selector:
         config_entry:
           integration: quartermaster
+    channel: &journal_channel
+      default: service
+      selector:
+        select:
+          translation_key: journal_channel
+          options:
+            - service
+            - dashboard
     product: &product
       required: true
       example: "Milk"
@@ -64,6 +72,7 @@ remove_zone:
 undo_last:
   fields:
     config_entry_id: *config_entry
+    channel: *journal_channel
     operation_id:
       selector:
         text:
@@ -71,6 +80,7 @@ undo_last:
 set_stock:
   fields:
     config_entry_id: *config_entry
+    channel: *journal_channel
     product: *product
     quantity:
       required: true
@@ -171,6 +181,7 @@ update_product:
 archive_product:
   fields:
     config_entry_id: *config_entry
+    channel: *journal_channel
     product: *product
     archived:
       default: true
@@ -180,6 +191,7 @@ archive_product:
 move_stock:
   fields:
     config_entry_id: *config_entry
+    channel: *journal_channel
     product: *product
     to_zone:
       required: true
@@ -358,6 +370,7 @@ analyze_receipt:
 confirm_pending:
   fields:
     config_entry_id: *config_entry
+    channel: *journal_channel
     proposal_id:
       required: true
       selector:
