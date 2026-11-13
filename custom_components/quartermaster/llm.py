@@ -886,6 +886,7 @@ class ConfirmPendingTool(QuartermasterTool):
                     probatio.Required("key"): int,
                     probatio.Optional("product"): str,
                     probatio.Optional("quantity"): QUANTITY,
+                    probatio.Optional("moved"): QUANTITY,
                     probatio.Optional("new_product"): bool,
                     probatio.Optional("name"): str,
                     probatio.Optional("zone"): str,

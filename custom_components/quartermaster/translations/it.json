@@ -852,7 +852,7 @@
         },
         "corrections": {
           "name": "Correzioni",
-          "description": "Elenco delle voci da correggere, ognuna con key, product e quantity; il nome usato dal modello viene imparato come alias. new_product true crea il prodotto (con il nome letto, o name) nella zona della proposta, o in zone per uno scontrino. Le voci sconosciute senza correzione restano in attesa."
+          "description": "Elenco delle voci da correggere, ognuna con key, product e quantity; il nome usato dal modello viene imparato come alias. new_product true crea il prodotto (con il nome letto, o name) nella zona della proposta, o in zone per uno scontrino. Le voci sconosciute senza correzione restano in attesa. Per un avvistamento della telecamera (kind movement), moved è la quantità presa e quantity quella rimasta."
         }
       }
     },

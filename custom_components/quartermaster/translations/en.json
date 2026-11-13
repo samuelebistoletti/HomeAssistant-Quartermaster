@@ -852,7 +852,7 @@
         },
         "corrections": {
           "name": "Corrections",
-          "description": "List of items to fix, each with key, product and quantity; the name the model used is learned as an alias. new_product true creates the product (named as read, or name) in the proposal's zone, or in zone for a receipt. Unknown items without a correction stay waiting."
+          "description": "List of items to fix, each with key, product and quantity; the name the model used is learned as an alias. new_product true creates the product (named as read, or name) in the proposal's zone, or in zone for a receipt. Unknown items without a correction stay waiting. For a camera sighting (kind movement), moved is the quantity taken and quantity the count left."
         }
       }
     },

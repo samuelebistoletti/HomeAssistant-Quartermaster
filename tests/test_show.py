@@ -302,8 +302,17 @@ async def test_another_quantity_and_out_of_stock(
     manager.async_arm("garage")
     model.answers["show"] = _taken(passata, 0.9)
     await manager.async_handle_trigger("garage:0")
-    await _confirm(entry, moved=3)
+    # The dashboard sends the quantity taken through the action.
+    [proposal] = await entry.runtime_data.proposals.async_pending()
+    await hass.services.async_call(
+        DOMAIN,
+        "confirm_pending",
+        {"proposal_id": proposal.id, "corrections": [{"key": 0, "moved": 3}]},
+        blocking=True,
+    )
     assert await _quantity(entry) == 1
+    [consumed] = await entry.runtime_data.inventory.async_list_journal(limit=1)
+    assert (consumed.kind, consumed.delta) == (MovementKind.CONSUME, -3)
     # More taken than there is: the request is for what is left.
     model.answers["show"] = lambda: {**_taken(passata, 0.9)(), "quantity": 5}
     await manager.async_handle_trigger("garage:0")

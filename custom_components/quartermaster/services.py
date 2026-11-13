@@ -107,6 +107,7 @@ ATTR_ITEMS = "items"
 ATTR_CORRECTIONS = "corrections"
 ATTR_KEY = "key"
 ATTR_NEW_PRODUCT = "new_product"
+ATTR_MOVED = "moved"
 ATTR_MINUTES = "minutes"
 ATTR_SOURCES = "sources"
 ATTR_CHECK_SCHEDULE = "check_schedule"
@@ -308,6 +309,11 @@ CONFIRM_PENDING_SCHEMA = probatio.Schema(
                 probatio.Required(ATTR_KEY): cv.positive_int,
                 probatio.Optional(ATTR_PRODUCT): cv.string,
                 probatio.Optional(ATTR_QUANTITY): QUANTITY,
+                # A camera sighting: the quantity taken (a consumption).
+                probatio.Optional(ATTR_MOVED): probatio.All(
+                    probatio.Coerce(float),
+                    probatio.Range(min=0, min_included=False, max=MAX_QUANTITY),
+                ),
                 probatio.Optional(ATTR_NEW_PRODUCT): cv.boolean,
                 probatio.Optional(ATTR_NAME): cv.string,
                 probatio.Optional(ATTR_ZONE): cv.string,
