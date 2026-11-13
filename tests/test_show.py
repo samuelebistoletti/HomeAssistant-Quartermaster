@@ -564,6 +564,35 @@ async def test_single_attachment_fallback_and_trigger(
     assert len(model.calls) == calls
 
 
+async def test_single_attachment_retry_counts(hass: HomeAssistant, show: Any) -> None:
+    """The single-image retry counts as a call and stops at the limits."""
+    entry, _, model, passata = show
+    vision = entry.runtime_data.vision
+    manager = entry.runtime_data.show
+    model.refuse_many = True
+    model.answers["show"] = _taken(passata, 0.95)
+    await hass.services.async_call(
+        "switch",
+        "turn_on",
+        target={"entity_id": "switch.quartermaster_show_mode_garage"},
+        blocking=True,
+    )
+    before = await vision.async_analyses_today()
+    await manager.async_handle_trigger("garage:0")
+    assert await vision.async_analyses_today() == before + 2
+
+    # With one call left this hour, the refused call is not retried.
+    vision.hourly_limit = len(vision._recent) + 1
+    calls = len(model.calls)
+    manager._watchers["garage:0"].last_trigger = None
+    manager._watchers["garage:0"].reference = None
+    with pytest.raises(InventoryError) as err:
+        await manager.async_handle_trigger("garage:0")
+    assert err.value.translation_key == "hourly_limit"
+    assert len(model.calls) == calls + 1
+    assert await vision.async_analyses_today() == before + 3
+
+
 async def test_tool_arms(hass: HomeAssistant, show: Any) -> None:
     """The LLM tool turns show mode on."""
     from homeassistant.components import conversation

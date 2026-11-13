@@ -559,7 +559,14 @@ class ShowManager:
             except HomeAssistantError:
                 if len(attachments) == 1:
                     raise
-                # Some providers take one image only: send the sharpest.
+                refused = True
+            else:
+                refused = False
+            if refused:
+                # Some providers take one image only: send the sharpest, as
+                # one more call within the limits.
+                await vision.async_check_limits()
+                await vision.async_count_call()
                 best = max(range(len(frames)), key=lambda i: frames[i].sharpness)
                 response = await self._hass.services.async_call(
                     "ai_task",
@@ -568,6 +575,8 @@ class ShowManager:
                     blocking=True,
                     return_response=True,
                 )
+        except InventoryError:
+            raise
         except HomeAssistantError as err:
             raise InventoryError("analysis_failed", error=str(err)) from err
         finally:
