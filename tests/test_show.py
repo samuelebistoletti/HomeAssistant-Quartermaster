@@ -30,6 +30,10 @@ from custom_components.quartermaster.vision.show import (
 
 from .test_vision import _photo
 
+GARAGE = "garage:camera_show/camera.garage/binary_sensor.garage_motion"
+YARD = "yard:passage/camera.yard/event.yard_motion"
+GARAGE_ISSUE = "show_suspended_" + GARAGE.replace(":", "_")
+
 
 def test_combine() -> None:
     """Independent sightings combine; one sighting stays as it is."""
@@ -195,7 +199,7 @@ async def test_show_taken_and_returned(hass: HomeAssistant, show: Any) -> None:
     """Armed: a product taken is asked about, and written only on a yes."""
     entry, _scene, model, passata = show
     manager = entry.runtime_data.show
-    assert (await manager.async_handle_trigger("garage:0"))["status"] == "not_armed"
+    assert (await manager.async_handle_trigger(GARAGE))["status"] == "not_armed"
 
     recognized = async_capture_events(hass, EVENT_SHOW_RECOGNIZED)
     requests = async_capture_events(hass, EVENT_SHOW_REQUEST)
@@ -204,7 +208,7 @@ async def test_show_taken_and_returned(hass: HomeAssistant, show: Any) -> None:
     )
     assert hass.states.get("switch.quartermaster_show_mode_garage").state == "on"  # type: ignore[union-attr]
     model.answers["show"] = _taken(passata, 0.9)
-    result = await manager.async_handle_trigger("garage:0")
+    result = await manager.async_handle_trigger(GARAGE)
     assert result["status"] == "proposed"
     assert await _quantity(entry) == 4  # a camera never writes
     assert recognized == []
@@ -228,16 +232,14 @@ async def test_show_taken_and_returned(hass: HomeAssistant, show: Any) -> None:
 
     # Put back after the yes: a request to undo that consumption.
     model.answers["show"] = _taken(passata, 0.9, "returned")
-    assert (await manager.async_handle_trigger("garage:0"))["status"] == "proposed"
+    assert (await manager.async_handle_trigger(GARAGE))["status"] == "proposed"
     assert await _quantity(entry) == 3
     await _confirm(entry)
     assert await _quantity(entry) == 4
     assert recognized[-1].data["action"] == "returned"
 
     # Put back with nothing to undo: nothing to record, the user is told.
-    assert (await manager.async_handle_trigger("garage:0"))["status"] == (
-        "needs_receipt"
-    )
+    assert (await manager.async_handle_trigger(GARAGE))["status"] == ("needs_receipt")
     assert requests[-1].data["proposal_id"] is None
     assert await _quantity(entry) == 4
     assert await entry.runtime_data.proposals.async_pending() == []
@@ -257,7 +259,7 @@ async def test_placed_goods_match_recent_purchases(
     await inventory.async_record_purchases([(passata, 2)], channel=Channel.TELEGRAM)
     model.answers["show"] = _taken(passata, 0.9, "returned")
     for seen in (1, 2, 3):
-        result = await manager.async_handle_trigger("garage:0")
+        result = await manager.async_handle_trigger(GARAGE)
         assert result["status"] == "put_away"
         assert (put_away[-1].data["seen"], put_away[-1].data["bought"]) == (seen, 2)
     assert put_away[-1].data["product"] == "Passata"
@@ -267,13 +269,13 @@ async def test_placed_goods_match_recent_purchases(
 
     # Below min_confidence: still matched, but nobody is told.
     model.answers["show"] = _taken(passata, 0.5, "returned")
-    assert (await manager.async_handle_trigger("garage:0"))["status"] == "put_away"
+    assert (await manager.async_handle_trigger(GARAGE))["status"] == "put_away"
     assert len(put_away) == 3
 
     # An undone purchase no longer counts: the receipt is asked for.
     await inventory.async_undo_last(channel=Channel.TELEGRAM)
     model.answers["show"] = _taken(passata, 0.9, "returned")
-    result = await manager.async_handle_trigger("garage:0")
+    result = await manager.async_handle_trigger(GARAGE)
     assert result["status"] == "needs_receipt"
     assert requests[-1].data["proposal_id"] is None
 
@@ -286,9 +288,9 @@ async def test_taken_then_returned_before_answering(
     manager = entry.runtime_data.show
     manager.async_arm("garage")
     model.answers["show"] = _taken(passata, 0.9)
-    await manager.async_handle_trigger("garage:0")
+    await manager.async_handle_trigger(GARAGE)
     model.answers["show"] = _taken(passata, 0.9, "returned")
-    assert (await manager.async_handle_trigger("garage:0"))["status"] == "cancelled"
+    assert (await manager.async_handle_trigger(GARAGE))["status"] == "cancelled"
     assert await entry.runtime_data.proposals.async_pending() == []
     assert await _quantity(entry) == 4
 
@@ -301,7 +303,7 @@ async def test_another_quantity_and_out_of_stock(
     manager = entry.runtime_data.show
     manager.async_arm("garage")
     model.answers["show"] = _taken(passata, 0.9)
-    await manager.async_handle_trigger("garage:0")
+    await manager.async_handle_trigger(GARAGE)
     # The dashboard sends the quantity taken through the action.
     [proposal] = await entry.runtime_data.proposals.async_pending()
     await hass.services.async_call(
@@ -315,15 +317,13 @@ async def test_another_quantity_and_out_of_stock(
     assert (consumed.kind, consumed.delta) == (MovementKind.CONSUME, -3)
     # More taken than there is: the request is for what is left.
     model.answers["show"] = lambda: {**_taken(passata, 0.9)(), "quantity": 5}
-    await manager.async_handle_trigger("garage:0")
+    await manager.async_handle_trigger(GARAGE)
     [proposal] = await entry.runtime_data.proposals.async_pending()
     assert proposal.payload["items"][0]["moved"] == 1
     # The dashboard's corrected count is what is left.
     await _confirm(entry, quantity=0)
     assert await _quantity(entry) == 0
-    assert (await manager.async_handle_trigger("garage:0"))["status"] == (
-        "not_in_stock"
-    )
+    assert (await manager.async_handle_trigger(GARAGE))["status"] == ("not_in_stock")
 
 
 async def test_low_confidence_corroborated_by_passage(
@@ -335,7 +335,7 @@ async def test_low_confidence_corroborated_by_passage(
     manager.async_arm("garage")
     requests = async_capture_events(hass, EVENT_SHOW_REQUEST)
     model.answers["show"] = _taken(passata, 0.6)
-    result = await manager.async_handle_trigger("garage:0")
+    result = await manager.async_handle_trigger(GARAGE)
     assert result["status"] == "proposed"
     assert requests == []
 
@@ -350,7 +350,7 @@ async def test_low_confidence_corroborated_by_passage(
             },
         ]
     }
-    result = await manager.async_handle_trigger("yard:0")
+    result = await manager.async_handle_trigger(YARD)
     assert result["items"] == [{"product_id": passata, "status": "corroborated"}]
     [request] = requests
     assert request.data["confidence"] == combine([0.6, 0.6])
@@ -367,7 +367,7 @@ async def test_passage_supports_a_take_without_double_count(
     manager = entry.runtime_data.show
     manager.async_arm("garage")
     model.answers["show"] = _taken(passata, 0.95)
-    await manager.async_handle_trigger("garage:0")
+    await manager.async_handle_trigger(GARAGE)
     await _confirm(entry)
     model.answers["passage"] = lambda: {
         "items": [
@@ -380,7 +380,7 @@ async def test_passage_supports_a_take_without_double_count(
             },
         ]
     }
-    result = await manager.async_handle_trigger("yard:0")
+    result = await manager.async_handle_trigger(YARD)
     assert result["items"] == [{"product_id": passata, "status": "corroborated"}]
     assert await _quantity(entry) == 3
     assert await entry.runtime_data.proposals.async_pending() == []
@@ -408,7 +408,7 @@ async def test_passage_alone(hass: HomeAssistant, show: Any) -> None:
             "bad",
         ]
     }
-    result = await manager.async_handle_trigger("yard:0")
+    result = await manager.async_handle_trigger(YARD)
     assert result["items"] == [{"product_id": passata, "status": "seen"}]
     assert await _quantity(entry) == 4
     assert await entry.runtime_data.proposals.async_pending() == []
@@ -416,7 +416,7 @@ async def test_passage_alone(hass: HomeAssistant, show: Any) -> None:
     # Placed on the shelf with nothing taken before: no stock change either.
     manager.async_arm("garage")
     model.answers["show"] = _taken(passata, 0.5, "returned")
-    result = await manager.async_handle_trigger("garage:0")
+    result = await manager.async_handle_trigger(GARAGE)
     assert result["confidence"] == combine([0.5, 0.99])
     assert result["status"] == "needs_receipt"
     assert await _quantity(entry) == 4
@@ -432,7 +432,7 @@ async def test_passage_alone(hass: HomeAssistant, show: Any) -> None:
             }
         ]
     }
-    result = await manager.async_handle_trigger("yard:0")
+    result = await manager.async_handle_trigger(YARD)
     assert result["items"] == [{"product_id": passata, "status": "proposed"}]
     [proposal] = await entry.runtime_data.proposals.async_pending()
     assert (proposal.zone_id, proposal.payload["items"][0]["moved"]) == ("garage", 2)
@@ -440,7 +440,7 @@ async def test_passage_alone(hass: HomeAssistant, show: Any) -> None:
     assert await _quantity(entry) == 2
 
     model.answers["passage"] = lambda: {"items": []}
-    assert (await manager.async_handle_trigger("yard:0"))["status"] == "nothing_carried"
+    assert (await manager.async_handle_trigger(YARD))["status"] == "nothing_carried"
 
 
 async def test_nothing_shown_and_unclear(hass: HomeAssistant, show: Any) -> None:
@@ -453,14 +453,14 @@ async def test_nothing_shown_and_unclear(hass: HomeAssistant, show: Any) -> None
         "action": "unclear",
         "confidence": 0,
     }
-    assert (await manager.async_handle_trigger("garage:0"))["status"] == "nothing_shown"
+    assert (await manager.async_handle_trigger(GARAGE))["status"] == "nothing_shown"
     model.answers["show"] = lambda: {
         "product_shown": True,
         "action": "taken",
         "product": "Caviar",
         "confidence": 0.95,
     }
-    result = await manager.async_handle_trigger("garage:0")
+    result = await manager.async_handle_trigger(GARAGE)
     assert (result["status"], result["action"]) == ("proposed", "unclear")
     # A camera never loads goods: an unknown sighting cannot become a product.
     proposals = entry.runtime_data.proposals
@@ -478,7 +478,7 @@ async def test_nothing_shown_and_unclear(hass: HomeAssistant, show: Any) -> None
     )
     assert (outcome.applied, len(outcome.waiting)) == ([], 1)
     model.answers["show"] = _taken(passata, 0.95, "unclear")
-    assert (await manager.async_handle_trigger("garage:0"))["status"] == "proposed"
+    assert (await manager.async_handle_trigger(GARAGE))["status"] == "proposed"
     assert await _quantity(entry) == 4
 
 
@@ -489,29 +489,81 @@ async def test_unchanged_frames_suspend(hass: HomeAssistant, show: Any) -> None:
     manager.async_arm("garage")
     scene.changed = False
     for _ in range(3):
-        assert (await manager.async_handle_trigger("garage:0"))["status"] == "no_change"
+        assert (await manager.async_handle_trigger(GARAGE))["status"] == "no_change"
     assert model.calls == []
-    assert (await manager.async_handle_trigger("garage:0"))["status"] == "suspended"
+    assert (await manager.async_handle_trigger(GARAGE))["status"] == "suspended"
     registry = ir.async_get(hass)
-    assert registry.async_get_issue(DOMAIN, "show_suspended_garage_0") is not None
+    assert registry.async_get_issue(DOMAIN, GARAGE_ISSUE) is not None
     manager.async_arm("garage")
-    assert registry.async_get_issue(DOMAIN, "show_suspended_garage_0") is None
+    assert registry.async_get_issue(DOMAIN, GARAGE_ISSUE) is None
+
+
+async def test_watchers_follow_sources(hass: HomeAssistant, show: Any) -> None:
+    """Watchers keep their state when sources move and go when they are removed."""
+    entry, scene, _, _ = show
+    manager = entry.runtime_data.show
+    manager._watchers[GARAGE].unchanged = 2
+    zone = await entry.runtime_data.inventory.async_find_zone("garage")
+    await hass.services.async_call(
+        DOMAIN,
+        "set_zone",
+        {"zone": "garage", "sources": [{"type": "manual"}, zone.sources[0]]},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert set(manager._watchers) == {GARAGE, YARD}
+    assert manager._watchers[GARAGE].unchanged == 2
+
+    # A suspended source that is removed takes its repair issue with it; the
+    # issue names the zone.
+    manager.async_arm("garage")
+    scene.changed = False
+    for _ in range(3):
+        await manager.async_handle_trigger(GARAGE)
+    registry = ir.async_get(hass)
+    issue = registry.async_get_issue(DOMAIN, GARAGE_ISSUE)
+    assert issue is not None
+    assert issue.translation_placeholders == {"zone": "Garage"}
+    await hass.services.async_call(
+        DOMAIN,
+        "set_zone",
+        {"zone": "garage", "sources": [{"type": "manual"}]},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert set(manager._watchers) == {YARD}
+    assert registry.async_get_issue(DOMAIN, GARAGE_ISSUE) is None
+
+
+async def test_reload_clears_suspension(hass: HomeAssistant, show: Any) -> None:
+    """A reload starts the cameras afresh, so the suspension issue goes."""
+    entry, scene, _, _ = show
+    manager = entry.runtime_data.show
+    manager.async_arm("garage")
+    scene.changed = False
+    for _ in range(3):
+        await manager.async_handle_trigger(GARAGE)
+    registry = ir.async_get(hass)
+    assert registry.async_get_issue(DOMAIN, GARAGE_ISSUE) is not None
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert registry.async_get_issue(DOMAIN, GARAGE_ISSUE) is None
 
 
 async def test_limits(hass: HomeAssistant, show: Any) -> None:
     """Hours, cooldown and daily limits are respected; disarm works."""
     entry, _, model, passata = show
     manager = entry.runtime_data.show
-    watcher = manager._watchers["garage:0"]
+    watcher = manager._watchers[GARAGE]
     manager.async_arm("garage", 5)
     watcher.source = {**watcher.source, "hours": "00:00-00:01"}
-    assert (await manager.async_handle_trigger("garage:0"))["status"] == "outside_hours"
+    assert (await manager.async_handle_trigger(GARAGE))["status"] == "outside_hours"
     watcher.source = {**watcher.source, "hours": None, "cooldown_seconds": 3600}
     model.answers["show"] = _taken(passata, 0.95)
-    await manager.async_handle_trigger("garage:0")
-    assert (await manager.async_handle_trigger("garage:0"))["status"] == "cooldown"
+    await manager.async_handle_trigger(GARAGE)
+    assert (await manager.async_handle_trigger(GARAGE))["status"] == "cooldown"
     watcher.source = {**watcher.source, "cooldown_seconds": 0, "max_per_day": 1}
-    assert (await manager.async_handle_trigger("garage:0"))["status"] == "daily_limit"
+    assert (await manager.async_handle_trigger(GARAGE))["status"] == "daily_limit"
     await hass.services.async_call(
         "switch",
         "turn_off",
@@ -578,16 +630,16 @@ async def test_single_attachment_retry_counts(hass: HomeAssistant, show: Any) ->
         blocking=True,
     )
     before = await vision.async_analyses_today()
-    await manager.async_handle_trigger("garage:0")
+    await manager.async_handle_trigger(GARAGE)
     assert await vision.async_analyses_today() == before + 2
 
     # With one call left this hour, the refused call is not retried.
     vision.hourly_limit = len(vision._recent) + 1
     calls = len(model.calls)
-    manager._watchers["garage:0"].last_trigger = None
-    manager._watchers["garage:0"].reference = None
+    manager._watchers[GARAGE].last_trigger = None
+    manager._watchers[GARAGE].reference = None
     with pytest.raises(InventoryError) as err:
-        await manager.async_handle_trigger("garage:0")
+        await manager.async_handle_trigger(GARAGE)
     assert err.value.translation_key == "hourly_limit"
     assert len(model.calls) == calls + 1
     assert await vision.async_analyses_today() == before + 3
@@ -633,7 +685,7 @@ async def test_text_mode_list_and_announce(hass: HomeAssistant, show: Any) -> No
         DOMAIN, "arm_show_mode", {"zone": "garage"}, blocking=True
     )
     model.answers["show"] = lambda: {"result_json": json.dumps(_taken(passata, 0.9)())}
-    assert (await runtime.show.async_handle_trigger("garage:0"))["status"] == "proposed"
+    assert (await runtime.show.async_handle_trigger(GARAGE))["status"] == "proposed"
     assert "result_json" in model.calls[-1]["structure"]
     await _confirm(entry)
     [event] = events
@@ -641,4 +693,4 @@ async def test_text_mode_list_and_announce(hass: HomeAssistant, show: Any) -> No
     assert event.data["announce"] == ["notify.garage_echo"]
     model.answers["show"] = lambda: {"result_json": "not json"}
     with pytest.raises(InventoryError):
-        await runtime.show.async_handle_trigger("garage:0")
+        await runtime.show.async_handle_trigger(GARAGE)

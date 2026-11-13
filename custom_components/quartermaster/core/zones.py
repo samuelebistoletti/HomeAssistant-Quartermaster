@@ -195,6 +195,20 @@ SOURCE_SCHEMAS: dict[SourceType, probatio.Schema] = {
 }
 
 
+def source_key(zone_id: str, source: dict[str, Any]) -> str:
+    """Return a key for a source that stays when its zone's sources move.
+
+    Built from the zone, the type and the entities (which hold no `:`), as
+    `<zone id>:<type>/<camera>[/<trigger>]`.
+    """
+    parts = [str(source.get("type"))]
+    if camera := source.get("entity_id"):
+        parts.append(str(camera))
+    if trigger := source.get("trigger_entity"):
+        parts.append(str(trigger))
+    return f"{zone_id}:{'/'.join(parts)}"
+
+
 def ledger_source(zone: Zone) -> dict[str, Any] | None:
     """Return the list-check source of a zone, if it has one."""
     for source in zone.sources:
@@ -290,10 +304,12 @@ class ZoneManager:
         )
         self._hass.bus.async_fire(EVENT_ZONE_CHECKED, outcome.as_dict())
 
-    async def _async_source_quota(self, zone_id: str, index: int, limit: int) -> bool:
+    async def _async_source_quota(
+        self, zone_id: str, source: dict[str, Any], limit: int
+    ) -> bool:
         """Count a camera read against the source's daily limit."""
         today = dt_util.now().date().isoformat()
-        key = f"source_reads:{zone_id}:{index}"
+        key = f"source_reads:{source_key(zone_id, source)}"
         raw = await self._backend.async_get_setting(key)
         day, count = raw.split("|") if raw else (today, "0")
         used = int(count) if day == today else 0
@@ -326,11 +342,11 @@ class ZoneManager:
             reason: str | None = None
             missing: list[str] = []
             sources = zone.sources or [{"type": SourceType.MANUAL.value}]
-            for index, source in enumerate(sources):
+            for source in sources:
                 kind = source.get("type")
                 if kind == SourceType.CAMERA:
                     outcome = await self._async_camera_source(
-                        zone, index, source, channel, user_id
+                        zone, source, channel, user_id
                     )
                     if isinstance(outcome, tuple):
                         reason, missing = outcome
@@ -428,14 +444,13 @@ class ZoneManager:
     async def _async_camera_source(
         self,
         zone: Zone,
-        index: int,
         source: dict[str, Any],
         channel: Channel,
         user_id: str | None,
     ) -> CheckOutcome | tuple[str, list[str]]:
         """Read and analyze one camera source within its daily limit."""
         if not await self._async_source_quota(
-            zone.id, index, int(source.get("max_checks_per_day", 4))
+            zone.id, source, int(source.get("max_checks_per_day", 4))
         ):
             return "daily_limit", []
         try:
@@ -506,7 +521,7 @@ class ZoneManager:
         self._running.add(zone.id)
         try:
             outcome = await self._async_camera_source(
-                zone, index, zone.sources[index], Channel.CAMERA, None
+                zone, zone.sources[index], Channel.CAMERA, None
             )
             if isinstance(outcome, tuple):
                 _LOGGER.debug("Door check of %s not used: %s", zone.id, outcome[0])

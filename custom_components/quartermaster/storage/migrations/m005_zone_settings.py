@@ -1,7 +1,9 @@
 """Schema version 5: drop per-zone settings of zones deleted earlier.
 
-Settings keyed `<prefix>:<zone id>` (last_check, failures, ledger_check) and
-`<prefix>:<zone id>:<source>` (source_reads, show_count) whose zone is gone.
+Settings keyed `<prefix>:<zone id>` (last_check, failures, ledger_check) go
+when their zone is gone. The daily camera counters (source_reads, show_count)
+were keyed by the source's position and are now keyed by the source itself:
+all are dropped, which only restarts today's counts.
 """
 
 from __future__ import annotations
@@ -22,24 +24,6 @@ STATEMENTS: tuple[str, ...] = (
     WHERE substr(key, 1, length('ledger_check:')) = 'ledger_check:'
         AND substr(key, length('ledger_check:') + 1) NOT IN (SELECT id FROM zones)
     """,
-    """
-    DELETE FROM settings
-    WHERE substr(key, 1, length('source_reads:')) = 'source_reads:'
-        AND instr(substr(key, length('source_reads:') + 1), ':') > 0
-        AND substr(
-            substr(key, length('source_reads:') + 1),
-            1,
-            instr(substr(key, length('source_reads:') + 1), ':') - 1
-        ) NOT IN (SELECT id FROM zones)
-    """,
-    """
-    DELETE FROM settings
-    WHERE substr(key, 1, length('show_count:')) = 'show_count:'
-        AND instr(substr(key, length('show_count:') + 1), ':') > 0
-        AND substr(
-            substr(key, length('show_count:') + 1),
-            1,
-            instr(substr(key, length('show_count:') + 1), ':') - 1
-        ) NOT IN (SELECT id FROM zones)
-    """,
+    "DELETE FROM settings WHERE substr(key, 1, length('source_reads:')) = 'source_reads:'",
+    "DELETE FROM settings WHERE substr(key, 1, length('show_count:')) = 'show_count:'",
 )

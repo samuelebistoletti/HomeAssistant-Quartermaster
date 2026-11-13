@@ -61,6 +61,7 @@
 - Consuming or finishing a product in a named zone where it has no stock is refused with `not_in_stock` instead of recording an empty movement.
 - Deleting a zone also deletes its check, failure, list-check and camera counters; schema version 5 removes those left by zones deleted earlier.
 - A camera's retry with the sharpest image alone counts against the daily and hourly analysis limits and is not made once they are reached.
+- Cameras keep their state and daily counts when a zone's sources are reordered; a removed camera_show or passage source stops being tracked, and its "show mode suspended" repair issue, which now names the zone instead of its id, goes with it or with a reload. Today's camera counts restart once after the upgrade.
 - The Undo button under a camera notification undoes that movement, not the camera's latest one.
 - Quiet hours no longer hold answers to something the user just asked (a photo request to the asking chat, a late voice reply) and are validated in the setup and options forms.
 - Expiry and "finished on" dates use the local day; Telegram errors are in the chat's language; malformed buttons are ignored.

@@ -317,7 +317,7 @@ async def test_delete_zone_drops_its_settings(backend: SQLiteBackend) -> None:
 async def test_migration_drops_settings_of_deleted_zones(
     hass: HomeAssistant, tmp_path: Path
 ) -> None:
-    """Upgrading deletes per-zone settings left by zones deleted earlier."""
+    """Upgrading deletes settings of deleted zones and position-keyed counters."""
     path = tmp_path / "pantry.db"
     conn = sqlite3.connect(path)
     with conn:
@@ -340,7 +340,9 @@ async def test_migration_drops_settings_of_deleted_zones(
     await store.async_open()
     for key in ZONE_KEYS:
         assert await store.async_get_setting(key.format("gone")) is None
-        assert await store.async_get_setting(key.format("pantry")) == "1"
+        # Position-keyed camera counters go for every zone.
+        kept = None if key.count(":") == 2 else "1"
+        assert await store.async_get_setting(key.format("pantry")) == kept
     assert await store.async_get_setting("other") == "1"
     await store.async_close()
 

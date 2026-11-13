@@ -62,7 +62,7 @@ from custom_components.quartermaster.const import DOMAIN
 from custom_components.quartermaster.core.confirmations import RETURNED, TAKEN
 from custom_components.quartermaster.core.events import is_fresh_event
 from custom_components.quartermaster.core.inventory import InventoryError
-from custom_components.quartermaster.core.zones import SourceType
+from custom_components.quartermaster.core.zones import SourceType, source_key
 from custom_components.quartermaster.storage.models import (
     Channel,
     MovementKind,
@@ -242,6 +242,7 @@ class Watcher:
     key: str
     zone_id: str
     source: dict[str, Any]
+    zone_name: str = ""
     last_trigger: float | None = None
     unchanged: int = 0
     # Uncropped frames: the scene at rest and the last frame captured.
@@ -278,17 +279,22 @@ class ShowManager:
     def async_start(self, zones: list[Zone]) -> None:
         """Listen to the trigger entity of every watching source."""
         self.async_stop()
+        watchers: dict[str, Watcher] = {}
         for zone in zones:
-            for index, source in enumerate(zone.sources):
+            for source in zone.sources:
                 if source.get("type") not in (
                     SourceType.CAMERA_SHOW,
                     SourceType.PASSAGE,
                 ):
                     continue
-                key = f"{zone.id}:{index}"
+                key = source_key(zone.id, source)
+                if key in watchers:
+                    # The same camera and trigger listed twice: one watcher.
+                    continue
                 watcher = self._watchers.get(key) or Watcher(key, zone.id, source)
                 watcher.source = source
-                self._watchers[key] = watcher
+                watcher.zone_name = zone.name
+                watchers[key] = watcher
                 self._unsubs.append(
                     async_track_state_change_event(
                         self._hass,
@@ -296,6 +302,10 @@ class ShowManager:
                         self._make_listener(watcher),
                     )
                 )
+        for key, gone in self._watchers.items():
+            if key not in watchers:
+                self._resume(gone)
+        self._watchers = watchers
 
     @callback
     def async_stop(self) -> None:
@@ -305,8 +315,13 @@ class ShowManager:
 
     @callback
     def async_shutdown(self) -> None:
-        """Stop listening and cancel the disarm timers."""
+        """Stop listening, cancel the disarm timers and drop suspensions.
+
+        Suspensions live in memory only, so their repair issues go with them.
+        """
         self.async_stop()
+        for watcher in list(self._watchers.values()):
+            self._resume(watcher)
         for cancel in self._disarm_timers.values():
             cancel()
         self._disarm_timers.clear()
@@ -480,7 +495,7 @@ class ShowManager:
             is_fixable=False,
             severity=ir.IssueSeverity.WARNING,
             translation_key="show_suspended",
-            translation_placeholders={"zone": watcher.zone_id},
+            translation_placeholders={"zone": watcher.zone_name or watcher.zone_id},
         )
 
     def _resume(self, watcher: Watcher) -> None:
