@@ -11,7 +11,8 @@ Where the work stands, shared between sessions and machines. Rules live in `CLAU
 - Done on 2026-11-12: integration #1 (unknown items wait and become new products: `new_product` correction, Telegram New buttons, Proposals card), tested in pytest and the dashboard tests; on the dev instance only the action schema was checked, the full photo and receipt flow with the test bot is still to try.
 - Done on 2026-11-13: integration #3 (goods put away matched with the purchases of the last 24 h, one summary message, receipt asked otherwise); camera proposals refuse `new_product`. Dev instance: loads cleanly; not tried with a real camera.
 - Done on 2026-11-13: integration #2 (update_product, archive_product, move_stock, agent tools, snapshot `archived_products`); tried on the dev instance (product "Prova ciclo" left archived). Merging duplicate products: issue #21. Dashboard #3 (product editor in the Inventory card) done, not yet looked at in a browser.
-- Next, suggested order: dashboard #2 (movement requests), then the smaller fixes; field validation (#18, #19) whenever the author is available; #16 and #17 before 1.0.
+- Done on 2026-11-13: dashboard #2 (camera movement requests in the Proposals card; `confirm_pending` takes `moved`). None of the dashboard changes of 2026-11-12/13 has been looked at in a browser yet.
+- Next, suggested order: the smaller fixes (#6 to #15); field validation (#18, #19) whenever the author is available; #16 and #17 before 1.0.
 
 ## Machine setup
 
