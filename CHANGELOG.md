@@ -45,6 +45,7 @@
 - Products recorded in a zone that a photo or camera count does not show are proposed at zero as "not seen". Confirming the proposal leaves them alone; each one is set to zero only with its own Telegram button ("<product> finished"), by ticking it in the dashboard or by naming its key.
 
 ### Added
+- Product life cycle: actions `update_product` (rename, aliases, category, unit, default zone, shelf life, visual hints, essential settings; null clears), `archive_product` (stock to zero as one undoable operation; `archived: false` or adding the same name brings it back) and `move_stock` (between zones, one undoable operation, the best-before date goes with it), and agent tools for them (changes and archiving ask for a yes; moving does not). The dashboard snapshot adds `shelf_life_days`, `visual_hints` and `archived_products`.
 - List check (source type `ledger`, also offered in the guided setup) for any zone a photo shows badly (a closed cupboard, the fridge, a freezer): no photo requests and no "zone not updated" suggestion; the check sends the list, oldest first, with "−1", "finished" and "all right" buttons on Telegram, every `check_days` (default 30, 0 = on request), with `/check <zone>` (`/controlla`), the check button or by voice (the tool returns the five oldest products).
 
 ### Fixed

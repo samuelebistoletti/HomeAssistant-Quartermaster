@@ -10,7 +10,8 @@ Where the work stands, shared between sessions and machines. Rules live in `CLAU
 - Postponed (2026-11-12, still planned): a full review of the whole codebase in both repositories (module by module against `docs/SPEC.md` and the rules, or `/code-review` against the first commit `6a673f8`, plus `security-audit`); findings become GitHub issues. Start it only when the author asks.
 - Done on 2026-11-12: integration #1 (unknown items wait and become new products: `new_product` correction, Telegram New buttons, Proposals card), tested in pytest and the dashboard tests; on the dev instance only the action schema was checked, the full photo and receipt flow with the test bot is still to try.
 - Done on 2026-11-13: integration #3 (goods put away matched with the purchases of the last 24 h, one summary message, receipt asked otherwise); camera proposals refuse `new_product`. Dev instance: loads cleanly; not tried with a real camera.
-- Next, suggested order: integration #2 with dashboard #3 (product life cycle), dashboard #2 (movement requests), then the smaller fixes; field validation (#18, #19) whenever the author is available; #16 and #17 before 1.0.
+- Done on 2026-11-13: integration #2 (update_product, archive_product, move_stock, agent tools, snapshot `archived_products`); tried on the dev instance (product "Prova ciclo" left archived). Merging duplicate products: separate issue to open.
+- Next, suggested order: dashboard #3 (product editor), dashboard #2 (movement requests), then the smaller fixes; field validation (#18, #19) whenever the author is available; #16 and #17 before 1.0.
 
 ## Machine setup
 

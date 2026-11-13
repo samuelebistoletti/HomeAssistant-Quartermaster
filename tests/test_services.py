@@ -269,3 +269,45 @@ async def test_zone_actions(
     with pytest.raises(ServiceValidationError) as err:
         await _call(hass, init_integration, "remove_zone", zone="garage")
     assert err.value.translation_key == "zone_not_found"
+
+
+async def test_product_life_cycle_actions(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """update_product, move_stock and archive_product, with null clearing."""
+    entry = init_integration
+    await _kitchen(hass, entry)
+    await _call(hass, entry, "add_product", name="Milk", category="dairy")
+    await _call(hass, entry, "set_stock", product="milk", quantity=3, zone="frigo")
+    updated = await _call(
+        hass,
+        entry,
+        "update_product",
+        product="milk",
+        name="Whole milk",
+        aliases=["latte"],
+        category=None,
+        default_zone="Pantry",
+    )
+    assert (updated["name"], updated["aliases"], updated["category"]) == (
+        "Whole milk",
+        ["latte"],
+        None,
+    )
+    assert updated["default_zone_id"] == "pantry"
+    moved = await _call(
+        hass, entry, "move_stock", product="latte", to_zone="pantry", quantity=1
+    )
+    assert [(m["zone_id"], m["delta"], m["kind"]) for m in moved["movements"]] == [
+        ("fridge", -1, "move"),
+        ("pantry", 1, "move"),
+    ]
+    archived = await _call(hass, entry, "archive_product", product="latte")
+    assert archived["archived"] is True
+    assert sorted(m["delta"] for m in archived["movements"]) == [-2, -1]
+    snapshot = entry.runtime_data.coordinator.data
+    assert all(p.name != "Whole milk" for p in snapshot.products.values())
+    back = await _call(
+        hass, entry, "archive_product", product="whole milk", archived=False
+    )
+    assert back["archived"] is False

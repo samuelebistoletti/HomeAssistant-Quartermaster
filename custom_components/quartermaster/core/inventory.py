@@ -291,6 +291,24 @@ class InventoryService:
             products = await self.backend.async_list_products(include_archived=False)
             if any(normalize(p.name) == normalize(name) for p in products):
                 raise InventoryError("product_exists", product=name)
+            if archived := await self._archived_named(name):
+                # Adding an archived product brings it back with what was given.
+                archived.archived = False
+                for attribute, value in (
+                    ("category", category),
+                    ("default_zone_id", zone_id),
+                    ("unit", unit),
+                    ("visual_hints", visual_hints),
+                    ("barcode", barcode),
+                    ("shelf_life_days", shelf_life_days),
+                ):
+                    if value is not None:
+                        setattr(archived, attribute, value)
+                if essential:
+                    archived.essential = True
+                    archived.min_stock, archived.target_stock = min_stock, target_stock
+                await self.backend.async_update_product(archived)
+                return archived
             return await self.backend.async_add_product(
                 Product(
                     id=0,
@@ -307,6 +325,205 @@ class InventoryService:
                     shelf_life_days=shelf_life_days,
                 )
             )
+
+    async def _archived_named(self, ref: str | int) -> Product | None:
+        """Return the archived product with this id or name, if any."""
+        key = normalize(str(ref))
+        for product in await self.backend.async_list_products(include_archived=True):
+            if product.archived and (
+                str(product.id) == str(ref) or normalize(product.name) == key
+            ):
+                return product
+        return None
+
+    async def async_update_product(
+        self, product_ref: str | int, changes: dict[str, Any]
+    ) -> Product:
+        """Change a product's details; a key set to None clears that detail.
+
+        Keys: name, aliases (the whole list), category, unit, default_zone,
+        shelf_life_days, visual_hints, essential, min_stock, target_stock.
+        Names and aliases stay unique among active products.
+        """
+        async with self._writing():
+            product = await self.async_find_product(product_ref)
+            others = [
+                p
+                for p in await self.backend.async_list_products(include_archived=False)
+                if p.id != product.id
+            ]
+            taken = {normalize(n) for p in others for n in (p.name, *p.aliases)}
+            if "name" in changes:
+                name = " ".join(str(changes["name"] or "").split())
+                if not name:
+                    raise InventoryError("invalid_name")
+                if normalize(name) in {normalize(p.name) for p in others}:
+                    raise InventoryError("product_exists", product=name)
+                if normalize(name) in taken:
+                    raise InventoryError("alias_taken", alias=name)
+                product.name = name
+            if "aliases" in changes:
+                aliases: list[str] = []
+                for alias in changes["aliases"] or []:
+                    alias = " ".join(str(alias).split())
+                    key = normalize(alias)
+                    if not alias or key == normalize(product.name):
+                        continue
+                    if key in taken:
+                        raise InventoryError("alias_taken", alias=alias)
+                    if key not in {normalize(a) for a in aliases}:
+                        aliases.append(alias)
+                product.aliases = aliases
+            if "default_zone" in changes:
+                product.default_zone_id = (
+                    (await self.async_find_zone(changes["default_zone"])).id
+                    if changes["default_zone"]
+                    else None
+                )
+            for key in ("category", "unit", "visual_hints"):
+                if key in changes:
+                    setattr(
+                        product, key, " ".join(str(changes[key] or "").split()) or None
+                    )
+            if "shelf_life_days" in changes:
+                product.shelf_life_days = changes["shelf_life_days"] or None
+            for key in ("essential", "min_stock", "target_stock"):
+                if key in changes:
+                    setattr(product, key, changes[key])
+            product.essential = bool(product.essential)
+            _check_essential(
+                product.name, product.essential, product.min_stock, product.target_stock
+            )
+            await self.backend.async_update_product(product)
+        return product
+
+    async def async_archive_product(
+        self,
+        product_ref: str | int,
+        *,
+        archived: bool = True,
+        channel: Channel,
+        user_id: str | None = None,
+    ) -> tuple[Product, list[Movement]]:
+        """Archive a product, setting its stock to zero, or bring it back.
+
+        The stock set to zero is one operation: undoing it restores the
+        stock and the product. A product brought back starts from zero.
+        """
+        async with self._writing():
+            if not archived:
+                product = await self._archived_named(product_ref)
+                if product is None:
+                    raise InventoryError("product_not_found", product=str(product_ref))
+                await self._check_free_name(product)
+                product.archived = False
+                await self.backend.async_update_product(product)
+                return product, []
+            product = await self.async_find_product(product_ref)
+            zones = {zone.id: zone for zone in await self.backend.async_list_zones()}
+            levels = [
+                level
+                for level in await self.backend.async_list_stock(product_id=product.id)
+                if level.quantity > 0
+            ]
+            entries = (
+                await self.backend.async_apply_changes(
+                    [
+                        StockChange(
+                            product_id=product.id,
+                            zone_id=level.zone_id,
+                            kind=MovementKind.ARCHIVE,
+                            set_quantity=0.0,
+                            channel=channel,
+                            user_id=user_id,
+                        )
+                        for level in levels
+                    ]
+                )
+                if levels
+                else []
+            )
+            product.archived = True
+            await self.backend.async_update_product(product)
+        return product, [Movement(e, product, zones[e.zone_id]) for e in entries]
+
+    async def _check_free_name(self, product: Product) -> None:
+        """Refuse to bring back a product whose name is now someone else's."""
+        key = normalize(product.name)
+        for other in await self.backend.async_list_products(include_archived=False):
+            if key in {normalize(n) for n in (other.name, *other.aliases)}:
+                raise InventoryError("product_exists", product=product.name)
+
+    async def async_move_stock(
+        self,
+        product_ref: str | int,
+        *,
+        to_zone: str,
+        from_zone: str | None = None,
+        quantity: float | None = None,
+        channel: Channel,
+        user_id: str | None = None,
+    ) -> list[Movement]:
+        """Move stock to another zone as one operation (all of it by default).
+
+        The best-before date goes with the goods: the earlier of the two
+        when the zone already holds some.
+        """
+        if quantity is not None:
+            _check_quantity(quantity)
+        async with self._writing():
+            product = await self.async_find_product(product_ref)
+            source = await self._movement_zone(
+                product, StockOperation.CONSUME, from_zone
+            )
+            target = await self.async_find_zone(to_zone)
+            if target.id == source.id:
+                raise InventoryError("same_zone", zone=target.name)
+            levels = {
+                level.zone_id: level
+                for level in await self.backend.async_list_stock(product_id=product.id)
+            }
+            held = levels.get(source.id)
+            available = held.quantity if held else 0.0
+            if available <= 0:
+                raise InventoryError("not_in_stock", product=product.name)
+            moved = available if quantity is None else quantity
+            if moved > available:
+                raise InventoryError(
+                    "not_enough_stock",
+                    product=product.name,
+                    quantity=f"{available:g}",
+                    zone=source.name,
+                )
+            there = levels.get(target.id)
+            dates = [
+                level.best_before
+                for level in (held, there)
+                if level is not None and level.quantity > 0 and level.best_before
+            ]
+            entries = await self.backend.async_apply_changes(
+                [
+                    StockChange(
+                        product_id=product.id,
+                        zone_id=source.id,
+                        kind=MovementKind.MOVE,
+                        delta=-moved,
+                        channel=channel,
+                        user_id=user_id,
+                    ),
+                    StockChange(
+                        product_id=product.id,
+                        zone_id=target.id,
+                        kind=MovementKind.MOVE,
+                        delta=moved,
+                        best_before=min(dates) if dates else None,
+                        channel=channel,
+                        user_id=user_id,
+                    ),
+                ]
+            )
+        zones = {source.id: source, target.id: target}
+        return [Movement(e, product, zones[e.zone_id]) for e in entries]
 
     async def async_set_essential(
         self,
@@ -539,6 +756,15 @@ class InventoryService:
                     include_archived=True
                 )
             }
+            # Undoing an archive brings the product back with its stock.
+            restored = {
+                original.product_id
+                for original in originals
+                if original.kind is MovementKind.ARCHIVE
+                and products[original.product_id].archived
+            }
+            for product_id in restored:
+                await self._check_free_name(products[product_id])
             undos = await self.backend.async_apply_changes(
                 [
                     StockChange(
@@ -553,6 +779,9 @@ class InventoryService:
                     for original in reversed(originals)
                 ]
             )
+            for product_id in restored:
+                products[product_id].archived = False
+                await self.backend.async_update_product(products[product_id])
 
         def movement(entry: JournalEntry) -> Movement:
             return Movement(entry, products[entry.product_id], zones[entry.zone_id])

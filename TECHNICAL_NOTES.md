@@ -82,6 +82,9 @@ Checked against the official docs or, where marked, Home Assistant's source. Rec
 | "Opened" | Sets `stock.opened_at`; not a movement, not undoable |
 | Counting | `adjust_stock` action `counted` sets the quantity, journal kind `correction` |
 | Errors | `InventoryError(ServiceValidationError)` with keys under `exceptions` |
+| Product details | `update_product` changes any detail; a key set to null clears it; `aliases` replaces the list (own name and duplicates dropped). A new name or alias that is another active product's name or alias is refused (`product_exists`, `alias_taken`). Agent tool needs a confirmation id |
+| Archive | `archive_product` sets every stock row to zero as one operation of kind `archive`, then marks the product archived: it leaves the snapshot, essentials, suggestions and the automatic list (`archived_products` lists it). Undoing that operation restores the stock and the product. `archived: false`, or `add_product` with the same name (given details applied), brings it back from zero; both refuse when the name is now another product's. Agent tool needs a confirmation id. Merging duplicates is a separate issue (author, 2026-11-13) |
+| Move | `move_stock` writes two `move` entries (out, in) as one operation; all of it without `quantity`, `from_zone` needed when the product is in several zones; more than held is refused (`not_enough_stock`). The goods keep the earlier best-before date of the two zones. Not a consumption for the forecast. The agent tool writes at once, undoable (author, 2026-11-13) |
 
 ## Shopping list, suggestions, forecast
 

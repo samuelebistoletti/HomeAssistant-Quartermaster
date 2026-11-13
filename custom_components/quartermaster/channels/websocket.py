@@ -128,6 +128,8 @@ def snapshot(runtime: QuartermasterRuntimeData) -> dict[str, Any]:
                 "essential": product.essential,
                 "min_stock": product.min_stock,
                 "target_stock": product.target_stock,
+                "shelf_life_days": product.shelf_life_days,
+                "visual_hints": product.visual_hints,
                 "total": round(analysis.totals.get(product.id, 0.0), 3),
                 "stock": [
                     {
@@ -145,6 +147,10 @@ def snapshot(runtime: QuartermasterRuntimeData) -> dict[str, Any]:
                 ],
             }
             for product in data.products.values()
+        ],
+        "archived_products": [
+            {"product_id": product.id, "name": product.name}
+            for product in data.archived
         ],
         "to_buy": [
             {"product_id": e.product.id, "have": e.total, "quantity": e.quantity}

@@ -129,6 +129,69 @@ add_product:
           max: 3650
           mode: box
 
+update_product:
+  fields:
+    config_entry_id: *config_entry
+    product: *product
+    name:
+      example: "Whole milk"
+      selector:
+        text:
+    aliases:
+      example: "milk"
+      selector:
+        text:
+          multiple: true
+    category:
+      selector:
+        text:
+    default_zone:
+      example: "Fridge"
+      selector:
+        text:
+    unit:
+      selector:
+        text:
+    visual_hints:
+      selector:
+        text:
+          multiline: true
+    shelf_life_days:
+      selector:
+        number:
+          min: 1
+          max: 3650
+          mode: box
+    essential:
+      selector:
+        boolean:
+    min_stock: *quantity
+    target_stock: *quantity
+
+archive_product:
+  fields:
+    config_entry_id: *config_entry
+    product: *product
+    archived:
+      default: true
+      selector:
+        boolean:
+
+move_stock:
+  fields:
+    config_entry_id: *config_entry
+    product: *product
+    to_zone:
+      required: true
+      example: "Pantry"
+      selector:
+        text:
+    from_zone:
+      example: "Fridge"
+      selector:
+        text:
+    quantity: *quantity
+
 set_essential:
   fields:
     config_entry_id: *config_entry

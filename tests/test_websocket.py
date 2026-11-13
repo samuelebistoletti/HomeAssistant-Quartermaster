@@ -50,6 +50,7 @@ async def test_snapshot_and_subscribe(
         {"product_id": milk["product_id"], "have": 1.0, "quantity": 1.0}
     ]
     assert [item["text"] for item in result["shopping_list"]] == ["Milk"]
+    assert (milk["shelf_life_days"], result["archived_products"]) == (None, [])
 
     await client.send_json_auto_id({"type": f"{DOMAIN}/subscribe"})
     assert (await client.receive_json())["success"] is True
@@ -61,6 +62,17 @@ async def test_snapshot_and_subscribe(
     ].runtime_data.coordinator.async_refresh()
     update = await client.receive_json()
     assert update["event"]["to_buy"] == []
+    # An archived product leaves the products and is listed to bring back.
+    await stocked.async_archive_product("jam", channel=Channel.SERVICE)
+    await hass.config_entries.async_entries(DOMAIN)[
+        0
+    ].runtime_data.coordinator.async_refresh()
+    # Earlier writes may still push their own update first.
+    update = await client.receive_json()
+    while not update["event"]["archived_products"]:
+        update = await client.receive_json()
+    assert [p["name"] for p in update["event"]["products"]] == ["Milk"]
+    assert [p["name"] for p in update["event"]["archived_products"]] == ["Jam"]
 
 
 async def test_journal(

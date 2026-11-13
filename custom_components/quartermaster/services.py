@@ -51,6 +51,9 @@ SERVICE_UNDO_LAST = "undo_last"
 SERVICE_SET_STOCK = "set_stock"
 SERVICE_ADD_PRODUCT = "add_product"
 SERVICE_SET_ESSENTIAL = "set_essential"
+SERVICE_UPDATE_PRODUCT = "update_product"
+SERVICE_ARCHIVE_PRODUCT = "archive_product"
+SERVICE_MOVE_STOCK = "move_stock"
 SERVICE_EXPORT_DATA = "export_data"
 SERVICE_IMPORT_DATA = "import_data"
 SERVICE_GET_SUGGESTIONS = "get_suggestions"
@@ -82,6 +85,9 @@ ATTR_TARGET_STOCK = "target_stock"
 ATTR_VISUAL_HINTS = "visual_hints"
 ATTR_BARCODE = "barcode"
 ATTR_SHELF_LIFE_DAYS = "shelf_life_days"
+ATTR_ARCHIVED = "archived"
+ATTR_FROM_ZONE = "from_zone"
+ATTR_TO_ZONE = "to_zone"
 ATTR_FORMAT = "format"
 ATTR_FILENAME = "filename"
 ATTR_ZONE_ID = "zone_id"
@@ -175,6 +181,45 @@ ADD_PRODUCT_SCHEMA = probatio.Schema(
         probatio.Optional(ATTR_VISUAL_HINTS): cv.string,
         probatio.Optional(ATTR_BARCODE): cv.string,
         probatio.Optional(ATTR_SHELF_LIFE_DAYS): cv.positive_int,
+    }
+)
+# null (from the dashboard) clears a detail.
+CLEARABLE_TEXT = probatio.Any(None, cv.string)
+UPDATE_PRODUCT_SCHEMA = probatio.Schema(
+    {
+        **ENTRY,
+        probatio.Required(ATTR_PRODUCT): cv.string,
+        probatio.Optional(ATTR_NAME): cv.string,
+        probatio.Optional(ATTR_ALIASES): probatio.Any(
+            None, probatio.All(cv.ensure_list, [cv.string])
+        ),
+        probatio.Optional(ATTR_CATEGORY): CLEARABLE_TEXT,
+        probatio.Optional(ATTR_DEFAULT_ZONE): CLEARABLE_TEXT,
+        probatio.Optional(ATTR_UNIT): CLEARABLE_TEXT,
+        probatio.Optional(ATTR_VISUAL_HINTS): CLEARABLE_TEXT,
+        probatio.Optional(ATTR_SHELF_LIFE_DAYS): probatio.Any(None, cv.positive_int),
+        probatio.Optional(ATTR_ESSENTIAL): cv.boolean,
+        probatio.Optional(ATTR_MIN_STOCK): probatio.Any(None, QUANTITY),
+        probatio.Optional(ATTR_TARGET_STOCK): probatio.Any(None, QUANTITY),
+    }
+)
+ARCHIVE_PRODUCT_SCHEMA = probatio.Schema(
+    {
+        **ENTRY,
+        probatio.Required(ATTR_PRODUCT): cv.string,
+        probatio.Optional(ATTR_ARCHIVED, default=True): cv.boolean,
+    }
+)
+MOVE_STOCK_SCHEMA = probatio.Schema(
+    {
+        **ENTRY,
+        probatio.Required(ATTR_PRODUCT): cv.string,
+        probatio.Required(ATTR_TO_ZONE): cv.string,
+        probatio.Optional(ATTR_FROM_ZONE): cv.string,
+        probatio.Optional(ATTR_QUANTITY): probatio.All(
+            probatio.Coerce(float),
+            probatio.Range(min=0, min_included=False, max=MAX_QUANTITY),
+        ),
     }
 )
 SET_ESSENTIAL_SCHEMA = probatio.Schema(
@@ -464,6 +509,64 @@ async def _async_set_essential(call: ServiceCall) -> ServiceResponse:
     return _product(product) if call.return_response else None
 
 
+async def _async_update_product(call: ServiceCall) -> ServiceResponse:
+    await _async_check_writer(call)
+    changes = {
+        key: call.data[key]
+        for key in (
+            ATTR_NAME,
+            ATTR_ALIASES,
+            ATTR_CATEGORY,
+            ATTR_DEFAULT_ZONE,
+            ATTR_UNIT,
+            ATTR_VISUAL_HINTS,
+            ATTR_SHELF_LIFE_DAYS,
+            ATTR_ESSENTIAL,
+            ATTR_MIN_STOCK,
+            ATTR_TARGET_STOCK,
+        )
+        if key in call.data
+    }
+    product = await _inventory(call).async_update_product(
+        call.data[ATTR_PRODUCT], changes
+    )
+    return _product(product) if call.return_response else None
+
+
+async def _async_archive_product(call: ServiceCall) -> ServiceResponse:
+    await _async_check_writer(call)
+    product, movements = await _inventory(call).async_archive_product(
+        call.data[ATTR_PRODUCT],
+        archived=call.data[ATTR_ARCHIVED],
+        channel=Channel.SERVICE,
+        user_id=call.context.user_id,
+    )
+    if not call.return_response:
+        return None
+    return {
+        **_product(product),
+        "archived": product.archived,
+        "movements": [_movement(m) for m in movements],
+    }
+
+
+async def _async_move_stock(call: ServiceCall) -> ServiceResponse:
+    await _async_check_writer(call)
+    movements = await _inventory(call).async_move_stock(
+        call.data[ATTR_PRODUCT],
+        to_zone=call.data[ATTR_TO_ZONE],
+        from_zone=call.data.get(ATTR_FROM_ZONE),
+        quantity=call.data.get(ATTR_QUANTITY),
+        channel=Channel.SERVICE,
+        user_id=call.context.user_id,
+    )
+    return (
+        {"movements": [_movement(m) for m in movements]}
+        if call.return_response
+        else None
+    )
+
+
 async def _async_export_data(call: ServiceCall) -> ServiceResponse:
     inventory = _inventory(call)
     if call.data[ATTR_FORMAT] == FORMAT_CSV:
@@ -748,6 +851,9 @@ def async_setup_services(hass: HomeAssistant) -> None:
         (SERVICE_REMOVE_ZONE, _async_remove_zone, REMOVE_ZONE_SCHEMA),
         (SERVICE_ADD_PRODUCT, _async_add_product, ADD_PRODUCT_SCHEMA),
         (SERVICE_SET_ESSENTIAL, _async_set_essential, SET_ESSENTIAL_SCHEMA),
+        (SERVICE_UPDATE_PRODUCT, _async_update_product, UPDATE_PRODUCT_SCHEMA),
+        (SERVICE_ARCHIVE_PRODUCT, _async_archive_product, ARCHIVE_PRODUCT_SCHEMA),
+        (SERVICE_MOVE_STOCK, _async_move_stock, MOVE_STOCK_SCHEMA),
         (
             SERVICE_REFRESH_SHOPPING_LIST,
             _async_refresh_shopping_list,

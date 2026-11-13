@@ -17,6 +17,10 @@ class MovementKind(StrEnum):
     CORRECTION = "correction"
     UNDO = "undo"
     IMPORT = "import"
+    # Stock moved between zones: one operation, out of one zone and into another.
+    MOVE = "move"
+    # Stock set to zero when a product is archived; undoing it restores both.
+    ARCHIVE = "archive"
 
 
 class Channel(StrEnum):

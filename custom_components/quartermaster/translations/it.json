@@ -322,6 +322,15 @@
     },
     "hourly_limit": {
       "message": "È stato raggiunto il limite di {limit} analisi di immagini all'ora."
+    },
+    "alias_taken": {
+      "message": "{alias} è già il nome o un alias di un altro prodotto."
+    },
+    "same_zone": {
+      "message": "Il prodotto è già in {zone}."
+    },
+    "not_enough_stock": {
+      "message": "In {zone} ci sono solo {quantity} {product}."
     }
   },
   "selector": {
@@ -532,6 +541,104 @@
         "shelf_life_days": {
           "name": "Durata",
           "description": "Giorni tipici prima della scadenza."
+        }
+      }
+    },
+    "update_product": {
+      "name": "Modifica prodotto",
+      "description": "Cambia nome, alias, categoria, unità, zona predefinita, durata, indizi visivi o impostazioni di essenziale di un prodotto. Un valore vuoto cancella quel dato.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
+        },
+        "product": {
+          "name": "Prodotto",
+          "description": "Nome, alias o id del prodotto."
+        },
+        "name": {
+          "name": "Nome",
+          "description": "Nuovo nome, unico nell'inventario."
+        },
+        "aliases": {
+          "name": "Alias",
+          "description": "L'elenco completo degli altri nomi; sostituisce quello attuale."
+        },
+        "category": {
+          "name": "Categoria",
+          "description": "Categoria, per esempio formaggi o pasta."
+        },
+        "default_zone": {
+          "name": "Zona predefinita",
+          "description": "Zona in cui vanno gli acquisti quando non si indica la zona."
+        },
+        "unit": {
+          "name": "Unità",
+          "description": "Unità delle quantità, per esempio bottiglia o pacco."
+        },
+        "visual_hints": {
+          "name": "Indizi visivi",
+          "description": "Come appare il prodotto, per riconoscerlo nelle foto."
+        },
+        "shelf_life_days": {
+          "name": "Durata",
+          "description": "Giorni tipici prima della scadenza."
+        },
+        "essential": {
+          "name": "Essenziale",
+          "description": "Il prodotto deve esserci sempre."
+        },
+        "min_stock": {
+          "name": "Scorta minima",
+          "description": "Sotto questa quantità totale il prodotto va in lista. Obbligatoria per gli essenziali."
+        },
+        "target_stock": {
+          "name": "Scorta obiettivo",
+          "description": "Quantità a cui riportare il prodotto quando si compra."
+        }
+      }
+    },
+    "archive_product": {
+      "name": "Archivia prodotto",
+      "description": "Archivia un prodotto: le scorte vanno a zero in un'unica operazione annullabile ed esce da inventario, essenziali e lista della spesa. Con archiviato spento torna, da zero.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
+        },
+        "product": {
+          "name": "Prodotto",
+          "description": "Nome, alias o id del prodotto."
+        },
+        "archived": {
+          "name": "Archiviato",
+          "description": "Acceso per archiviare, spento per riportare il prodotto."
+        }
+      }
+    },
+    "move_stock": {
+      "name": "Sposta scorte",
+      "description": "Sposta un prodotto da una zona all'altra in un'unica operazione annullabile; la data di scadenza lo segue.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Voce di Quartermaster",
+          "description": "La voce di configurazione di Quartermaster su cui agire. Se manca, si usa l'unica presente."
+        },
+        "product": {
+          "name": "Prodotto",
+          "description": "Nome, alias o id del prodotto."
+        },
+        "to_zone": {
+          "name": "Zona di arrivo",
+          "description": "Zona in cui va il prodotto."
+        },
+        "from_zone": {
+          "name": "Zona di partenza",
+          "description": "Zona da cui viene il prodotto; serve quando è in più zone."
+        },
+        "quantity": {
+          "name": "Quantità",
+          "description": "Quantità da spostare; tutta se manca."
         }
       }
     },

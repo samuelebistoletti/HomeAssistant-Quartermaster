@@ -116,6 +116,9 @@ async def test_tools_are_offered(
             "undo_last",
             "set_essential",
             "create_product",
+            "update_product",
+            "archive_product",
+            "move_stock",
             "confirm_pending",
             "check_zone",
             "arm_show_mode",
@@ -289,6 +292,48 @@ async def test_confirmations(hass: HomeAssistant, kitchen: InventoryService) -> 
     )
     assert created == {"status": "done", "product": "Butter"}
     assert (await kitchen.async_find_product("butter")).default_zone_id == "fridge"
+
+
+async def test_product_life_cycle_tools(
+    hass: HomeAssistant, kitchen: InventoryService
+) -> None:
+    """Changes and archiving ask for a yes; a move is written at once."""
+    asked = await _tool(hass, "update_product", product="latte", name="Whole milk")
+    assert asked["status"] == "confirmation_required"
+    assert asked["changes"] == {"name": "Whole milk"}
+    assert (await kitchen.async_find_product("milk")).name == "Milk"
+    done = await _tool(
+        hass, "update_product", product="x", confirmation_id=asked["confirmation_id"]
+    )
+    assert done == {"status": "done", "product": "Whole milk"}
+    nothing = await _tool(hass, "update_product", product="latte")
+    assert nothing["error"] == "invalid_arguments"
+    bad_zone = await _tool(hass, "update_product", product="latte", default_zone="moon")
+    assert bad_zone["error"] == "zone_not_found"
+
+    moved = await _tool(
+        hass, "move_stock", product="passata", to_zone="frigo", quantity=1
+    )
+    assert (moved["moved"], moved["from"], moved["to"]) == (
+        1,
+        {"zone": "Garage", "left": 3},
+        {"zone": "Fridge", "now": 1},
+    )
+
+    archive = await _tool(hass, "archive_product", product="mozzarella")
+    assert (archive["status"], archive["stock_to_clear"]) == (
+        "confirmation_required",
+        2,
+    )
+    archived = await _tool(
+        hass, "archive_product", product="x", confirmation_id=archive["confirmation_id"]
+    )
+    assert archived["stock_cleared"] == [{"zone": "Fridge", "quantity": 2}]
+    restore = await _tool(hass, "archive_product", product="Mozzarella", archived=False)
+    restored = await _tool(
+        hass, "archive_product", product="x", confirmation_id=restore["confirmation_id"]
+    )
+    assert (restored["product"], restored["archived"]) == ("Mozzarella", False)
 
 
 async def test_confirmation_expires(

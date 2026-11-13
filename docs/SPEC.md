@@ -437,7 +437,7 @@ Distribuzione: repository HomeAssistant-Quartermaster-Dashboard di tipo dashboar
 
 ### 6.7 Azioni dell'integrazione
 
-ask, check\_zone, analyze\_image, adjust\_stock, undo\_last, set\_stock, add\_product, set\_essential, get\_suggestions, start\_shopping, refresh\_shopping\_list, arm\_show\_mode, confirm\_pending, import\_from\_todo, export\_data, import\_data (tutte nel dominio quartermaster). Le azioni di lettura e analisi restituiscono dati di risposta, così si usano in script e automazioni.
+ask, check\_zone, analyze\_image, adjust\_stock, undo\_last, set\_stock, move\_stock, add\_product, update\_product, archive\_product, set\_essential, get\_suggestions, start\_shopping, refresh\_shopping\_list, arm\_show\_mode, confirm\_pending, import\_from\_todo, export\_data, import\_data (tutte nel dominio quartermaster). Le azioni di lettura e analisi restituiscono dati di risposta, così si usano in script e automazioni.
 
 ### 6.8 Lista della spesa, essenziali e suggerimenti
 

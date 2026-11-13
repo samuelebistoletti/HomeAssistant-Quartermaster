@@ -196,6 +196,9 @@ All actions are in the `quartermaster` domain. `config_entry_id` is optional: Qu
 | `set_stock` | Set a quantity (counting) |
 | `undo_last` | Undo the last operation, or a given one |
 | `add_product`, `set_essential` | Products and essentials (minimum and target stock) |
+| `update_product` | Rename a product or change its aliases, category, unit, default zone, shelf life, visual hints or essential settings (null clears) |
+| `archive_product` | Archive a product (its stock goes to zero, undoable) or bring it back with `archived: false` |
+| `move_stock` | Move a product to another zone, all of it or a quantity, as one undoable operation |
 | `add_zone`, `remove_zone`, `set_zone` | Zones, their sources, schedule and thresholds |
 | `get_suggestions`, `refresh_shopping_list`, `start_shopping`, `add_to_shopping_list` | Shopping list and suggestions |
 | `analyze_image` | Analyze a photo (file or camera) for a zone |

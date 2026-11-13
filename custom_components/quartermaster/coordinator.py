@@ -84,6 +84,8 @@ class QuartermasterData:
     # Keys of the kept crops (zone ids, proposal ids as text).
     zone_crops: set[str] = field(default_factory=set)
     proposal_crops: set[str] = field(default_factory=set)
+    # Archived products, for bringing them back (issue #2).
+    archived: list[Product] = field(default_factory=list)
 
     @property
     def shopping_mode(self) -> bool:
@@ -160,7 +162,8 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
         """Recompute everything from the store and sync the list."""
         now = dt_util.utcnow()
         backend = self.inventory.backend
-        products = await backend.async_list_products(include_archived=False)
+        every = await backend.async_list_products(include_archived=True)
+        products = [product for product in every if not product.archived]
         zones = await backend.async_list_zones()
         stock = await backend.async_list_stock()
         journal = await backend.async_list_journal(
@@ -233,6 +236,7 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
         return QuartermasterData(
             analysis=analysis,
             products={product.id: product for product in products},
+            archived=[product for product in every if product.archived],
             zones={zone.id: zone for zone in zones},
             stock=stock,
             shopping_items=await self.shopping.async_items(),

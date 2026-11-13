@@ -127,6 +127,12 @@ The purchases always become a proposal: confirm, correct or reject them as for p
 
 "I have 3 yogurts left" sets the quantity (a correction in the journal) instead of adding or removing.
 
+## Products
+
+- **Change a product:** "rename milk to whole milk", "the shelf life of yogurt is 10 days", or `quartermaster.update_product`. Quartermaster asks you to confirm first.
+- **Move goods:** "I moved two milks to the pantry" moves them at once, with their best-before date; say "undo" to put them back. Or `quartermaster.move_stock`.
+- **Stop keeping a product:** "we don't buy soy milk any more" archives it after you confirm: its stock goes to zero and it leaves the inventory and the lists. Undo brings it back with its stock; later, adding a product with the same name, or `quartermaster.archive_product` with **Archived** off, brings it back from zero.
+
 ## Undo
 
 Every change is in the journal and can be undone:

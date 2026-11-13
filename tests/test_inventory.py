@@ -406,3 +406,172 @@ async def test_undo_reverts_a_whole_operation(inventory: InventoryService) -> No
     # The next undo reaches the earlier, single-product operation.
     [original], _ = await inventory.async_undo_last(channel=Channel.SERVICE)
     assert original.entry.kind is MovementKind.INVENTORY
+
+
+# Product life cycle (issue #2)
+
+
+async def test_update_product(inventory: InventoryService) -> None:
+    """Details change, null clears them; names and aliases stay unique."""
+    await _kitchen(inventory)
+    milk = await inventory.async_update_product(
+        "latte",
+        {
+            "name": "Whole milk",
+            "aliases": ["latte", "latte intero", "Latte", " "],
+            "category": "dairy",
+            "default_zone": "dispensa",
+            "shelf_life_days": 7,
+            "essential": True,
+            "min_stock": 2,
+        },
+    )
+    assert (milk.name, milk.aliases) == ("Whole milk", ["latte", "latte intero"])
+    assert (milk.category, milk.default_zone_id, milk.shelf_life_days) == (
+        "dairy",
+        "pantry",
+        7,
+    )
+    assert (milk.essential, milk.min_stock) == (True, 2)
+    assert (await inventory.async_find_product("latte intero")).id == milk.id
+    cleared = await inventory.async_update_product(
+        milk.id, {"category": None, "default_zone": None, "shelf_life_days": None}
+    )
+    assert (cleared.category, cleared.default_zone_id, cleared.shelf_life_days) == (
+        None,
+        None,
+        None,
+    )
+    for changes, key in (
+        ({"name": "parmesan"}, "product_exists"),
+        ({"name": "cheese"}, "alias_taken"),
+        ({"aliases": ["cheese"]}, "alias_taken"),
+        ({"name": " "}, "invalid_name"),
+        ({"min_stock": None}, "min_stock_required"),
+    ):
+        with pytest.raises(InventoryError) as err:
+            await inventory.async_update_product("whole milk", changes)
+        assert _key(err) == key
+    assert (await inventory.async_find_product("whole milk")).min_stock == 2
+
+
+async def test_archive_and_bring_back(inventory: InventoryService) -> None:
+    """Archiving zeroes the stock as one operation; undo restores both."""
+    await _kitchen(inventory)
+    await inventory.async_set_stock("milk", 2, channel=Channel.SERVICE)
+    await inventory.async_set_stock(
+        "milk", 1, zone_ref="pantry", channel=Channel.SERVICE
+    )
+    product, movements = await inventory.async_archive_product(
+        "latte", channel=Channel.SERVICE
+    )
+    assert product.archived
+    assert {(m.zone.id, m.entry.kind, m.entry.delta) for m in movements} == {
+        ("fridge", MovementKind.ARCHIVE, -2),
+        ("pantry", MovementKind.ARCHIVE, -1),
+    }
+    with pytest.raises(InventoryError) as err:
+        await inventory.async_find_product("milk")
+    assert _key(err) == "product_not_found"
+
+    await inventory.async_undo_last(channel=Channel.SERVICE)
+    assert not (await inventory.async_find_product("milk")).archived
+    assert await _quantity(inventory, "milk", "fridge") == 2
+
+    # Archived with no stock: nothing to undo; bringing it back starts at zero.
+    await inventory.async_set_stock("milk", 0, channel=Channel.SERVICE)
+    await inventory.async_set_stock(
+        "milk", 0, zone_ref="pantry", channel=Channel.SERVICE
+    )
+    _, movements = await inventory.async_archive_product(
+        "milk", channel=Channel.SERVICE
+    )
+    assert movements == []
+    back, _ = await inventory.async_archive_product(
+        "milk", archived=False, channel=Channel.SERVICE
+    )
+    assert not back.archived
+    with pytest.raises(InventoryError) as err:
+        await inventory.async_archive_product(
+            "milk", archived=False, channel=Channel.SERVICE
+        )
+    assert _key(err) == "product_not_found"
+
+
+async def test_add_brings_back_an_archived_product(inventory: InventoryService) -> None:
+    """Adding a product with an archived product's name brings that one back."""
+    await _kitchen(inventory)
+    milk = await inventory.async_find_product("milk")
+    await inventory.async_archive_product("milk", channel=Channel.SERVICE)
+    again = await inventory.async_add_product("MILK", unit="carton", shelf_life_days=5)
+    assert again.id == milk.id
+    assert (again.name, again.unit, again.shelf_life_days) == ("Milk", "carton", 5)
+    assert not again.archived
+
+    # A name taken meanwhile blocks bringing it back, and undoing the archive.
+    await inventory.async_set_stock(
+        "parmesan", 1, zone_ref="pantry", channel=Channel.SERVICE
+    )
+    await inventory.async_archive_product("parmesan", channel=Channel.SERVICE)
+    await inventory.async_add_product("Grana", aliases=["parmesan"])
+    for call in (
+        inventory.async_archive_product(
+            "parmesan", archived=False, channel=Channel.SERVICE
+        ),
+        inventory.async_undo_last(channel=Channel.SERVICE),
+    ):
+        with pytest.raises(InventoryError) as err:
+            await call
+        assert _key(err) == "product_exists"
+
+
+async def test_move_stock(inventory: InventoryService) -> None:
+    """A move is one operation that keeps the earlier best-before date."""
+    await _kitchen(inventory)
+    soon, later = date(2026, 12, 1), date(2026, 12, 20)
+    await inventory.async_set_stock(
+        "milk", 3, best_before=later, channel=Channel.SERVICE
+    )
+    await inventory.async_set_stock(
+        "milk", 1, zone_ref="pantry", best_before=soon, channel=Channel.SERVICE
+    )
+    for kwargs, key in (
+        ({"to_zone": "pantry"}, "product_in_many_zones"),
+        ({"to_zone": "fridge", "from_zone": "fridge"}, "same_zone"),
+        (
+            {"to_zone": "pantry", "from_zone": "fridge", "quantity": 4},
+            "not_enough_stock",
+        ),
+    ):
+        with pytest.raises(InventoryError) as err:
+            await inventory.async_move_stock("milk", channel=Channel.SERVICE, **kwargs)  # type: ignore[arg-type]
+        assert _key(err) == key
+    out, into = await inventory.async_move_stock(
+        "milk",
+        to_zone="pantry",
+        from_zone="frigo",
+        quantity=2,
+        channel=Channel.TELEGRAM,
+    )
+    assert (out.entry.kind, out.entry.delta, out.entry.quantity_after) == (
+        MovementKind.MOVE,
+        -2,
+        1,
+    )
+    assert (into.entry.delta, into.entry.quantity_after) == (2, 3)
+    assert out.entry.operation_id == into.entry.operation_id
+    milk = await inventory.async_find_product("milk")
+    [pantry] = await inventory.async_get_stock(product_id=milk.id, zone_id="pantry")
+    assert pantry.best_before == soon
+    # All of it, then undo puts everything back.
+    await inventory.async_move_stock(
+        "milk", to_zone="pantry", from_zone="fridge", channel=Channel.SERVICE
+    )
+    assert await _quantity(inventory, "milk", "fridge") == 0
+    await inventory.async_undo_last(channel=Channel.SERVICE)
+    assert await _quantity(inventory, "milk", "fridge") == 1
+    with pytest.raises(InventoryError) as err:
+        await inventory.async_move_stock(
+            "parmesan", to_zone="pantry", channel=Channel.SERVICE
+        )
+    assert _key(err) == "not_in_stock"

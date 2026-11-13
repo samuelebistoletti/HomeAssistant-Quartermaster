@@ -1086,6 +1086,206 @@ class ArmShowModeTool(QuartermasterTool):
         )
 
 
+# Details update_product may change; None clears one.
+PRODUCT_DETAILS = (
+    "name",
+    "aliases",
+    "category",
+    "unit",
+    "default_zone",
+    "shelf_life_days",
+    "essential",
+    "min_stock",
+    "target_stock",
+)
+
+
+class UpdateProductTool(QuartermasterTool):
+    """Change a product's details (always confirmed)."""
+
+    name = f"{DOMAIN}__update_product"
+    description = (
+        "Rename a product or change its aliases (the whole list), category, "
+        "unit, default zone, shelf life in days or essential settings; null "
+        "clears a detail. Needs the user's confirmation."
+    )
+    parameters = probatio.Schema(
+        {
+            probatio.Required("product"): str,
+            probatio.Optional("name"): str,
+            probatio.Optional("aliases"): probatio.Any(None, [str]),
+            probatio.Optional("category"): probatio.Any(None, str),
+            probatio.Optional("unit"): probatio.Any(None, str),
+            probatio.Optional("default_zone"): probatio.Any(None, str),
+            probatio.Optional("shelf_life_days"): probatio.Any(
+                None, probatio.All(int, probatio.Range(min=1, max=3650))
+            ),
+            probatio.Optional("essential"): bool,
+            probatio.Optional("min_stock"): probatio.Any(None, QUANTITY),
+            probatio.Optional("target_stock"): probatio.Any(None, QUANTITY),
+            probatio.Optional("confirmation_id"): str,
+        }
+    )
+    annotations = WRITES
+    writes = True
+
+    async def _async_run(
+        self,
+        runtime: QuartermasterRuntimeData,
+        args: dict[str, Any],
+        channel: Channel,
+        user_id: str | None,
+        llm_context: llm.LLMContext,
+    ) -> llm.ToolResult:
+        inventory = runtime.inventory
+        if confirmation_id := args.get("confirmation_id"):
+            stored = runtime.confirmations.take(self.name, confirmation_id)
+            if stored is None:
+                return _error("confirmation_expired")
+            product = await inventory.async_update_product(
+                stored["product_id"], stored["changes"]
+            )
+            return _result({"status": "done", "product": product.name})
+        product = await inventory.async_find_product(args["product"])
+        changes = {key: args[key] for key in PRODUCT_DETAILS if key in args}
+        if not changes:
+            return _error("invalid_arguments", detail="nothing to change")
+        if changes.get("default_zone"):
+            await inventory.async_find_zone(changes["default_zone"])
+        return _result(
+            {
+                "status": "confirmation_required",
+                "confirmation_id": runtime.confirmations.create(
+                    self.name, {"product_id": product.id, "changes": changes}
+                ),
+                "product": product.name,
+                "changes": changes,
+            }
+        )
+
+
+class ArchiveProductTool(QuartermasterTool):
+    """Archive a product or bring it back (always confirmed)."""
+
+    name = f"{DOMAIN}__archive_product"
+    description = (
+        "Archive a product the household no longer keeps: its stock goes to "
+        "zero (undoable) and it leaves the inventory and the lists. With "
+        "archived false an archived product comes back. Needs the user's "
+        "confirmation."
+    )
+    parameters = probatio.Schema(
+        {
+            probatio.Required("product"): str,
+            probatio.Optional("archived", default=True): bool,
+            probatio.Optional("confirmation_id"): str,
+        }
+    )
+    annotations = REMOVES
+    writes = True
+
+    async def _async_run(
+        self,
+        runtime: QuartermasterRuntimeData,
+        args: dict[str, Any],
+        channel: Channel,
+        user_id: str | None,
+        llm_context: llm.LLMContext,
+    ) -> llm.ToolResult:
+        inventory = runtime.inventory
+        if confirmation_id := args.get("confirmation_id"):
+            stored = runtime.confirmations.take(self.name, confirmation_id)
+            if stored is None:
+                return _error("confirmation_expired")
+            product, movements = await inventory.async_archive_product(
+                stored["product"],
+                archived=stored["archived"],
+                channel=channel,
+                user_id=user_id,
+            )
+            return _result(
+                {
+                    "status": "done",
+                    "product": product.name,
+                    "archived": product.archived,
+                    "stock_cleared": [
+                        {"zone": m.zone.name, "quantity": -m.entry.delta}
+                        for m in movements
+                    ],
+                }
+            )
+        archived = args["archived"]
+        if archived:
+            product = await inventory.async_find_product(args["product"])
+            stock = sum(
+                level.quantity
+                for level in await inventory.async_get_stock(product_id=product.id)
+            )
+            ref: str | int = product.id
+            name = product.name
+        else:
+            ref, name, stock = args["product"], args["product"], 0.0
+        return _result(
+            {
+                "status": "confirmation_required",
+                "confirmation_id": runtime.confirmations.create(
+                    self.name, {"product": ref, "archived": archived}
+                ),
+                "product": name,
+                "archived": archived,
+                "stock_to_clear": stock,
+            }
+        )
+
+
+class MoveStockTool(QuartermasterTool):
+    """Move a product between zones (undoable, no confirmation)."""
+
+    name = f"{DOMAIN}__move_stock"
+    description = (
+        'Move a product from one zone to another ("I moved two milks to the '
+        'pantry"). Without quantity everything moves; from_zone is needed when '
+        "the product is in more than one zone. Not a consumption: the forecast "
+        "ignores it."
+    )
+    parameters = probatio.Schema(
+        {
+            probatio.Required("product"): str,
+            probatio.Required("to_zone"): str,
+            probatio.Optional("from_zone"): str,
+            probatio.Optional("quantity"): QUANTITY,
+        }
+    )
+    annotations = WRITES
+    writes = True
+
+    async def _async_run(
+        self,
+        runtime: QuartermasterRuntimeData,
+        args: dict[str, Any],
+        channel: Channel,
+        user_id: str | None,
+        llm_context: llm.LLMContext,
+    ) -> llm.ToolResult:
+        out, into = await runtime.inventory.async_move_stock(
+            args["product"],
+            to_zone=args["to_zone"],
+            from_zone=args.get("from_zone"),
+            quantity=args.get("quantity"),
+            channel=channel,
+            user_id=user_id,
+        )
+        return _result(
+            {
+                "status": "done",
+                "product": out.product.name,
+                "moved": into.entry.delta,
+                "from": {"zone": out.zone.name, "left": out.entry.quantity_after},
+                "to": {"zone": into.zone.name, "now": into.entry.quantity_after},
+            }
+        )
+
+
 TOOLS: tuple[type[QuartermasterTool], ...] = (
     ListZonesTool,
     GetStockTool,
@@ -1099,6 +1299,9 @@ TOOLS: tuple[type[QuartermasterTool], ...] = (
     UndoLastTool,
     SetEssentialTool,
     CreateProductTool,
+    UpdateProductTool,
+    ArchiveProductTool,
+    MoveStockTool,
     ConfirmPendingTool,
     CheckZoneTool,
     ArmShowModeTool,
