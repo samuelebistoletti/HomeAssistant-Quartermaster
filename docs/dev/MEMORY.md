@@ -2,17 +2,16 @@
 
 Where the work stands, shared between sessions and machines. Rules live in `CLAUDE.md`, decisions in `TECHNICAL_NOTES.md`, open work in GitHub issues; this file holds only the current state and the next step. Keep it short, factual and free of secrets or personal data. Rewrite "Now" at the end of every working session and push it.
 
-## Now (2026-11-12)
+## Now (2026-11-13)
 
 - Everything is on `main` and pushed in both repositories; CI green. No release yet (`0.0.0`).
 - Done on 2026-11-11: the assessment fixes, cameras that only ask, the list check (`ledger` zones), "not seen → 0" rows, the model choice (gemma-4-26b agent and images, glm-4.7-flash text). The assessment report (`docs/dev/ASSESSMENT-2026-11-11.md`) is a frozen snapshot; its open points are now issues.
 - Open work: GitHub issues in both repositories. `ready-for-agent` issues can be picked up; `ready-for-human` ones wait for the author (decisions and field tests).
 - Postponed (2026-11-12, still planned): a full review of the whole codebase in both repositories (module by module against `docs/SPEC.md` and the rules, or `/code-review` against the first commit `6a673f8`, plus `security-audit`); findings become GitHub issues. Start it only when the author asks.
-- Done on 2026-11-12: integration #1 (unknown items wait and become new products: `new_product` correction, Telegram New buttons, Proposals card), tested in pytest and the dashboard tests; on the dev instance only the action schema was checked, the full photo and receipt flow with the test bot is still to try.
-- Done on 2026-11-13: integration #3 (goods put away matched with the purchases of the last 24 h, one summary message, receipt asked otherwise); camera proposals refuse `new_product`. Dev instance: loads cleanly; not tried with a real camera.
-- Done on 2026-11-13: integration #2 (update_product, archive_product, move_stock, agent tools, snapshot `archived_products`); tried on the dev instance (product "Prova ciclo" left archived). Merging duplicate products: issue #21. Dashboard #3 (product editor in the Inventory card) done, not yet looked at in a browser.
-- Done on 2026-11-13: dashboard #2 (camera movement requests in the Proposals card; `confirm_pending` takes `moved`). None of the dashboard changes of 2026-11-12/13 has been looked at in a browser yet.
-- Next, suggested order: the smaller fixes (#6 to #15); field validation (#18, #19) whenever the author is available; #16 and #17 before 1.0.
+- Done on 2026-11-12/13: integration #1 (unknown items become new products), #3 (goods put away matched with purchases), #2 (update, archive, move; merging is #21); dashboard #2 (camera requests) and #3 (product editor). Not yet tried: the full photo, receipt and camera flows with the test bot and real cameras; none of the dashboard changes of 2026-11-12/13 has been looked at in a browser. Dev instance: product "Prova ciclo" left archived.
+- Done on 2026-11-13, smaller fixes: #6 (stable source keys `zones.source_key`), #7 (single-image retry counted in the limits), #8 (zone settings deleted with the zone; schema v5), #9, #10 (write tools do not wait for the external todo copy), #11 (`max_age_minutes` removed), #13 (core/storage coverage gate, pinned bandit and pip-audit), #15 (sample snapshot `tests/snapshot_sample.json`, `npm run contract` in the dashboard), dashboard #4 (`channel: dashboard` on journaled actions). Dev instance restarted: loads cleanly, schema 5.
+- Waiting for the author: #12 (HA's Alexa handler passes only slot values to `intent_script`, no device or session id: needs a Lambda change or stays as is), #14 second half (journal retention period; the missing-entity repair issue is done).
+- Next, suggested order: integration #4 and #5 (`ready-for-agent`); field validation (#18, #19) whenever the author is available; #16 and #17 before 1.0.
 
 ## Machine setup
 
