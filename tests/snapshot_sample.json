@@ -1,0 +1,363 @@
+{
+  "journal": {
+    "entries": [
+      {
+        "channel": "dashboard",
+        "delta": 2.0,
+        "id": 3,
+        "kind": "inventory",
+        "operation_id": "OPERATION_ID",
+        "product": "Yogurt",
+        "product_id": 3,
+        "quantity_after": 2.0,
+        "ts": "2026-11-10T09:00:00+00:00",
+        "undone": false,
+        "zone": "Fridge",
+        "zone_id": "fridge"
+      },
+      {
+        "channel": "service",
+        "delta": 4.0,
+        "id": 2,
+        "kind": "inventory",
+        "operation_id": "OPERATION_ID",
+        "product": "Passata",
+        "product_id": 2,
+        "quantity_after": 4.0,
+        "ts": "2026-11-10T09:00:00+00:00",
+        "undone": false,
+        "zone": "Garage shelf",
+        "zone_id": "garage_shelf"
+      },
+      {
+        "channel": "service",
+        "delta": 1.0,
+        "id": 1,
+        "kind": "inventory",
+        "operation_id": "OPERATION_ID",
+        "product": "Milk",
+        "product_id": 1,
+        "quantity_after": 1.0,
+        "ts": "2026-11-10T09:00:00+00:00",
+        "undone": false,
+        "zone": "Fridge",
+        "zone_id": "fridge"
+      }
+    ]
+  },
+  "snapshot": {
+    "analyses_today": 0,
+    "api_version": 1,
+    "archived_products": [
+      {
+        "name": "Old jam",
+        "product_id": 4
+      }
+    ],
+    "can_write": true,
+    "daily_analysis_limit": 50,
+    "entities": {
+      "analyses_today": "sensor.quartermaster_analyses_today",
+      "expiring": "sensor.quartermaster_expiring_products",
+      "expiry": "calendar.quartermaster_best_before_dates",
+      "pending_proposals": "sensor.quartermaster_pending_proposals",
+      "photo_requests": "sensor.quartermaster_photo_requests",
+      "shopping_list": "todo.quartermaster_shopping_list",
+      "start_shopping": "button.quartermaster_go_shopping",
+      "suggestions": "sensor.quartermaster_shopping_suggestions",
+      "to_buy": "sensor.quartermaster_to_buy",
+      "undo_last": "button.quartermaster_undo_last_operation",
+      "update_mode": "select.quartermaster_update_mode"
+    },
+    "entry_id": "ENTRY_ID",
+    "expiring": [
+      {
+        "best_before": "2026-11-12",
+        "days_left": 2,
+        "product_id": 1,
+        "quantity": 1.0,
+        "zone_id": "fridge"
+      }
+    ],
+    "photo_requests": [
+      {
+        "created": "2026-11-10T09:00:00+00:00",
+        "reason": "stale",
+        "request_id": 1,
+        "zone_id": "garage_shelf"
+      }
+    ],
+    "products": [
+      {
+        "aliases": [
+          "latte"
+        ],
+        "category": "dairy",
+        "default_zone_id": "fridge",
+        "essential": true,
+        "min_stock": 2.0,
+        "name": "Milk",
+        "product_id": 1,
+        "shelf_life_days": 7,
+        "stock": [
+          {
+            "best_before": "2026-11-12",
+            "quantity": 1.0,
+            "updated": "2026-11-10T09:00:00+00:00",
+            "zone_id": "fridge"
+          }
+        ],
+        "target_stock": 4.0,
+        "total": 1.0,
+        "unit": "bottle",
+        "visual_hints": null
+      },
+      {
+        "aliases": [],
+        "category": null,
+        "default_zone_id": "garage_shelf",
+        "essential": false,
+        "min_stock": null,
+        "name": "Passata",
+        "product_id": 2,
+        "shelf_life_days": null,
+        "stock": [
+          {
+            "best_before": null,
+            "quantity": 4.0,
+            "updated": "2026-11-10T09:00:00+00:00",
+            "zone_id": "garage_shelf"
+          }
+        ],
+        "target_stock": null,
+        "total": 4.0,
+        "unit": null,
+        "visual_hints": "red jar"
+      },
+      {
+        "aliases": [],
+        "category": null,
+        "default_zone_id": "fridge",
+        "essential": false,
+        "min_stock": null,
+        "name": "Yogurt",
+        "product_id": 3,
+        "shelf_life_days": null,
+        "stock": [
+          {
+            "best_before": null,
+            "quantity": 2.0,
+            "updated": "2026-11-10T09:00:00+00:00",
+            "zone_id": "fridge"
+          }
+        ],
+        "target_stock": null,
+        "total": 2.0,
+        "unit": null,
+        "visual_hints": null
+      }
+    ],
+    "proposals": [
+      {
+        "channel": "camera",
+        "created": "2026-11-10T09:00:00+00:00",
+        "has_image": false,
+        "items": [
+          {
+            "confidence": 0.9,
+            "current": 4,
+            "key": 0,
+            "moved": 1,
+            "notes": "taken",
+            "product": "Passata",
+            "product_id": 2,
+            "proposed": 3,
+            "seen_as": "Passata",
+            "unit": null
+          }
+        ],
+        "kind": "movement",
+        "not_seen": [],
+        "proposal_id": 3,
+        "zone_id": "garage_shelf"
+      },
+      {
+        "channel": "telegram",
+        "created": "2026-11-10T09:00:00+00:00",
+        "has_image": false,
+        "items": [
+          {
+            "confidence": 0.95,
+            "current": null,
+            "key": 0,
+            "notes": null,
+            "product": "Milk",
+            "product_id": 1,
+            "proposed": 2,
+            "seen_as": "latte",
+            "unit": "bottle"
+          }
+        ],
+        "kind": "purchase",
+        "not_seen": [],
+        "proposal_id": 2,
+        "zone_id": null
+      },
+      {
+        "channel": "dashboard",
+        "created": "2026-11-10T09:00:00+00:00",
+        "has_image": false,
+        "items": [
+          {
+            "confidence": 0.9,
+            "current": 2.0,
+            "key": 0,
+            "notes": null,
+            "product": "Yogurt",
+            "product_id": 3,
+            "proposed": 1,
+            "seen_as": "yogurt",
+            "unit": null
+          },
+          {
+            "confidence": 0.7,
+            "current": null,
+            "key": 1,
+            "notes": null,
+            "product": null,
+            "product_id": null,
+            "proposed": 2,
+            "seen_as": "kefir",
+            "unit": "bottle"
+          },
+          {
+            "confidence": 0.8,
+            "current": 1.0,
+            "key": 2,
+            "missing": true,
+            "notes": null,
+            "product": "Milk",
+            "product_id": 1,
+            "proposed": 0.0,
+            "seen_as": "milk",
+            "unit": "bottle"
+          }
+        ],
+        "kind": "count",
+        "not_seen": [
+          "milk"
+        ],
+        "proposal_id": 1,
+        "zone_id": "fridge"
+      }
+    ],
+    "shopping_list": [
+      {
+        "done": false,
+        "item_id": 1,
+        "origin": "manual",
+        "product_id": null,
+        "quantity": 2.0,
+        "text": "Paper towels"
+      },
+      {
+        "done": false,
+        "item_id": 2,
+        "origin": "auto",
+        "product_id": 1,
+        "quantity": 3.0,
+        "text": "Milk"
+      }
+    ],
+    "shopping_mode_until": null,
+    "suggestions": [],
+    "to_buy": [
+      {
+        "have": 1.0,
+        "product_id": 1,
+        "quantity": 3.0
+      }
+    ],
+    "zones": [
+      {
+        "aliases": [
+          "frigo"
+        ],
+        "check_schedule": null,
+        "confidence_threshold": null,
+        "has_image": false,
+        "in_error": false,
+        "last_check": {
+          "overall_confidence": 0.82,
+          "reason": null,
+          "source": "photo",
+          "status": "updated",
+          "ts": "2026-11-10T09:00:00+00:00",
+          "zone_id": "fridge"
+        },
+        "last_show": null,
+        "name": "Fridge",
+        "reminder_days": null,
+        "show_armed_until": null,
+        "source_details": [],
+        "sources": [],
+        "updated": "2026-11-10T09:00:00+00:00",
+        "zone_id": "fridge"
+      },
+      {
+        "aliases": [
+          "garage"
+        ],
+        "check_schedule": "0 19 * * *",
+        "confidence_threshold": null,
+        "has_image": false,
+        "in_error": false,
+        "last_check": null,
+        "last_show": null,
+        "name": "Garage shelf",
+        "reminder_days": null,
+        "show_armed_until": null,
+        "source_details": [
+          {
+            "entity_id": "camera.garage",
+            "max_checks_per_day": 4,
+            "min_interval_minutes": 30,
+            "roi": [
+              0.0,
+              0.0,
+              0.5,
+              1.0
+            ],
+            "trigger_delay_seconds": 3.0,
+            "trigger_state": "off",
+            "type": "camera"
+          },
+          {
+            "active": "when_armed",
+            "arm_minutes": 10,
+            "burst_interval_seconds": 0.5,
+            "capture": "auto",
+            "cooldown_seconds": 30,
+            "entity_id": "camera.garage",
+            "max_frames_to_model": 4,
+            "max_per_day": 40,
+            "min_confidence": 0.8,
+            "trigger_entity": "binary_sensor.garage_motion",
+            "type": "camera_show",
+            "window_seconds": 6.0
+          },
+          {
+            "type": "manual"
+          }
+        ],
+        "sources": [
+          "camera",
+          "camera_show",
+          "manual"
+        ],
+        "updated": "2026-11-10T09:00:00+00:00",
+        "zone_id": "garage_shelf"
+      }
+    ]
+  }
+}

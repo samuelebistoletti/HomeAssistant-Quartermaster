@@ -2,6 +2,13 @@
 
 Contract between the integration and the cards of `HomeAssistant-Quartermaster-Dashboard`. Version 1 (`api_version` in the snapshot).
 
+## Contract check
+
+`tests/snapshot_sample.json` holds a sample snapshot and journal, built by `tests/test_snapshot_contract.py` from invented data with every kind of zone, product, list item and proposal (ids, times and dates normalised). The test fails when the integration sends something else. After a deliberate change:
+
+1. Write the file again: `QM_WRITE_SAMPLE=1 .venv/bin/python -m pytest tests/test_snapshot_contract.py`.
+2. Commit it, then in the dashboard repository run `npm run contract` (it reads the sibling checkout, or `main` on GitHub in CI), update `src/types.ts` until `npm run lint` passes, and commit both.
+
 ## Websocket commands
 
 | Command | Who | Fields | Result |
