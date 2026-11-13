@@ -663,7 +663,15 @@ class InventoryService:
         self, product: Product, operation: StockOperation, zone_ref: str | None
     ) -> Zone:
         if zone_ref:
-            return await self.async_find_zone(zone_ref)
+            zone = await self.async_find_zone(zone_ref)
+            if operation is not StockOperation.PURCHASE and not any(
+                level.quantity > 0
+                for level in await self.backend.async_list_stock(
+                    product_id=product.id, zone_id=zone.id
+                )
+            ):
+                raise InventoryError("not_in_stock", product=product.name)
+            return zone
         zones = {zone.id: zone for zone in await self.backend.async_list_zones()}
         stock = await self.backend.async_list_stock(product_id=product.id)
         if operation is StockOperation.PURCHASE:

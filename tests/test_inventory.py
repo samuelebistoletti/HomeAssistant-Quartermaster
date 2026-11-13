@@ -212,6 +212,23 @@ async def test_purchase(inventory: InventoryService) -> None:
     assert _key(err) == "zone_required"
 
 
+async def test_consume_from_empty_named_zone(inventory: InventoryService) -> None:
+    """Consuming or finishing in a named zone without stock writes nothing."""
+    await _kitchen(inventory)
+    await inventory.async_set_stock(
+        "milk", 2, zone_ref="fridge", channel=Channel.SERVICE
+    )
+    before = await inventory.async_list_journal()
+    for operation in (StockOperation.CONSUME, StockOperation.FINISH):
+        with pytest.raises(InventoryError) as err:
+            await inventory.async_adjust_stock(
+                "milk", operation, zone_ref="pantry", channel=Channel.SERVICE
+            )
+        assert _key(err) == "not_in_stock"
+    assert await inventory.async_list_journal() == before
+    assert await _quantity(inventory, "milk", "fridge") == 2
+
+
 async def test_consume_and_finish(inventory: InventoryService) -> None:
     """Consumption picks the only zone holding the product and never goes negative."""
     await _kitchen(inventory)

@@ -58,6 +58,7 @@
 - A zone checked with an unchanged picture counts as updated, keeps its waiting proposal instead of adding a copy, and sends no second notification; a new count of a zone replaces the one still waiting. A product listed twice by the model is summed.
 - An essential already at zero no longer makes every camera check end in a photo request.
 - Photo reminders for zones without camera wait `reminder_days` after an unanswered request instead of repeating daily.
+- Consuming or finishing a product in a named zone where it has no stock is refused with `not_in_stock` instead of recording an empty movement.
 - The Undo button under a camera notification undoes that movement, not the camera's latest one.
 - Quiet hours no longer hold answers to something the user just asked (a photo request to the asking chat, a late voice reply) and are validated in the setup and options forms.
 - Expiry and "finished on" dates use the local day; Telegram errors are in the chat's language; malformed buttons are ignored.
