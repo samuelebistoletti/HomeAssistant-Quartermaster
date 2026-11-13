@@ -4,8 +4,10 @@
 # 1. Set up the skill as in https://www.home-assistant.io/integrations/alexa.intent/
 #    (forwarding Lambda with a 10 s timeout, account linking) and import the
 #    interaction models of this folder for each locale.
-# 2. Replace REPLACE_WITH_SKILL_ID (amzn1.ask.skill.<...>) below.
-# 3. Put this file in your packages folder, or merge it into configuration.yaml,
+# 2. Add the Quartermaster lines to the Lambda (docs/alexa.md, "One
+#    conversation per device"), so each Echo device keeps its own thread.
+# 3. Replace REPLACE_WITH_SKILL_ID (amzn1.ask.skill.<...>) below.
+# 4. Put this file in your packages folder, or merge it into configuration.yaml,
 #    and restart Home Assistant.
 #
 # Alexa sends only the intent and the slot text, without the carrier word the
@@ -15,6 +17,10 @@
 # request locale to intent_script either: the intent name tells the language.
 # The launch reply cannot know the locale: it uses the main language of your
 # home; change the two texts if needed.
+#
+# session_key keeps one conversation per Echo device: the Lambda adds the
+# device id as the qm_device slot. Without those lines the key is empty and
+# all devices of the account share one conversation.
 alexa:
 
 intent_script:
@@ -41,6 +47,7 @@ intent_script:
           text: "se {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -60,6 +67,7 @@ intent_script:
           text: "che {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -73,6 +81,7 @@ intent_script:
           text: "di {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -86,6 +95,7 @@ intent_script:
           text: "ho {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -99,6 +109,7 @@ intent_script:
           text: "abbiamo {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -112,6 +123,7 @@ intent_script:
           text: "non {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -125,6 +137,7 @@ intent_script:
           text: "ci {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -138,6 +151,7 @@ intent_script:
           text: "c'è {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -151,6 +165,7 @@ intent_script:
           text: "devo {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -164,6 +179,7 @@ intent_script:
           text: "cosa {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -177,6 +193,7 @@ intent_script:
           text: "quanto {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -190,6 +207,7 @@ intent_script:
           text: "quanta {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -203,6 +221,7 @@ intent_script:
           text: "quanti {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -216,6 +235,7 @@ intent_script:
           text: "quante {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -229,6 +249,7 @@ intent_script:
           text: "dove {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -242,6 +263,7 @@ intent_script:
           text: "aggiungi {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -255,6 +277,7 @@ intent_script:
           text: "segna {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -268,6 +291,7 @@ intent_script:
           text: "metti {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -281,6 +305,7 @@ intent_script:
           text: "togli {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -294,6 +319,7 @@ intent_script:
           text: "controlla {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -307,6 +333,7 @@ intent_script:
           text: "compra {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -320,6 +347,7 @@ intent_script:
           text: "segnare {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -333,6 +361,7 @@ intent_script:
           text: "aggiungere {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -346,6 +375,7 @@ intent_script:
           text: "togliere {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -359,6 +389,7 @@ intent_script:
           text: "il {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -372,6 +403,7 @@ intent_script:
           text: "la {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -385,6 +417,7 @@ intent_script:
           text: "lo {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -398,6 +431,7 @@ intent_script:
           text: "i {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -411,6 +445,7 @@ intent_script:
           text: "gli {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -424,6 +459,7 @@ intent_script:
           text: "le {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -437,6 +473,7 @@ intent_script:
           text: "un {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -450,6 +487,7 @@ intent_script:
           text: "una {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -463,6 +501,7 @@ intent_script:
           text: "uno {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -476,6 +515,7 @@ intent_script:
           text: "quello {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -489,6 +529,7 @@ intent_script:
           text: "quella {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -502,6 +543,7 @@ intent_script:
           text: "quelli {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -515,6 +557,7 @@ intent_script:
           text: "quelle {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -528,6 +571,7 @@ intent_script:
           text: "nel {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -541,6 +585,7 @@ intent_script:
           text: "nella {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -554,6 +599,7 @@ intent_script:
           text: "in {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -567,6 +613,7 @@ intent_script:
           text: "sono {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -580,6 +627,7 @@ intent_script:
           text: "ne {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -593,6 +641,7 @@ intent_script:
           text: "mi {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -606,6 +655,7 @@ intent_script:
           text: "puoi {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -619,6 +669,7 @@ intent_script:
           text: "dimmi {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -632,6 +683,7 @@ intent_script:
           text: "fammi {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -645,6 +697,7 @@ intent_script:
           text: "sì {{ query | default('') }}"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -658,6 +711,7 @@ intent_script:
           text: "sì"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -671,6 +725,7 @@ intent_script:
           text: "no"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -684,6 +739,7 @@ intent_script:
           text: "e poi?"
           channel: alexa
           language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -699,6 +755,7 @@ intent_script:
           text: "if {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -712,6 +769,7 @@ intent_script:
           text: "to {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -725,6 +783,7 @@ intent_script:
           text: "that {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -738,6 +797,7 @@ intent_script:
           text: "i {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -751,6 +811,7 @@ intent_script:
           text: "we {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -764,6 +825,7 @@ intent_script:
           text: "is {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -777,6 +839,7 @@ intent_script:
           text: "are {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -790,6 +853,7 @@ intent_script:
           text: "do {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -803,6 +867,7 @@ intent_script:
           text: "does {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -816,6 +881,7 @@ intent_script:
           text: "there {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -829,6 +895,7 @@ intent_script:
           text: "what {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -842,6 +909,7 @@ intent_script:
           text: "how much {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -855,6 +923,7 @@ intent_script:
           text: "how many {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -868,6 +937,7 @@ intent_script:
           text: "where {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -881,6 +951,7 @@ intent_script:
           text: "add {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -894,6 +965,7 @@ intent_script:
           text: "mark {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -907,6 +979,7 @@ intent_script:
           text: "put {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -920,6 +993,7 @@ intent_script:
           text: "remove {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -933,6 +1007,7 @@ intent_script:
           text: "check {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -946,6 +1021,7 @@ intent_script:
           text: "buy {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -959,6 +1035,7 @@ intent_script:
           text: "the {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -972,6 +1049,7 @@ intent_script:
           text: "a {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -985,6 +1063,7 @@ intent_script:
           text: "an {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -998,6 +1077,7 @@ intent_script:
           text: "some {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -1011,6 +1091,7 @@ intent_script:
           text: "my {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -1024,6 +1105,7 @@ intent_script:
           text: "in the {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -1037,6 +1119,7 @@ intent_script:
           text: "can you {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -1050,6 +1133,7 @@ intent_script:
           text: "tell me {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -1063,6 +1147,7 @@ intent_script:
           text: "please {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -1076,6 +1161,7 @@ intent_script:
           text: "yes {{ query | default('') }}"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -1089,6 +1175,7 @@ intent_script:
           text: "yes"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -1102,6 +1189,7 @@ intent_script:
           text: "no"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm
@@ -1115,6 +1203,7 @@ intent_script:
           text: "and then?"
           channel: alexa
           language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
         response_variable: qm
       - stop: ""
         response_variable: qm

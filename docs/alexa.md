@@ -31,6 +31,30 @@ Alexa:  Fatto, mozzarella finita. È tra gli essenziali: l'ho messa in lista.
 3. You can choose another invocation name. The console requires at least two words, and a two-word name must not contain articles or prepositions ("dispensa di casa" is refused).
 4. Copy [`examples/alexa/quartermaster_alexa.yaml`](../examples/alexa/quartermaster_alexa.yaml) into your packages folder, or merge it into `configuration.yaml`. Replace `REPLACE_WITH_SKILL_ID` with your skill ID (`amzn1.ask.skill.…`), then restart Home Assistant.
 5. In the Alexa app, enable the skill under **Your Skills → Dev** and link your Home Assistant account.
+6. Recommended: give each Echo device its own conversation (next section).
+
+## One conversation per device
+
+Home Assistant passes only the slot values of an Alexa request to `intent_script`, not the device it came from. Without help, every Echo of your Amazon account shares one conversation, so an answer said to one Echo can complete a question asked on another. A few lines in the forwarding Lambda add the device id as one more slot, `qm_device`, and the example YAML uses it as the `session_key` of `quartermaster.ask`.
+
+1. In the AWS console, open **Lambda → Functions** and the function of your skill (in the region of the skill, for example Europe (Ireland)).
+2. On the **Code** tab, open `lambda_function.py`. In `lambda_handler`, find the line that sends the request to Home Assistant (it contains `'{}/api/alexa'.format(base_url)`).
+3. Paste these lines just **before** that line, at the same indentation as the lines around it (4 spaces inside the function):
+
+   ```python
+       # Quartermaster: pass the Echo device id as the qm_device slot.
+       device_id = event.get("context", {}).get("System", {}).get("device", {}).get("deviceId")
+       intent = event.get("request", {}).get("intent")
+       if device_id and intent is not None:
+           slots = intent.get("slots") or {}
+           slots["qm_device"] = {"name": "qm_device", "value": device_id}
+           intent["slots"] = slots
+   ```
+
+4. Click **Deploy** and wait for "Successfully updated the function".
+5. Copy the current [`examples/alexa/quartermaster_alexa.yaml`](../examples/alexa/quartermaster_alexa.yaml) again (with your skill ID) and restart Home Assistant. The interaction models do not change.
+
+At the end, two Echo devices asked at the same time keep separate threads: a "sì" on one only answers the question asked on that one. The Lambda passes the device id that Alexa assigns to your skill; it is not the Echo's serial number. With the old Lambda the key is empty and everything works as before, one conversation per account.
 
 ## How to talk to it
 

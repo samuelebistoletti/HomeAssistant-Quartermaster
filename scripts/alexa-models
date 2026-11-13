@@ -97,8 +97,10 @@ HEADER = """\
 # 1. Set up the skill as in https://www.home-assistant.io/integrations/alexa.intent/
 #    (forwarding Lambda with a 10 s timeout, account linking) and import the
 #    interaction models of this folder for each locale.
-# 2. Replace REPLACE_WITH_SKILL_ID (amzn1.ask.skill.<...>) below.
-# 3. Put this file in your packages folder, or merge it into configuration.yaml,
+# 2. Add the Quartermaster lines to the Lambda (docs/alexa.md, "One
+#    conversation per device"), so each Echo device keeps its own thread.
+# 3. Replace REPLACE_WITH_SKILL_ID (amzn1.ask.skill.<...>) below.
+# 4. Put this file in your packages folder, or merge it into configuration.yaml,
 #    and restart Home Assistant.
 #
 # Alexa sends only the intent and the slot text, without the carrier word the
@@ -108,6 +110,10 @@ HEADER = """\
 # request locale to intent_script either: the intent name tells the language.
 # The launch reply cannot know the locale: it uses the main language of your
 # home; change the two texts if needed.
+#
+# session_key keeps one conversation per Echo device: the Lambda adds the
+# device id as the qm_device slot. Without those lines the key is empty and
+# all devices of the account share one conversation.
 alexa:
 
 intent_script:
@@ -170,6 +176,7 @@ def entry(name: str, text: str, lang: str, first: bool) -> str:
           text: {json.dumps(text, ensure_ascii=False)}
           channel: alexa
           language: {lang}
+          session_key: "{{{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}}}"
         response_variable: qm
       - stop: ""
         response_variable: qm

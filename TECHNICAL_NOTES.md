@@ -223,6 +223,7 @@ IMAP's `imap_content` event (filtered on `entry_id`, `initial`, allowed senders)
 | "And then?" | `Quartermaster<LANG>_reply_more` ("e poi", "continua", "and then") sends "e poi?" / "and then?" to `ask` |
 | Session end | Also handles `AMAZON.CancelIntent` and `<skill-id>.SessionEndedRequest` (unhandled intents answer "not yet configured"); an empty reprompt ends the session; a slot without value leaves its variable undefined |
 | Lambda | Forwarding Lambda in eu-west-1 (documented for UK/DE/ES/FR; Italian is not listed); timeout 10 s (the 3 s default fails). Echo Show devices may keep the screen session open about 30 s |
+| Device sessions | HA's handler exposes no device or session id to `intent_script`, only slots. Lines added to the forwarding Lambda (docs/alexa.md; the HA guide's gist has no license, so it is not copied) put `context.System.device.deviceId` in an extra `qm_device` slot; the YAML sends `session_key: alexa-<device id>`, empty without it (falls back to the user, as before) (author, 2026-11-13) |
 | Observed on a real Echo (Alexa+) | Replies after 6 s and 9 s are spoken; "di' a X che …" is an Announcement in Italian, so it is not documented; "chiedi a X di …" swallows the "di"; Alexa writes "una" as `1`; free-text recognition is imperfect. Alexa+ prefixes each session's first reply with a handoff phrase that nothing turns off |
 | Future | The Alexa+ MCP Toolkit (MCP server without a skill) is limited to select partners; re-evaluate when it opens (author, 2026-11-10) |
 
