@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -86,6 +87,8 @@ class ShoppingService:
         self._hass = hass
         self._backend = backend
         self._inventory = inventory
+        # One copy at a time, or an item could be added twice.
+        self._external_lock = asyncio.Lock()
 
     async def async_items(self) -> list[ShoppingItem]:
         """Return the list in display order."""
@@ -355,6 +358,10 @@ class ShoppingService:
         entity_id = self.external_entity_id
         if not entity_id:
             return
+        async with self._external_lock:
+            await self._async_sync_external(entity_id)
+
+    async def _async_sync_external(self, entity_id: str) -> None:
         external = await self._async_external_items(entity_id)
         if external is None:
             return

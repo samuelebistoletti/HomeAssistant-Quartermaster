@@ -183,6 +183,32 @@ async def test_shopping_list_tools(
     assert items == ["Parmigiano", "Paper towels"]
 
 
+async def test_write_tool_does_not_wait_for_external_list(
+    hass: HomeAssistant, kitchen: InventoryService, init_integration: MockConfigEntry
+) -> None:
+    """A write answers after the local refresh; the external copy follows."""
+    runtime = init_integration.runtime_data
+    release = asyncio.Event()
+    copies: list[bool] = []
+
+    async def slow_copy() -> None:
+        await release.wait()
+        copies.append(True)
+
+    with patch.object(runtime.shopping, "async_sync_external", slow_copy):
+        result = await asyncio.wait_for(
+            _tool(hass, "adjust_stock", product="milk", action="finished"), 2
+        )
+        assert result["quantity_in_zone"] == 0
+        # The next read already sees the write.
+        stock = await _tool(hass, "get_stock", product="milk")
+        assert stock["stock"][0]["quantity"] == 0
+        assert copies == []
+        release.set()
+        await hass.async_block_till_done()
+    assert copies
+
+
 async def test_adjust_stock_rules(
     hass: HomeAssistant, kitchen: InventoryService
 ) -> None:

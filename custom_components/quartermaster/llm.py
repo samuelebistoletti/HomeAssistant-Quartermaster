@@ -162,7 +162,7 @@ class QuartermasterTool(llm.Tool):
                 **(err.translation_placeholders or {}),
             )
         if self.writes:
-            await runtime.coordinator.async_refresh()
+            await runtime.coordinator.async_refresh_after_write()
         return result
 
     async def _async_run(

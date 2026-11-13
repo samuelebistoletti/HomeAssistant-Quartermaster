@@ -128,6 +128,7 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
         self.show: ShowManager | None = None
         self.notifier: NotificationRouter | None = None
         self._watch_signature: str | None = None
+        self._defer_external = False
         self._zone_names: dict[str, str] | None = None
 
     @callback
@@ -157,6 +158,21 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
         await self.async_refresh()
         if notify and self.notifier is not None:
             await self.notifier.async_send_shopping()
+
+    async def async_refresh_after_write(self) -> None:
+        """Refresh now for the next read; copy to the external list later.
+
+        Used by the agent's write tools, so a voice reply does not wait for
+        another integration's to-do list.
+        """
+        self._defer_external = True
+        try:
+            await self.async_refresh()
+        finally:
+            self._defer_external = False
+        self.config_entry.async_create_background_task(
+            self.hass, self.shopping.async_sync_external(), f"{DOMAIN} external list"
+        )
 
     async def _async_update_data(self) -> QuartermasterData:
         """Recompute everything from the store and sync the list."""
@@ -229,7 +245,8 @@ class QuartermasterCoordinator(DataUpdateCoordinator[QuartermasterData]):
         analysis = compute(await self.shopping.async_items())
         if await self.shopping.async_sync_auto(analysis.to_buy):
             analysis = compute(await self.shopping.async_items())
-        await self.shopping.async_sync_external()
+        if not self._defer_external:
+            await self.shopping.async_sync_external()
         if self.shopping_until is not None and now >= self.shopping_until:
             self.shopping_until = None
         crops = self.vision.crops if self.vision else None
