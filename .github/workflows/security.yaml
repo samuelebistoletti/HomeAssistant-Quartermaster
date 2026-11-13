@@ -24,7 +24,7 @@ jobs:
           python-version: "3.14"
 
       - name: Install bandit
-        run: pip install bandit
+        run: pip install "$(grep '^bandit==' requirements.txt)"
 
       - name: Run bandit
         run: |
@@ -58,7 +58,7 @@ jobs:
           python-version: "3.14"
 
       - name: Install pip-audit
-        run: pip install pip-audit
+        run: pip install "$(grep '^pip-audit==' requirements.txt)"
 
       - name: Audit runtime dependencies
         run: pip-audit -r requirements.txt --format=columns

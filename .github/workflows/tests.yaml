@@ -59,3 +59,10 @@ jobs:
 
       - name: Run tests
         run: python -m pytest -v
+
+      - name: Coverage of core and storage
+        # Spec §11: at least 90 % on core/ and storage/ (the pytest gate
+        # covers the whole integration).
+        run: >-
+          coverage report --fail-under=90
+          --include="custom_components/quartermaster/core/*,custom_components/quartermaster/storage/*"

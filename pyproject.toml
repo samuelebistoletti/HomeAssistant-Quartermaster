@@ -13,8 +13,8 @@ testpaths = ["tests"]
 branch = true
 
 [tool.coverage.report]
-# The spec requires 90 % on core/ and storage/; until they exist the gate
-# applies to the whole integration.
+# The whole integration; CI also checks 90 % on core/ and storage/ alone
+# (spec §11).
 fail_under = 90
 skip_empty = true
 
