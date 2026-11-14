@@ -4,6 +4,6 @@ pytest-cov==7.1.0
 mypy==2.4.1
 # Requirements of Home Assistant's conversation component (manifest 2026.11.0),
 # needed to load it in tests; Quartermaster itself has no requirements.
-gazetteer-matcher==1.1.0
+gazetteer-matcher==1.2.0
 hassil==3.12.1
 home-assistant-intents==2026.10.27
