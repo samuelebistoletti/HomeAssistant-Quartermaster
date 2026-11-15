@@ -38,8 +38,8 @@ Alexa:  Fatto, mozzarella finita. È tra gli essenziali: l'ho messa in lista.
 Home Assistant passes only the slot values of an Alexa request to `intent_script`, not the device it came from. Without help, every Echo of your Amazon account shares one conversation, so an answer said to one Echo can complete a question asked on another. A few lines in the forwarding Lambda add the device id as one more slot, `qm_device`, and the example YAML uses it as the `session_key` of `quartermaster.ask`.
 
 1. In the AWS console, open **Lambda → Functions** and the function of your skill (in the region of the skill, for example Europe (Ireland)).
-2. On the **Code** tab, open `lambda_function.py`. In `lambda_handler`, find the line that sends the request to Home Assistant (it contains `'{}/api/alexa'.format(base_url)`).
-3. Paste these lines just **before** that line, at the same indentation as the lines around it (4 spaces inside the function):
+2. On the **Code** tab, open `lambda_function.py`. In `lambda_handler`, find the call that sends the request to Home Assistant: the line `response = http.request(`, followed by `'{}/api/alexa'.format(base_url)`.
+3. Paste these lines just **before** `response = http.request(` (not inside the call), at the same indentation (4 spaces inside the function):
 
    ```python
        # Quartermaster: pass the Echo device id as the qm_device slot.
