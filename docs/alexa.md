@@ -70,6 +70,8 @@ After the skill name, start with one of the words of the interaction model: in I
 Avoid in Italian:
 - "di' a dispensa smart che …": Alexa treats it as an announcement to your Echo devices.
 - "chiedi a dispensa smart **di** …": Alexa takes the "di" as part of the invocation, so the rest must start with a word of the model ("chiedi a dispensa smart di segnare…" fails, "chiedi a dispensa smart se…" works).
+- "lista della spesa" in a one-shot sentence ("chiedi a dispensa smart segna i biscotti nella lista della spesa"): with Alexa+ the sentence goes to Alexa's own shopping list and never reaches the skill. Open the skill first ("Alexa, apri dispensa smart" → "Dimmi" → "segna i biscotti nella lista della spesa").
+- "annulla" and "annullare", in any sentence: Alexa turns them into its own cancel command, which closes the skill. To undo the last change say "torna indietro", "cancella l'ultima modifica" or "rimetti com'era" (in English "undo" or "undo the last change"), with the skill open or after "chiedi a dispensa smart".
 
 Alexa writes numbers as digits ("una" becomes "1"), and Quartermaster handles that.
 
@@ -98,7 +100,7 @@ Anyone near an Echo can talk to the skill. In the Quartermaster options:
 - Without it, Alexa can read, record what you used or bought, and change the list.
 - New products, essentials and large purchases always need an explicit "yes" in the same session.
 
-Every change is in the journal with channel `alexa` and can be undone ("annulla", the Undo button, or the History view of the dashboard).
+Every change is in the journal with channel `alexa` and can be undone (by voice "torna indietro" or "undo", the Undo button, or the History view of the dashboard; "annulla" does not work on Alexa, see above).
 
 ## Troubleshooting
 

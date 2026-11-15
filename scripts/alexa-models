@@ -44,6 +44,14 @@ LOCALES: dict[str, dict] = {
         # "And then?": the rest of a list read by voice. No sample may start
         # with a carrier word.
         "more": ["e poi", "continua", "vai avanti", "avanti", "e gli altri", "altri", "e dopo"],
+        # Undo the last change. Alexa turns any sentence with "annulla" or
+        # "annullare" into AMAZON.CancelIntent, so undo needs other words; no
+        # sample may start with a carrier word. The first one is what
+        # Quartermaster receives.
+        "undo": [
+            "annulla l'ultima modifica", "torna indietro", "cancella l'ultima modifica",
+            "elimina l'ultima modifica", "rimetti com'era", "ripristina com'era",
+        ],
     },
     "en": {
         "locales": ["en-US", "en-GB"],
@@ -58,6 +66,10 @@ LOCALES: dict[str, dict] = {
         "yes": ["yes", "yeah", "sure", "okay", "yes please", "correct", "that's right", "confirm"],
         "no": ["no", "no thanks", "not now", "never mind", "nothing"],
         "more": ["and then", "go on", "continue", "keep going", "what else", "more", "next"],
+        "undo": [
+            "undo the last change", "undo", "undo that", "undo the last change please",
+            "revert the last change", "take that back",
+        ],
     },
 }
 
@@ -86,6 +98,9 @@ def model(lang: str) -> dict:
         {"name": f"Quartermaster{lang.upper()}_reply_yes", "samples": spec["yes"]},
         {"name": f"Quartermaster{lang.upper()}_reply_no", "samples": spec["no"]},
         {"name": f"Quartermaster{lang.upper()}_reply_more", "samples": spec["more"]},
+        # The first Italian sample says "annulla" and never reaches the skill;
+        # it is only the text sent to Quartermaster.
+        {"name": f"Quartermaster{lang.upper()}_undo", "samples": [w for w in spec["undo"] if "annull" not in w]},
     ]
     return {"interactionModel": {"languageModel": {"invocationName": spec["invocation"], "intents": intents, "types": []}}}
 
@@ -187,7 +202,7 @@ def intent_script() -> str:
     parts = [HEADER]
     first = True
     for lang, spec in LOCALES.items():
-        parts.append(f"\n  # {lang}: one intent per carrier word, then bare yes / no / and then? answers.\n")
+        parts.append(f"\n  # {lang}: one intent per carrier word, then bare yes / no / and then? answers and undo.\n")
         for carrier in spec["carriers"]:
             parts.append(entry(intent_name(lang, carrier), f"{carrier} {{{{ query | default('') }}}}", lang, first))
             first = False
@@ -195,6 +210,7 @@ def intent_script() -> str:
         parts.append(entry(f"Quartermaster{lang.upper()}_reply_yes", yes, lang, False))
         parts.append(entry(f"Quartermaster{lang.upper()}_reply_no", no, lang, False))
         parts.append(entry(f"Quartermaster{lang.upper()}_reply_more", f"{spec['more'][0]}?", lang, False))
+        parts.append(entry(f"Quartermaster{lang.upper()}_undo", spec["undo"][0], lang, False))
     parts.append(FOOTER)
     return "".join(parts)
 

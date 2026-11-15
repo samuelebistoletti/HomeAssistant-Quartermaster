@@ -38,7 +38,7 @@ intent_script:
     speech:
       text: ""
 
-  # it: one intent per carrier word, then bare yes / no / and then? answers.
+  # it: one intent per carrier word, then bare yes / no / and then? answers and undo.
 
   QuartermasterIT_se:
     action:
@@ -746,7 +746,21 @@ intent_script:
     speech: *qm_speech
     reprompt: *qm_reprompt
 
-  # en: one intent per carrier word, then bare yes / no / and then? answers.
+  QuartermasterIT_undo:
+    action:
+      - action: quartermaster.ask
+        data:
+          text: "annulla l'ultima modifica"
+          channel: alexa
+          language: it
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
+        response_variable: qm
+      - stop: ""
+        response_variable: qm
+    speech: *qm_speech
+    reprompt: *qm_reprompt
+
+  # en: one intent per carrier word, then bare yes / no / and then? answers and undo.
 
   QuartermasterEN_if:
     action:
@@ -1201,6 +1215,20 @@ intent_script:
       - action: quartermaster.ask
         data:
           text: "and then?"
+          channel: alexa
+          language: en
+          session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"
+        response_variable: qm
+      - stop: ""
+        response_variable: qm
+    speech: *qm_speech
+    reprompt: *qm_reprompt
+
+  QuartermasterEN_undo:
+    action:
+      - action: quartermaster.ask
+        data:
+          text: "undo the last change"
           channel: alexa
           language: en
           session_key: "{{ ('alexa-' ~ qm_device) if qm_device is defined else '' }}"

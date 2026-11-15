@@ -618,6 +618,16 @@
             "altri",
             "e dopo"
           ]
+        },
+        {
+          "name": "QuartermasterIT_undo",
+          "samples": [
+            "torna indietro",
+            "cancella l'ultima modifica",
+            "elimina l'ultima modifica",
+            "rimetti com'era",
+            "ripristina com'era"
+          ]
         }
       ],
       "types": []

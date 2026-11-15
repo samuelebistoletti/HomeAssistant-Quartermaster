@@ -413,6 +413,17 @@
             "more",
             "next"
           ]
+        },
+        {
+          "name": "QuartermasterEN_undo",
+          "samples": [
+            "undo the last change",
+            "undo",
+            "undo that",
+            "undo the last change please",
+            "revert the last change",
+            "take that back"
+          ]
         }
       ],
       "types": []
