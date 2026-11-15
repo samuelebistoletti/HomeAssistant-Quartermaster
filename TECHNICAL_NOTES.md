@@ -262,4 +262,4 @@ IMAP's `imap_content` event (filtered on `entry_id`, `initial`, allowed senders)
 | Security tools | bandit and pip-audit pinned in `requirements.txt`, next to ruff, so Dependabot updates them |
 | Types | mypy strict on `custom_components/quartermaster` |
 | Dev tools | `scripts/dev-bootstrap` uses aiohttp via `uv run --with aiohttp`; Phase 0 probes in `examples/phase0/` and `scripts/phase0/` never ship (procedure: `docs/phase0/CHECKLIST.md`) |
-| Domain | `quartermaster` is also used by `quartermaster-app/ha-quartermaster` (releases since 2026-10): both cannot be installed together and the catalog may object. Kept by the author (2026-11-07); the README does not mention it |
+| Domain | `quartermaster` is also used by `quartermaster-app/ha-quartermaster` (releases since 2026-10): both cannot be installed together and the catalog may object. Kept by the author (2026-11-07, confirmed 2026-11-15 for 1.0); the README does not mention it |
