@@ -445,9 +445,10 @@ async def test_new_product_with_another_name_and_refusals(
     assert ghee.name == "Ghee"
     [level] = await inventory.async_get_stock(product_id=ghee.id)
     assert level.quantity == 3
-    # Kefir was not corrected: it keeps waiting.
+    # Kefir was not corrected and Milk, stocked but not in the photo, is a
+    # "not seen" row: both keep waiting.
     [pending] = await entry.runtime_data.proposals.async_pending()
-    assert [row["seen_as"] for row in pending.payload["items"]] == ["Kefir"]
+    assert [row["seen_as"] for row in pending.payload["items"]] == ["Kefir", "Milk"]
 
 
 async def test_reject_and_unchanged_image(

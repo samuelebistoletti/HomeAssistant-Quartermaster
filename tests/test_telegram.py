@@ -627,6 +627,42 @@ async def test_products_not_seen_need_their_own_button(
     assert await entry.runtime_data.proposals.async_pending() == []
 
 
+async def test_products_not_seen_without_the_model_listing_them(
+    hass: HomeAssistant, bot: Any
+) -> None:
+    """A photo is the zone as it is now: stocked products the model leaves out
+    of both items and expected_not_seen are proposed as not seen anyway."""
+    entry, fake = bot
+    inventory = entry.runtime_data.inventory
+    await inventory.async_add_product("Mozzarella", default_zone="fridge")
+    await inventory.async_set_stock("mozzarella", 1, channel=Channel.SERVICE)
+    await inventory.async_add_product("Butter", default_zone="pantry")
+    await inventory.async_set_stock("butter", 1, channel=Channel.SERVICE)
+    # Seen only as an unmatched name that could be this product: not "not seen".
+    await inventory.async_add_product("Kefir", default_zone="fridge")
+    await inventory.async_set_stock("kefir", 2, channel=Channel.SERVICE)
+    fake.ai.answer = {
+        **fake.ai.answer,
+        "items": [
+            *fake.ai.answer["items"],
+            {"product": "kefir bianco", "quantity": 2, "confidence": 0.8},
+        ],
+    }
+    fake.ai.answer.pop("expected_not_seen", None)
+    await _event(
+        hass,
+        event_type="telegram_attachment",
+        chat_id=CHAT,
+        file_id="f1",
+        file_mime_type="image/jpeg",
+        text="frigo",
+    )
+    message = fake.sent[-1]["message"]
+    assert "Mozzarella: 1 → 0 (non visto)" in message
+    assert "Butter" not in message
+    assert "Kefir: 2 → 0" not in message
+
+
 async def test_unknown_items_get_a_new_product_button(
     hass: HomeAssistant, bot: Any
 ) -> None:

@@ -21,6 +21,7 @@ from custom_components.quartermaster.core.inventory import (
     InventoryService,
     StockOperation,
     normalize,
+    stem,
 )
 from custom_components.quartermaster.storage.models import (
     Channel,
@@ -197,8 +198,20 @@ class ProposalService:
                 for row in rows
                 if row["product_id"] is not None and row["proposed"] < row["current"]
             ]
+        # An unmatched name may still be a stocked product ("kefir bianco" for
+        # Kefir): it was in the picture, so it is not proposed as not seen.
+        unmatched = [
+            set(stem(row["seen_as"]).split())
+            for row in rows
+            if row["product_id"] is None and row["seen_as"]
+        ]
         rows += await self._async_missing_rows(
-            zone, analysis, stock, seen=set(by_product), first_key=len(analysis.items)
+            zone,
+            analysis,
+            stock,
+            seen=set(by_product),
+            first_key=len(analysis.items),
+            unmatched=unmatched,
         )
         # A new count of the zone replaces the earlier ones still waiting.
         for older in await self.async_pending():
@@ -269,8 +282,15 @@ class ProposalService:
         *,
         seen: set[int],
         first_key: int,
+        unmatched: list[set[str]],
     ) -> list[dict[str, Any]]:
-        """Rows at zero for recorded products the picture did not show."""
+        """Rows at zero for recorded products the picture did not show.
+
+        A photo is the zone as it is now (author, 2026-11-15): besides the
+        names the model lists in expected_not_seen, every product stocked in
+        the zone that the analysis neither matched nor may have named is a
+        row. These rows are never applied by Confirm, only by their button.
+        """
         rows: list[dict[str, Any]] = []
         # By name or alias only: a category or a stem could name another
         # product than the one the model was told to expect.
@@ -297,6 +317,30 @@ class ProposalService:
                     "product_id": product.id,
                     "product": product.name,
                     "seen_as": name,
+                    "current": stock[product.id],
+                    "proposed": 0.0,
+                    "unit": product.unit,
+                    "confidence": analysis.overall_confidence,
+                    "notes": None,
+                    MISSING: True,
+                }
+            )
+        for product in recorded:
+            if product.id in seen or any(
+                words and words <= seen_words
+                for words in (
+                    set(stem(name).split()) for name in (product.name, *product.aliases)
+                )
+                for seen_words in unmatched
+            ):
+                continue
+            seen.add(product.id)
+            rows.append(
+                {
+                    "key": first_key + len(rows),
+                    "product_id": product.id,
+                    "product": product.name,
+                    "seen_as": product.name,
                     "current": stock[product.id],
                     "proposed": 0.0,
                     "unit": product.unit,

@@ -62,6 +62,7 @@
 - A notification no longer stops when a notify entity fails with its own library's error (the Telegram bot refusing a message whose Markdown does not parse): the next entity in the order is tried. A late voice reply was lost this way.
 - Alexa: the last change can be undone by voice. "Annulla" never reached the skill (Alexa turns it into its cancel command); say "torna indietro", "cancella l'ultima modifica" or "rimetti com'era" (English "undo", "undo the last change"). New intents in the interaction models and the example YAML (import and copy them again).
 - Telegram: a photo caption that names the zone inside a sentence ("Ecco il frigorifero") picks that zone instead of asking; a caption naming two zones still asks.
+- A zone photo or camera count proposes every product stocked in the zone that it does not show as "not seen", even when the model does not list it (before, only the products the model named). Products outside the zone's list are asked for as new products with their ➕ button instead of being dropped as unrecognizable.
 - camera_show compares frames with an uncropped reference, so the change score is right when the source has a crop; two triggers at the same moment no longer both capture.
 - Open dashboards keep receiving updates after the entry reloads.
 - A zone checked with an unchanged picture counts as updated, keeps its waiting proposal instead of adding a copy, and sends no second notification; a new count of a zone replaces the one still waiting. A product listed twice by the model is summed.
