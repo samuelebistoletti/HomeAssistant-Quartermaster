@@ -201,32 +201,13 @@ class NotificationRouter:
             data: dict[str, Any] = {"message": message.text}
             if message.title:
                 data["title"] = message.title
-            try:
-                await self._hass.services.async_call(
-                    "notify",
-                    "send_message",
-                    data,
-                    target={ATTR_ENTITY_ID: entity_id},
-                    blocking=True,
-                )
-            except HomeAssistantError as err:
-                _LOGGER.warning("Notification to %s failed: %s", entity_id, err)
-                continue
-            break
+            if await self._async_send_to(entity_id, data):
+                break
         for entity_id in message.also:
             state = self._hass.states.get(entity_id)
             if state is None or state.state == STATE_UNAVAILABLE:
                 continue
-            try:
-                await self._hass.services.async_call(
-                    "notify",
-                    "send_message",
-                    {"message": message.text},
-                    target={ATTR_ENTITY_ID: entity_id},
-                    blocking=True,
-                )
-            except HomeAssistantError as err:
-                _LOGGER.warning("Notification to %s failed: %s", entity_id, err)
+            await self._async_send_to(entity_id, {"message": message.text})
         telegram = self._runtime.telegram
         if telegram is None:
             return
@@ -235,6 +216,29 @@ class NotificationRouter:
             chats |= {c for c in telegram.chats if c > 0}
         for chat_id in sorted(chats):
             await telegram.async_send(chat_id, message.text, message.buttons)
+
+    async def _async_send_to(self, entity_id: str, data: dict[str, Any]) -> bool:
+        """Send through one notify entity; a failure is logged, not raised.
+
+        Some notify entities let their library's errors through (the Telegram
+        bot raises telegram.error.BadRequest when Markdown does not parse), so
+        any exception counts as a failed entity and the next one is tried.
+        """
+        try:
+            await self._hass.services.async_call(
+                "notify",
+                "send_message",
+                data,
+                target={ATTR_ENTITY_ID: entity_id},
+                blocking=True,
+            )
+        except HomeAssistantError as err:
+            _LOGGER.warning("Notification to %s failed: %s", entity_id, err)
+            return False
+        except Exception as err:  # noqa: BLE001 - errors of other integrations
+            _LOGGER.warning("Notification to %s failed: %r", entity_id, err)
+            return False
+        return True
 
     async def async_flush(self) -> None:
         """Send the messages held during quiet hours."""

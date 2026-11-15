@@ -34,6 +34,7 @@ class Notify:
     def __init__(self, hass: HomeAssistant) -> None:
         self.messages: list[tuple[str, str]] = []
         self.fail: set[str] = set()
+        self.crash: set[str] = set()
         hass.services.async_register("notify", "send_message", self._send)
         hass.states.async_set("notify.phone", "unknown")
         hass.states.async_set("notify.echo", "unavailable")
@@ -44,6 +45,9 @@ class Notify:
         for entity_id in [targets] if isinstance(targets, str) else targets:
             if entity_id in self.fail:
                 raise ServiceValidationError("down")
+            if entity_id in self.crash:
+                # Like telegram.error.BadRequest from a Telegram notify entity.
+                raise RuntimeError("Can't parse entities")
             self.messages.append((entity_id, call.data["message"]))
 
 
@@ -128,6 +132,19 @@ async def test_fallback_and_events(hass: HomeAssistant, notified: Any) -> None:
             "Non sono riuscito a controllare Fridge: " + "l'analisi non è riuscita.",
         ]
     )
+
+
+async def test_entity_raising_other_errors_falls_back(
+    hass: HomeAssistant, notified: Any
+) -> None:
+    """An entity raising a non-Home Assistant error does not stop delivery."""
+    _entry, notify = notified
+    notify.crash.add("notify.phone")
+    hass.bus.async_fire(
+        f"{DOMAIN}_ask_result", {"channel": "alexa", "speech": "Fatto, latte finito."}
+    )
+    await _settle(hass)
+    assert notify.messages[-1] == ("notify.tablet", "Fatto, latte finito.")
 
 
 async def test_essential_running_out(hass: HomeAssistant, notified: Any) -> None:

@@ -59,6 +59,7 @@
 - A Telegram message or a camera trigger is no longer handled again when its entity comes back with its restored state (restart, reload of the bot).
 - A checked automatic shopping item no longer comes back at once: the product stays off the list until its stock changes or two days pass. Completed items are deleted after 30 days.
 - A product finished and bought again without a date no longer keeps the old best-before date and opening time (undo restores them).
+- A notification no longer stops when a notify entity fails with its own library's error (the Telegram bot refusing a message whose Markdown does not parse): the next entity in the order is tried. A late voice reply was lost this way.
 - camera_show compares frames with an uncropped reference, so the change score is right when the source has a crop; two triggers at the same moment no longer both capture.
 - Open dashboards keep receiving updates after the entry reloads.
 - A zone checked with an unchanged picture counts as updated, keeps its waiting proposal instead of adding a copy, and sends no second notification; a new count of a zone replaces the one still waiting. A product listed twice by the model is summed.
