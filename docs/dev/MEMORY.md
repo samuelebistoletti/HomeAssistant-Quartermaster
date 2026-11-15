@@ -2,16 +2,14 @@
 
 Where the work stands, shared between sessions and machines. Rules live in `CLAUDE.md`, decisions in `TECHNICAL_NOTES.md`, open work in GitHub issues; this file holds only the current state and the next step. Keep it short, factual and free of secrets or personal data. Rewrite "Now" at the end of every working session and push it.
 
-## Now (2026-11-13)
+## Now (2026-11-15)
 
-- Everything is on `main` and pushed in both repositories; CI green. No release yet (`0.0.0`).
-- Done on 2026-11-11: the assessment fixes, cameras that only ask, the list check (`ledger` zones), "not seen → 0" rows, the model choice (gemma-4-26b agent and images, glm-4.7-flash text). The assessment report (`docs/dev/ASSESSMENT-2026-11-11.md`) is a frozen snapshot; its open points are now issues.
-- Open work: GitHub issues in both repositories. `ready-for-agent` issues can be picked up; `ready-for-human` ones wait for the author (decisions and field tests).
-- Postponed (2026-11-12, still planned): a full review of the whole codebase in both repositories (module by module against `docs/SPEC.md` and the rules, or `/code-review` against the first commit `6a673f8`, plus `security-audit`); findings become GitHub issues. Start it only when the author asks.
-- Done on 2026-11-12/13: integration #1 (unknown items become new products), #3 (goods put away matched with purchases), #2 (update, archive, move; merging is #21); dashboard #2 (camera requests) and #3 (product editor). Not yet tried: the full photo, receipt and camera flows with the test bot and real cameras; none of the dashboard changes of 2026-11-12/13 has been looked at in a browser. Dev instance: product "Prova ciclo" left archived.
-- Done on 2026-11-13, smaller fixes: #6 (stable source keys `zones.source_key`), #7 (single-image retry counted in the limits), #8 (zone settings deleted with the zone; schema v5), #9, #10 (write tools do not wait for the external todo copy), #11 (`max_age_minutes` removed), #13 (core/storage coverage gate, pinned bandit and pip-audit), #15 (sample snapshot `tests/snapshot_sample.json`, `npm run contract` in the dashboard), dashboard #4 (`channel: dashboard` on journaled actions). Dev instance restarted: loads cleanly, schema 5.
-- Done on 2026-11-13 after the author's answers: #14 retention (journal kept 180 days, hourly housekeeping), #12 (Lambda lines in docs/alexa.md add `qm_device`; YAML sends `session_key`). The dev package `config/packages/quartermaster_alexa.yaml` is updated; the author's real Lambda still needs the lines (docs/alexa.md, "One conversation per device").
-- Next, suggested order: integration #4 and #5 (`ready-for-agent`); field validation (#18, #19) whenever the author is available; #16 and #17 before 1.0.
+- Everything is on `main` and pushed in both repositories. No release yet (`0.0.0`).
+- 2026-11-15 with the author: #17 closed (domain `quartermaster` kept for 1.0); #16 decided (entities check `write_users`), now `ready-for-agent`. The author's test Lambda now has the `qm_device` lines (verified: the slot reaches HA); docs/alexa.md fixed, the lines go before `response = http.request(`, not before the `/api/alexa` line inside the call.
+- Alexa timing on dev: gemma-4-26b needs 3–5 s per round, so any tool question takes ≥ 9 s and Alexa always gets the 5 s acknowledgement. Late voice replies on dev go to `notify.samuele_bistoletti`. Dev zone Frigorifero got the alias "frigo" (without it: 4 rounds, 16 s). #24 opened: `zone_not_found` lists the zones so the agent skips `list_zones`.
+- Earlier work (2026-11-11/13): issues #1–#3, #6–#15, dashboard #2–#4. Not yet tried: photo, receipt and camera flows with the test bot and real cameras; the dashboard changes of 2026-11-12/13 in a browser. Dev product "Prova ciclo" left archived.
+- Postponed, still planned: a full review of both repositories (module by module against `docs/SPEC.md`, or `/code-review` against `6a673f8`, plus `security-audit`); start only when the author asks.
+- Next: #24, #16, #4, #5 (`ready-for-agent`); field validation #18, #19 and #20 with the author.
 
 ## Machine setup
 
