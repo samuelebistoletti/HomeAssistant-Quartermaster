@@ -132,7 +132,7 @@ Choose an agent with the Assist API attached in your voice assistant: the Quarte
 
 Then:
 - write normally ("I finished the milk") and Quartermaster answers through your agent;
-- send a photo with the zone name as caption, or without a caption and pick the zone with the buttons;
+- send a photo with the zone name in the caption ("frigo", "ecco il frigo"), or without a caption and pick the zone with the buttons;
 - send a receipt with the caption "receipt" (in Italian "scontrino"), or press **Receipt** among the zone buttons;
 - commands: `/list` (`/lista`), `/shopping` (`/spesa`), `/undo` (`/annulla`), `/check <zone>` (`/controlla`; without a zone it offers the zones as buttons);
 - proposals and suggestions come with buttons to confirm, reject or add to the list.

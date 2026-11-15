@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import date, timedelta
 from enum import StrEnum
+import re
 from typing import Any
 
 from homeassistant.exceptions import ServiceValidationError
@@ -71,6 +72,19 @@ def shelf_life_date(product: Product) -> date | None:
 def normalize(text: str) -> str:
     """Return text for case-insensitive, whitespace-insensitive matching."""
     return " ".join(text.split()).casefold()
+
+
+def _words(text: str) -> list[str]:
+    """Return the lowercase words of text, punctuation dropped."""
+    return re.findall(r"\w+", text.casefold())
+
+
+def _contains(words: list[str], phrase: list[str]) -> bool:
+    """Whether phrase occurs in words as consecutive whole words."""
+    size = len(phrase)
+    return size > 0 and any(
+        words[i : i + size] == phrase for i in range(len(words) - size + 1)
+    )
 
 
 _STEM_ENDINGS = "aeiouàèéìòóù"
@@ -225,6 +239,23 @@ class InventoryService:
                 candidates=", ".join(zone.name for zone in matches),
             )
         raise InventoryError("zone_not_found", zone=ref)
+
+    async def async_find_zone_in_text(self, text: str) -> Zone | None:
+        """Return the one zone whose name or an alias appears as words in text.
+
+        For free captions such as "Ecco il frigorifero": whole words only, so
+        "frigo" does not match "frigorifero"; None when no zone or several
+        zones are named.
+        """
+        words = _words(text)
+        found = {
+            zone.id: zone
+            for zone in await self.backend.async_list_zones()
+            if any(
+                _contains(words, _words(name)) for name in (zone.name, *zone.aliases)
+            )
+        }
+        return next(iter(found.values())) if len(found) == 1 else None
 
     # Products and essentials
 

@@ -337,6 +337,38 @@ async def test_receipts(hass: HomeAssistant, bot: Any) -> None:
     assert fake.sent[-1]["message"].startswith("Ho letto questi acquisti")
 
 
+async def test_zone_named_inside_the_caption(hass: HomeAssistant, bot: Any) -> None:
+    """A zone named anywhere in the caption is used; two zones named ask."""
+    _, fake = bot
+    await _event(
+        hass,
+        event_type="telegram_attachment",
+        chat_id=CHAT,
+        file_id="z1",
+        file_mime_type="image/jpeg",
+        text="Ecco il frigo!",
+    )
+    assert "Milk: 1 → 3" in fake.sent[-1]["message"]
+    await _event(
+        hass,
+        event_type="telegram_attachment",
+        chat_id=CHAT,
+        file_id="z2",
+        file_mime_type="image/jpeg",
+        text="frigo e pantry",
+    )
+    assert fake.sent[-1]["message"] == "Quale zona c'è nella foto?"
+    await _event(
+        hass,
+        event_type="telegram_attachment",
+        chat_id=CHAT,
+        file_id="z3",
+        file_mime_type="image/jpeg",
+        text="frigorifero nuovo",
+    )
+    assert fake.sent[-1]["message"] == "Quale zona c'è nella foto?"
+
+
 async def test_caption_with_instructions_is_data(hass: HomeAssistant, bot: Any) -> None:
     """A caption that tries to give orders is not a zone: the bot asks."""
     entry, fake = bot

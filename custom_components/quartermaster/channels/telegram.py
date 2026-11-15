@@ -429,7 +429,7 @@ class TelegramChannel:
             try:
                 zone = await self._runtime.inventory.async_find_zone(caption)
             except InventoryError:
-                zone = None
+                zone = await self._runtime.inventory.async_find_zone_in_text(caption)
         if zone is None:
             await self._async_ask_zone(chat_id, photo)
             return

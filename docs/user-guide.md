@@ -98,7 +98,7 @@ A sighting by a zone camera and one by a passage camera of the same product with
 ## Photos
 
 Send a photo through any of these:
-- **Telegram**: with the zone name as caption, or pick the zone with the buttons;
+- **Telegram**: with the zone name (or an alias) in the caption, as a word or in a sentence ("here is the fridge"), or pick the zone with the buttons;
 - **Dashboard**: the photo card;
 - **`quartermaster.analyze_image`**: with a file or a camera.
 
