@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # Install the community Cloudflare AI Gateway integration on the dev instance.
 #
-# Downloads the latest upstream main and, while upstream still imports
-# voluptuous_openapi (gone from Home Assistant since 2026.9), switches its two
-# schema conversions to probatio.to_openapi, as Home Assistant's own
-# openai_conversation does. See TECHNICAL_NOTES.md (Cloudflare AI Gateway).
+# Downloads the latest upstream main and patches, while upstream needs it:
+# - its two schema conversions from voluptuous_openapi (gone from Home
+#   Assistant since 2026.9) to probatio.to_openapi, as Home Assistant's own
+#   openai_conversation does;
+# - an answer streamed only as reasoning_content (gemma-4 on Workers AI after a
+#   tool result), used as the reply instead of the turn counting as empty and
+#   being sent again until the 10-iteration limit.
+# See TECHNICAL_NOTES.md (Cloudflare AI Gateway).
 # The copy goes to config/custom_components (gitignored): dev instance only.
 #
 #   scripts/dev-cloudflare-gateway && docker compose restart homeassistant
@@ -21,33 +25,74 @@ trap 'rm -rf "$WORK"' EXIT
 git clone --quiet --depth 1 "$REPO" "$WORK/src"
 echo "Upstream main: $(git -C "$WORK/src" log -1 --format='%h %s')"
 
-python3 - "$WORK/src/custom_components/cloudflare_ai_gateway/entity.py" <<'EOF'
+python3 - "$WORK/src/custom_components/cloudflare_ai_gateway/entity.py" <<'PATCH'
 import pathlib
 import sys
 
 path = pathlib.Path(sys.argv[1])
 text = path.read_text(encoding="utf-8")
-if "voluptuous_openapi" not in text:
-    print("Upstream no longer uses voluptuous_openapi: installed unchanged.")
-    sys.exit(0)
-replacements = {
-    "from voluptuous_openapi import convert\n": "import probatio\n",
-    "convert(tool.parameters, custom_serializer=custom_serializer)": (
-        "probatio.to_openapi(tool.parameters, custom_serializer=custom_serializer,"
-        ' openapi_version="3.1.0")'
-    ),
-    "convert(structure, custom_serializer=custom_serializer)": (
-        "probatio.to_openapi(structure, custom_serializer=custom_serializer,"
-        ' openapi_version="3.1.0")'
-    ),
-}
-for old, new in replacements.items():
-    if old not in text:
-        sys.exit(f"Upstream changed, patch not applied: {old.strip()!r} not found")
-    text = text.replace(old, new)
+
+
+def patch(name: str, replacements: dict[str, str]) -> None:
+    global text
+    for old, new in replacements.items():
+        if old not in text:
+            sys.exit(f"Upstream changed, {name} patch not applied: {old.strip()!r} not found")
+        text = text.replace(old, new)
+    print(f"Patched: {name}.")
+
+
+if "voluptuous_openapi" in text:
+    patch(
+        "schema conversion through probatio.to_openapi",
+        {
+            "from voluptuous_openapi import convert\n": "import probatio\n",
+            "convert(tool.parameters, custom_serializer=custom_serializer)": (
+                "probatio.to_openapi(tool.parameters, custom_serializer=custom_serializer,"
+                ' openapi_version="3.1.0")'
+            ),
+            "convert(structure, custom_serializer=custom_serializer)": (
+                "probatio.to_openapi(structure, custom_serializer=custom_serializer,"
+                ' openapi_version="3.1.0")'
+            ),
+        },
+    )
+else:
+    print("Upstream no longer uses voluptuous_openapi: schema patch not needed.")
+
+if "reasoning_content" in text:
+    print("Upstream reads reasoning_content: reasoning patch not needed.")
+else:
+    patch(
+        "reasoning-only answer used as the reply",
+        {
+            "    last_usage = None\n\n    async for chunk in response:\n": (
+                "    last_usage = None\n"
+                '    reasoning = ""\n'
+                "    answered = False\n\n"
+                "    async for chunk in response:\n"
+            ),
+            '        if delta.content:\n            yield {"content": delta.content}\n': (
+                '        reasoning += getattr(delta, "reasoning_content", None) or ""\n'
+                "        if delta.content:\n"
+                "            answered = True\n"
+                '            yield {"content": delta.content}\n'
+            ),
+            '        if finish_reason == "tool_calls":\n': (
+                '        if finish_reason == "tool_calls":\n'
+                "            answered = True\n"
+            ),
+            "    # Record usage from the last chunk that contained it\n": (
+                "    if not answered and reasoning.strip():\n"
+                "        if not started:\n"
+                '            yield {"role": "assistant"}\n'
+                '        yield {"content": reasoning.strip()}\n\n'
+                "    # Record usage from the last chunk that contained it\n"
+            ),
+        },
+    )
 path.write_text(text, encoding="utf-8")
-print("Patched: schema conversion through probatio.to_openapi.")
-EOF
+PATCH
 
 mkdir -p "$(dirname "$TARGET")"
 rm -rf "$TARGET"
