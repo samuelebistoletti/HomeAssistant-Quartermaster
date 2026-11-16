@@ -157,6 +157,23 @@ class VoiceSessions:
             self.sessions[(channel, key)] = session
         return session
 
+    def hand_off(
+        self, source: tuple[Channel, str], target: tuple[Channel, str]
+    ) -> None:
+        """Let the target thread go on with the source conversation.
+
+        A late voice reply that asks something reaches a Telegram chat; the
+        answer typed there must continue that conversation (its history and
+        any held-back write), not start a new one that misses the question.
+        """
+        origin = self.sessions.get(source)
+        if origin is None or origin.expires <= dt_util.utcnow():
+            return
+        session = self.session(*target)
+        session.conversation_id = origin.conversation_id
+        session.pending = origin.pending
+        session.expires = dt_util.utcnow() + self.lifetime
+
     def for_context(self, context: Context | None) -> Session | None:
         """Return the session of a request made by quartermaster.ask."""
         if context is None:

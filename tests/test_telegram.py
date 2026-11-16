@@ -14,6 +14,11 @@ from pytest_homeassistant.common import MockConfigEntry
 from custom_components.quartermaster.channels.telegram import parse_chat_ids
 from custom_components.quartermaster.const import DOMAIN
 from custom_components.quartermaster.core.inventory import StockOperation
+from custom_components.quartermaster.core.voice import (
+    EVENT_ASK_RESULT,
+    TELEGRAM_SESSION_PREFIX,
+    PendingClarification,
+)
 from custom_components.quartermaster.storage.models import Channel
 
 from .test_llm import SCRIPT, ScriptedAgent
@@ -367,6 +372,56 @@ async def test_zone_named_inside_the_caption(hass: HomeAssistant, bot: Any) -> N
         text="frigorifero nuovo",
     )
     assert fake.sent[-1]["message"] == "Quale zona c'è nella foto?"
+
+
+async def test_late_voice_question_continues_in_the_chat(
+    hass: HomeAssistant, bot: Any
+) -> None:
+    """A late voice reply that asks something, sent to a chat, is answered there.
+
+    The answer in the chat goes on with the voice conversation (same
+    conversation and held-back write), not a new one that misses the question.
+    """
+    entry, fake = bot
+    hass.config_entries.async_update_entry(
+        entry, options={**entry.options, "telegram_notify": True}
+    )
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    voice = entry.runtime_data.voice
+    spoken = voice.session(Channel.ALEXA, "alexa-echo")
+    spoken.conversation_id = "conv-voice"
+    spoken.pending = PendingClarification(
+        action="finished", quantity=None, zone_id="fridge", candidates=["Mozzarella"]
+    )
+    hass.bus.async_fire(
+        EVENT_ASK_RESULT,
+        {
+            "channel": "alexa",
+            "session_key": "alexa-echo",
+            "speech": "Ti riferisci alla mozzarella?",
+            "continue_conversation": True,
+        },
+    )
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert fake.sent[-1]["message"] == "Ti riferisci alla mozzarella?"
+    chat = voice.session(Channel.TELEGRAM, f"{TELEGRAM_SESSION_PREFIX}{CHAT}")
+    assert chat.conversation_id == "conv-voice"
+    assert chat.pending == spoken.pending
+
+    # A late reply that asks nothing leaves the chat's own conversation alone.
+    chat.conversation_id = "conv-chat"
+    hass.bus.async_fire(
+        EVENT_ASK_RESULT,
+        {
+            "channel": "alexa",
+            "session_key": "alexa-echo",
+            "speech": "Fatto.",
+            "continue_conversation": False,
+        },
+    )
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert chat.conversation_id == "conv-chat"
 
 
 async def test_caption_with_instructions_is_data(hass: HomeAssistant, bot: Any) -> None:

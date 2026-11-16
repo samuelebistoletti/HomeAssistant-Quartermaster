@@ -31,7 +31,10 @@ from custom_components.quartermaster.core.inventory import InventoryError
 from custom_components.quartermaster.core.phrases import async_phrase
 from custom_components.quartermaster.core.purchases import EVENT_PURCHASES_PROPOSED
 from custom_components.quartermaster.core.suggestions import Suggestion
-from custom_components.quartermaster.core.voice import EVENT_ASK_RESULT
+from custom_components.quartermaster.core.voice import (
+    EVENT_ASK_RESULT,
+    TELEGRAM_SESSION_PREFIX,
+)
 from custom_components.quartermaster.core.zones import (
     EVENT_LEDGER_CHECK,
     EVENT_PHOTO_REQUEST,
@@ -114,6 +117,9 @@ class Message:
     # Telegram chats that get it even without telegram_notify (the chat a
     # request came from).
     chats: list[int] = field(default_factory=list)
+    # A late voice reply that asks something: the voice session (channel,
+    # key) whose conversation an answer in a Telegram chat continues.
+    hand_off: tuple[Channel, str] | None = None
     # An answer to something the user just asked: not held in quiet hours.
     direct: bool = False
 
@@ -216,6 +222,11 @@ class NotificationRouter:
             chats |= {c for c in telegram.chats if c > 0}
         for chat_id in sorted(chats):
             await telegram.async_send(chat_id, message.text, message.buttons)
+            if message.hand_off is not None:
+                self._runtime.voice.hand_off(
+                    message.hand_off,
+                    (Channel.TELEGRAM, f"{TELEGRAM_SESSION_PREFIX}{chat_id}"),
+                )
 
     async def _async_send_to(self, entity_id: str, data: dict[str, Any]) -> bool:
         """Send through one notify entity; a failure is logged, not raised.
@@ -454,14 +465,22 @@ class NotificationRouter:
 
     @callback
     def _on_ask_result(self, event: Event[dict[str, Any]]) -> None:
-        if event.data.get("channel") == Channel.TELEGRAM:
+        data = event.data
+        if data.get("channel") == Channel.TELEGRAM:
             return  # the Telegram channel replies in the chat itself
+        hand_off = None
+        if data.get("continue_conversation") and data.get("channel"):
+            try:
+                hand_off = (Channel(data["channel"]), str(data.get("session_key", "")))
+            except ValueError:
+                hand_off = None
         self._task(
             self.async_send(
                 Message(
                     MessageType.VOICE_REPLY,
-                    str(event.data.get("speech") or ""),
+                    str(data.get("speech") or ""),
                     direct=True,
+                    hand_off=hand_off,
                 )
             ),
             "voice",

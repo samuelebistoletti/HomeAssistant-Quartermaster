@@ -142,7 +142,7 @@ class PurchaseService:
         for key, item in enumerate(analysis.items):
             if item.quantity <= 0:
                 continue
-            product = await proposals.async_match(item)
+            product = await proposals.async_match(item, check_name=False)
             rows.append(
                 {
                     "key": key,

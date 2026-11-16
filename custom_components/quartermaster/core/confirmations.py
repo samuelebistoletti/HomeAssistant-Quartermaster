@@ -11,6 +11,7 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from difflib import SequenceMatcher
 from typing import Any
 
 from homeassistant.util import dt as dt_util
@@ -110,6 +111,34 @@ class ProposalOutcome:
     more_than_stock: list[str] = field(default_factory=list)
 
 
+# Two words this close are the same word (spelling, plural, typo).
+SIMILAR_WORD = 0.8
+
+
+def _keywords(text: str) -> set[str]:
+    """Stems of the words of text that carry meaning (four letters or more)."""
+    words = stem(text).split()
+    return {word for word in words if len(word) >= 4} or set(words)
+
+
+def _plausible(reading: str, product: Product) -> bool:
+    """Whether a model's reading can name the product it was matched to.
+
+    Some word of the reading must be close to a word of the product's name,
+    aliases or visual hints ("Yoghurt" for Yogurt, "Milk bottle" for Milk).
+    """
+    said = _keywords(reading)
+    known = set().union(
+        *(
+            _keywords(text)
+            for text in (product.name, *product.aliases, product.visual_hints or "")
+        )
+    )
+    return any(
+        SequenceMatcher(None, a, b).ratio() >= SIMILAR_WORD for a in said for b in known
+    )
+
+
 class ProposalService:
     """Turns analyses into proposals and applies confirmed ones."""
 
@@ -128,12 +157,26 @@ class ProposalService:
         # both apply it.
         self._confirm_lock = asyncio.Lock()
 
-    async def async_match(self, item: SeenItem) -> Product | None:
+    async def async_match(
+        self, item: SeenItem, *, check_name: bool = True
+    ) -> Product | None:
+        """Return the product an item names, if exactly one.
+
+        `check_name` is off for receipts and order emails, whose lines are
+        abbreviated or in another language ("LATTE PS" for Milk).
+        """
         if item.matched_product_id is not None:
             try:
-                return await self._inventory.async_find_product(item.matched_product_id)
+                product = await self._inventory.async_find_product(
+                    item.matched_product_id
+                )
             except InventoryError:
                 return None
+            # Models tie unrelated things to an offered id (two soups to
+            # Milk): the id counts only with a word in common.
+            return (
+                product if not check_name or _plausible(item.product, product) else None
+            )
         candidates = await self._inventory.async_search(item.product)
         return candidates[0].product if len(candidates) == 1 else None
 

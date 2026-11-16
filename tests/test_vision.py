@@ -306,6 +306,42 @@ async def test_confirm_mode_creates_a_proposal(
     assert (analyses.state, analyses.attributes["limit"]) == ("1", 50)
 
 
+async def test_model_match_needs_a_name_in_common(
+    hass: HomeAssistant, setup: tuple[MockConfigEntry, FakeAITask], photo: Path
+) -> None:
+    """A matched_product_id whose product shares no word with the reading is
+    ignored: two soups the model tied to Milk do not change Milk's count."""
+    _entry, fake = setup
+    milk_id = fake.answer["items"][0]["matched_product_id"]
+    fake.answer = {
+        **fake.answer,
+        "items": [
+            {
+                "product": "Crema di verdure con zucca",
+                "matched_product_id": milk_id,
+                "quantity": 1,
+                "confidence": 0.95,
+            },
+            {
+                "product": "Milk bottle",
+                "matched_product_id": milk_id,
+                "quantity": 2,
+                "confidence": 0.9,
+            },
+        ],
+    }
+    result = await _analyze(hass, photo)
+    proposed = {row["seen_as"]: row for row in result["proposed"]}
+    assert proposed["Crema di verdure con zucca"]["product_id"] is None
+    assert (
+        proposed["Milk bottle"]["current"],
+        proposed["Milk bottle"]["proposed"],
+    ) == (
+        1,
+        2,
+    )
+
+
 async def test_confirm_with_corrections_learns_aliases(
     hass: HomeAssistant, setup: tuple[MockConfigEntry, FakeAITask], photo: Path
 ) -> None:
