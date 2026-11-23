@@ -37,6 +37,7 @@
 - README and user guide.
 
 ### Changed
+- Requires Home Assistant 2026.11.2, the latest release.
 - The shopping list, the buttons, the update mode select and the show mode switches now follow the Quartermaster permissions: a non-admin user who is not chosen under Permissions gets an error instead of changing data. Automations without a user are still allowed.
 - An LLM tool that gets an unknown zone now also returns the zones with their aliases, so the agent retries with the right name without asking for the zone list first (one model round less, about 4 s on voice).
 - Alexa: each Echo device can keep its own conversation. Add the few lines in docs/alexa.md ("One conversation per device") to the forwarding Lambda and copy the example YAML again; without them all devices of an account still share one conversation.

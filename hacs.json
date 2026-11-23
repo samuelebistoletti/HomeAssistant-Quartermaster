@@ -1,6 +1,6 @@
 {
   "name": "Quartermaster",
-  "homeassistant": "2026.11.0",
+  "homeassistant": "2026.11.2",
   "zip_release": true,
   "filename": "quartermaster.zip"
 }

@@ -54,7 +54,7 @@ scripts/dev-cloudflare-gateway               # optional: patched Cloudflare AI G
 
 ## Decisions (do not re-litigate without a new reason)
 
-- Minimum Home Assistant 2026.11.0 (Python ≥ 3.14.2), set in `hacs.json`.
+- Minimum Home Assistant 2026.11.2 (Python ≥ 3.14.2), set in `hacs.json`.
 - SQLite via the standard library; AI through `ai_task.generate_data` and the user's conversation agent; no provider clients.
 - Frontend only from the dashboard repository; the integration ships no JavaScript.
 - Action buttons only on Telegram and in the dashboard; other notify entities get plain text.

@@ -53,7 +53,7 @@ Everything is in English and Italian, voice included.
 
 ## Requirements
 
-- Home Assistant 2026.11.0, the latest release. Older releases are not supported.
+- Home Assistant 2026.11.2, the latest release. Older releases are not supported.
 - A **conversation agent** with an LLM, from any provider in Home Assistant, for Telegram, Alexa, the dashboard and `quartermaster.ask`. Since 2026.11 an administrator must attach the **Assist** API to it, so it can use the Quartermaster tools.
 - An **AI Task** entity with a vision model, for photos, receipts and cameras. Optionally a second AI Task entity for text only (order emails).
 - Optional:
@@ -311,7 +311,7 @@ docker compose up -d              # dev Home Assistant on http://localhost:8123
 
 | Quartermaster | Quartermaster Dashboard | Home Assistant |
 | --- | --- | --- |
-| unreleased (dashboard API 1) | unreleased | 2026.11.0 |
+| unreleased (dashboard API 1) | unreleased | 2026.11.2 |
 
 ## License
 

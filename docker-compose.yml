@@ -16,7 +16,7 @@ name: quartermaster-dev
 
 services:
   homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:2026.11.0
+    image: ghcr.io/home-assistant/home-assistant:2026.11.2
     restart: unless-stopped
     ports:
       - "127.0.0.1:8123:8123"
@@ -35,7 +35,7 @@ services:
       start_period: 30s
 
   ha-mcp:
-    image: ghcr.io/homeassistant-ai/ha-mcp:9.1.2
+    image: ghcr.io/homeassistant-ai/ha-mcp:9.2.0
     restart: unless-stopped
     depends_on:
       homeassistant:

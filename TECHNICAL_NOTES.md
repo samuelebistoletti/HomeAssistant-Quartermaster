@@ -33,7 +33,7 @@ Checked against the official docs or, where marked, Home Assistant's source. Rec
 
 ### Home Assistant
 
-- Minimum 2026.11.0, Python ≥ 3.14.2: ToolResult, `integration` and tool annotations need 2026.10; the first aligned `pytest-homeassistant` and the Marketplace are 2026.11.
+- Minimum 2026.11.2 (latest stable), Python ≥ 3.14.2: ToolResult, `integration` and tool annotations need 2026.10; the first aligned `pytest-homeassistant` and the Marketplace are 2026.11.
 - An LLM API is available only once an administrator attaches it to a conversation agent or the MCP server; the README and config flow say so.
 - A conversation can be continued only by the user who started it, and one message per conversation is processed at a time.
 - `llm.ToolAnnotations(read_only, destructive, idempotent, open_world)`; defaults assume the worst. The MCP server exposes only read-only tools. `LLMContext` carries `platform`, `context`, `language`, `assistant`, `device_id`.
