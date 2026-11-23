@@ -99,7 +99,7 @@ Checked against the official docs or, where marked, Home Assistant's source. Rec
 | Stale zones | A zone's last update is its newest stock change or successful check; ledger zones are excluded |
 | Expiry | Sensor with the option threshold (default 3 days, expired included); calendar: one all-day event per product and zone with stock; local dates |
 | Forecast | Rate = consumed units over the span since the first consumption in the last 60 days (at least 7 days, at least 3 consumptions, undone ones excluded); days_left = floor(total / rate). Within `forecast_days` (default 5, 0 = off): `running_out` suggestion, or an essential goes on the list (author) |
-| External copy | One-way through `todo.get_items`, `add_item`, `update_item`, `remove_item`; a new item's uid is found by summary among unseen uids; items deleted externally are not re-added; failures log a warning |
+| External copy | One-way through `todo.get_items`, `add_item`, `update_item`, `remove_item`. A new item's uid is the only uid that appears after `add_item`, or else the new one with the same normalized text; with none, `external_uid` is `?` (copied once, nothing more mirrored). `external_sent` (schema 6) keeps the text and description last sent, so renames and quantities go out once through `update_item` (`rename`, and `description` only when the list has `SET_DESCRIPTION_ON_ITEM`) and a list that rewrites the text is not renamed back. The description is the note or else the quantity, as under the item in Home Assistant. Items deleted externally are not re-added; failures log a warning and are retried at the next sync (#4) |
 | Import from todo | `import_from_todo` (products, essentials, shopping list); without `apply` it returns a preview |
 
 ## LLM tools and `quartermaster.ask`

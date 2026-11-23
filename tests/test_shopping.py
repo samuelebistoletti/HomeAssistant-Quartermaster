@@ -6,10 +6,16 @@ from datetime import date, timedelta
 from typing import Any
 
 from freezegun.api import FrozenDateTimeFactory
-from homeassistant.components.todo import DOMAIN as TODO_DOMAIN
+from homeassistant.components.todo import (
+    DOMAIN as TODO_DOMAIN,
+    TodoItem,
+    TodoListEntity,
+    TodoListEntityFeature,
+)
+from homeassistant.components.todo.const import DATA_COMPONENT as TODO_COMPONENT
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ServiceValidationError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 import pytest
 from pytest_homeassistant.common import MockConfigEntry, async_fire_time_changed
 
@@ -408,6 +414,126 @@ async def test_external_copy(
     await _set_options(hass, init_integration, external_todo="todo.gone")
     await _qm(hass, "add_to_shopping_list", text="Milk")
     assert init_integration.state is ConfigEntryState.LOADED
+
+
+class RewritingList(TodoListEntity):
+    """An external list that rewrites what it gets, as Bring! does."""
+
+    _attr_name = "Rewriting"
+    _attr_unique_id = "rewriting"
+    _attr_supported_features = (
+        TodoListEntityFeature.CREATE_TODO_ITEM
+        | TodoListEntityFeature.UPDATE_TODO_ITEM
+        | TodoListEntityFeature.DELETE_TODO_ITEM
+        | TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM
+    )
+
+    def __init__(self) -> None:
+        """Start empty."""
+        self._attr_todo_items = []
+        self.created = 0
+        self.hide_new = False
+        self.down = False
+
+    async def async_create_todo_item(self, item: TodoItem) -> None:
+        """Store the item in capitals; hidden lists never show it."""
+        if self.down:
+            raise HomeAssistantError("list unreachable")
+        self.created += 1
+        if self.hide_new:
+            return
+        assert self._attr_todo_items is not None
+        self._attr_todo_items.append(
+            TodoItem(
+                uid=f"r{self.created}",
+                summary=(item.summary or "").upper(),
+                status=item.status,
+                description=item.description,
+            )
+        )
+
+    async def async_update_todo_item(self, item: TodoItem) -> None:
+        """Replace the item, again in capitals."""
+        assert self._attr_todo_items is not None
+        for index, current in enumerate(self._attr_todo_items):
+            if current.uid == item.uid:
+                self._attr_todo_items[index] = TodoItem(
+                    uid=item.uid,
+                    summary=(item.summary or "").upper(),
+                    status=item.status,
+                    description=item.description,
+                )
+
+    async def async_delete_todo_items(self, uids: list[str]) -> None:
+        """Delete items."""
+        assert self._attr_todo_items is not None
+        self._attr_todo_items = [i for i in self._attr_todo_items if i.uid not in uids]
+
+
+async def _rewriting_list(hass: HomeAssistant) -> RewritingList:
+    entity = RewritingList()
+    await hass.data[TODO_COMPONENT].async_add_entities([entity])
+    return entity
+
+
+async def test_external_copy_follows_uid_renames_and_quantities(
+    hass: HomeAssistant, init_integration: MockConfigEntry
+) -> None:
+    """A list that rewrites the text keeps one copy, renamed and quantified (#4)."""
+    external = await _rewriting_list(hass)
+    await _set_options(hass, init_integration, external_todo="todo.rewriting")
+    inventory: InventoryService = init_integration.runtime_data.inventory
+    await inventory.async_add_zone("Fridge")
+    await inventory.async_add_product("Milk", default_zone="fridge", unit="bottle")
+
+    await _qm(hass, "add_to_shopping_list", text="Bread")
+    await _refresh(hass)
+    await _refresh(hass)
+    assert [(i["summary"], i["uid"]) for i in await _items(hass, "todo.rewriting")] == [
+        ("BREAD", "r1")
+    ]
+
+    [bread] = await _items(hass)
+    await _todo(hass, "update_item", item=bread["uid"], rename="Rye bread")
+    await _refresh(hass)
+    assert [i["summary"] for i in await _items(hass, "todo.rewriting")] == ["RYE BREAD"]
+
+    await inventory.async_set_essential("milk", essential=True, min_stock=2)
+    await _refresh(hass)
+    milk = {i["summary"]: i for i in await _items(hass, "todo.rewriting")}["MILK"]
+    assert milk["description"] == "2 bottle"
+    await inventory.async_set_stock(
+        "milk", 1, zone_ref="fridge", channel=Channel.SERVICE
+    )
+    await _refresh(hass)
+    milk = {i["summary"]: i for i in await _items(hass, "todo.rewriting")}["MILK"]
+    assert milk["description"] == "1 bottle"
+    assert external.created == 2
+
+    # Deleted over there: left alone. Unreachable: added at the next sync.
+    await hass.services.async_call(
+        TODO_DOMAIN,
+        "remove_item",
+        {"item": "r1"},
+        target={"entity_id": "todo.rewriting"},
+        blocking=True,
+    )
+    external.down = True
+    await _qm(hass, "add_to_shopping_list", text="Butter")
+    external.down = False
+    await _refresh(hass)
+    assert [i["summary"] for i in await _items(hass, "todo.rewriting")] == [
+        "MILK",
+        "BUTTER",
+    ]
+    assert external.created == 3
+
+    # A list that never shows the new item gets it once, not at every sync.
+    external.hide_new = True
+    await _qm(hass, "add_to_shopping_list", text="Eggs")
+    await _refresh(hass)
+    await _refresh(hass)
+    assert external.created == 4
 
 
 async def test_import_from_todo(

@@ -9,7 +9,9 @@
 - Checking an item off can record the purchase of its product.
 - The optional copy to another todo entity is one-way and tracked by uid
   through the documented todo actions; items added there by hand are never
-  touched.
+  touched. The uid is the one that appears right after `add_item`, whatever
+  text the other list made of it; renames and quantities (as the item's
+  description, when the list supports one) follow with `update_item`.
 """
 
 from __future__ import annotations
@@ -18,10 +20,12 @@ import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
+import json
 import logging
 from typing import Any
 
-from homeassistant.const import ATTR_ENTITY_ID
+from homeassistant.components.todo import TodoListEntityFeature
+from homeassistant.const import ATTR_ENTITY_ID, ATTR_SUPPORTED_FEATURES
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt as dt_util
@@ -45,10 +49,27 @@ from custom_components.quartermaster.storage.models import (
 _LOGGER = logging.getLogger(__name__)
 
 TODO_DOMAIN = "todo"
+# external_uid of an item added to the external list whose uid could not be
+# found: it is not added again, and nothing else is mirrored for it.
+EXTERNAL_UID_UNKNOWN = "?"
 # A checked item keeps its product off the list this long while the purchase
 # is not in stock yet; completed items are deleted after COMPLETED_KEEP.
 CHECKED_GRACE = timedelta(days=2)
 COMPLETED_KEEP = timedelta(days=30)
+
+
+def quantity_text(quantity: float | None, unit: str | None) -> str | None:
+    """Return the quantity as shown under an item, such as "3 bottle"."""
+    if quantity is None:
+        return None
+    return f"{quantity:g} {unit or ''}".strip()
+
+
+def item_description(item: ShoppingItem, unit: str | None) -> str | None:
+    """Return the text under an item: its note, or else its quantity."""
+    if item.note:
+        return item.note
+    return quantity_text(item.quantity, unit)
 
 
 class ImportTarget(StrEnum):
@@ -301,7 +322,9 @@ class ShoppingService:
         external = [
             uid
             for item_id in item_ids
-            if item_id in items and (uid := items[item_id].external_uid)
+            if item_id in items
+            and (uid := items[item_id].external_uid)
+            and uid != EXTERNAL_UID_UNKNOWN
         ]
         await self._backend.async_delete_shopping_items(item_ids)
         if external and (entity_id := self.external_entity_id):
@@ -338,7 +361,8 @@ class ShoppingService:
         except HomeAssistantError as err:
             _LOGGER.warning("Copy to %s failed (%s): %s", entity_id, action, err)
             return None
-        return response
+        # None means failure; actions without a response answer {}.
+        return response or {}
 
     async def _async_external_items(
         self, entity_id: str
@@ -365,39 +389,105 @@ class ShoppingService:
         external = await self._async_external_items(entity_id)
         if external is None:
             return
+        state = self._hass.states.get(entity_id)
+        features = int(state.attributes.get(ATTR_SUPPORTED_FEATURES, 0)) if state else 0
+        describe = bool(features & TodoListEntityFeature.SET_DESCRIPTION_ON_ITEM)
+        units = {
+            product.id: product.unit
+            for product in await self._backend.async_list_products(
+                include_archived=True
+            )
+        }
         status_by_uid = {item["uid"]: item.get("status") for item in external}
         known_uids = set(status_by_uid)
         updates: list[ShoppingItem] = []
         for item in await self._backend.async_list_shopping_items():
-            if item.external_uid:
-                if (
-                    item.status is ShoppingStatus.COMPLETED
-                    and status_by_uid.get(item.external_uid)
-                    == ShoppingStatus.NEEDS_ACTION
+            description = (
+                item_description(item, units.get(item.product_id or 0))
+                if describe
+                else None
+            )
+            sent = json.dumps([item.text, description])
+            uid = item.external_uid
+            if uid == EXTERNAL_UID_UNKNOWN:
+                continue
+            if uid:
+                if uid not in status_by_uid:
+                    continue  # deleted there: left alone
+                if await self._async_update_external(
+                    entity_id,
+                    item,
+                    uid,
+                    status_by_uid[uid],
+                    sent,
+                    description,
+                    describe,
                 ):
-                    await self._async_todo_call(
-                        "update_item",
-                        entity_id,
-                        {"item": item.external_uid, "status": ShoppingStatus.COMPLETED},
-                    )
+                    updates.append(item)
                 continue
             if item.status is not ShoppingStatus.NEEDS_ACTION:
                 continue
-            await self._async_todo_call("add_item", entity_id, {"item": item.text})
+            data: dict[str, Any] = {"item": item.text}
+            if description is not None:
+                data["description"] = description
+            if await self._async_todo_call("add_item", entity_id, data) is None:
+                continue
             after = await self._async_external_items(entity_id)
             if after is None:
-                return
-            new = [
-                entry["uid"]
-                for entry in after
-                if entry["uid"] not in known_uids and entry.get("summary") == item.text
+                break
+            new = [entry for entry in after if entry["uid"] not in known_uids]
+            known_uids.update(entry["uid"] for entry in new)
+            same = [
+                entry
+                for entry in new
+                if normalize(str(entry.get("summary") or "")) == normalize(item.text)
             ]
-            if new:
-                item.external_uid = new[0]
-                known_uids.add(new[0])
-                updates.append(item)
+            # Ours is the only new uid, or else the one with our text; a list
+            # that hides the item or rewrites it next to a hand-made addition
+            # gets the marker, so the item is not added at every sync.
+            chosen = new if len(new) == 1 else same
+            item.external_uid = chosen[0]["uid"] if chosen else EXTERNAL_UID_UNKNOWN
+            item.external_sent = sent
+            updates.append(item)
         if updates:
             await self._backend.async_update_shopping_items(updates)
+
+    async def _async_update_external(
+        self,
+        entity_id: str,
+        item: ShoppingItem,
+        uid: str,
+        status: str | None,
+        sent: str,
+        description: str | None,
+        describe: bool,
+    ) -> bool:
+        """Mirror a completion, a rename or a new quantity; True if stored anew."""
+        data: dict[str, Any] = {}
+        if (
+            item.status is ShoppingStatus.COMPLETED
+            and status == ShoppingStatus.NEEDS_ACTION
+        ):
+            data["status"] = ShoppingStatus.COMPLETED
+        changed = (
+            item.status is ShoppingStatus.NEEDS_ACTION and sent != item.external_sent
+        )
+        if changed:
+            # Compared with what was sent, not with what the list shows: a list
+            # that rewrites the text is not renamed back at every sync.
+            data["rename"] = item.text
+            if describe:
+                data["description"] = description
+        if not data:
+            return False
+        if (
+            await self._async_todo_call("update_item", entity_id, {"item": uid, **data})
+            is None
+        ):
+            return False
+        if changed:
+            item.external_sent = sent
+        return changed
 
     # Import from another todo entity
 

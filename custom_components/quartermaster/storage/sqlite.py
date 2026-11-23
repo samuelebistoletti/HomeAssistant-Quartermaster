@@ -166,6 +166,7 @@ def _shopping_item(row: sqlite3.Row) -> ShoppingItem:
         position=row["position"],
         completed_at=_datetime(row["completed_at"]),
         external_uid=row["external_uid"],
+        external_sent=row["external_sent"],
     )
 
 
@@ -213,6 +214,7 @@ def _shopping_values(item: ShoppingItem) -> tuple[Any, ...]:
         item.position,
         _iso(item.completed_at),
         item.note,
+        item.external_sent,
     )
 
 
@@ -662,8 +664,9 @@ class SQLiteBackend(StorageBackend):
             cursor = conn.execute(
                 """
                 INSERT INTO shopping_items (product_id, text, quantity, status,
-                    origin, external_uid, position, completed_at, note)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    origin, external_uid, position, completed_at, note,
+                    external_sent)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 _shopping_values(item),
             )
@@ -681,7 +684,7 @@ class SQLiteBackend(StorageBackend):
                 """
                 UPDATE shopping_items SET product_id = ?, text = ?, quantity = ?,
                     status = ?, origin = ?, external_uid = ?, position = ?,
-                    completed_at = ?, note = ?
+                    completed_at = ?, note = ?, external_sent = ?
                 WHERE id = ?
                 """,
                 [(*_shopping_values(item), item.id) for item in items],

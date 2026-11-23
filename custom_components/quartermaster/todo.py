@@ -18,6 +18,7 @@ from custom_components.quartermaster.const import (
 )
 from custom_components.quartermaster.coordinator import QuartermasterCoordinator
 from custom_components.quartermaster.core.inventory import InventoryError
+from custom_components.quartermaster.core.shopping import item_description
 from custom_components.quartermaster.entity import QuartermasterEntity
 from custom_components.quartermaster.storage.models import ShoppingItem
 
@@ -31,13 +32,6 @@ async def async_setup_entry(
 ) -> None:
     """Add the shopping list."""
     async_add_entities([QuartermasterShoppingList(entry.runtime_data.coordinator)])
-
-
-def quantity_text(quantity: float | None, unit: str | None) -> str | None:
-    """Return the quantity as shown under an item, such as "3 bottle"."""
-    if quantity is None:
-        return None
-    return f"{quantity:g} {unit or ''}".strip()
 
 
 class QuartermasterShoppingList(QuartermasterEntity, TodoListEntity):
@@ -56,10 +50,8 @@ class QuartermasterShoppingList(QuartermasterEntity, TodoListEntity):
         super().__init__(coordinator, "shopping_list")
 
     def _description(self, item: ShoppingItem) -> str | None:
-        if item.note:
-            return item.note
         product = self.coordinator.data.products.get(item.product_id or 0)
-        return quantity_text(item.quantity, product.unit if product else None)
+        return item_description(item, product.unit if product else None)
 
     @property
     def todo_items(self) -> list[TodoItem]:

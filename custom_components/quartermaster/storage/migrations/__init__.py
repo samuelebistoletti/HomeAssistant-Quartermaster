@@ -13,6 +13,7 @@ from . import (
     m003_shopping_order,
     m004_photo_requests,
     m005_zone_settings,
+    m006_external_sent,
 )
 
 MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
@@ -21,4 +22,5 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     (3, m003_shopping_order.STATEMENTS),
     (4, m004_photo_requests.STATEMENTS),
     (5, m005_zone_settings.STATEMENTS),
+    (6, m006_external_sent.STATEMENTS),
 )

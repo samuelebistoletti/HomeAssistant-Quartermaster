@@ -11,8 +11,8 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.quartermaster import QuartermasterConfigEntry
 from custom_components.quartermaster.coordinator import QuartermasterCoordinator
+from custom_components.quartermaster.core.shopping import quantity_text
 from custom_components.quartermaster.entity import QuartermasterEntity
-from custom_components.quartermaster.todo import quantity_text
 
 PARALLEL_UPDATES = 0
 

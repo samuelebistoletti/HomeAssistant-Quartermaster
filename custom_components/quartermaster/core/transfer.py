@@ -140,6 +140,8 @@ TABLES_SCHEMA = probatio.Schema(
                 probatio.Required("position"): int,
                 probatio.Required("completed_at"): _OPT_DATETIME,
                 probatio.Required("note"): _OPT_STR,
+                # Added in schema 6; older exports have no such key.
+                probatio.Optional("external_sent"): _OPT_STR,
             }
         ],
     }

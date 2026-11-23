@@ -149,6 +149,9 @@ class ShoppingItem:
     position: int = 0
     completed_at: datetime | None = None
     external_uid: str | None = None
+    # What the external copy last received, to mirror renames and quantities
+    # once instead of at every sync (JSON, see core/shopping.py).
+    external_sent: str | None = None
 
 
 class ProposalStatus(StrEnum):
