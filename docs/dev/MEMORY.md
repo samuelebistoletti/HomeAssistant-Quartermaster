@@ -5,12 +5,13 @@ Where the work stands, shared between sessions and machines. Rules live in `CLAU
 ## Now (2026-11-23)
 
 - Everything is on `main` and pushed in both repositories. No release yet (`0.0.0`).
-- 2026-11-23: #24 (`zone_not_found` carries the zones and aliases) and #16 (entities check `write_users`, error `write_not_allowed`) done and closed. The `start_shopping` action is still not permission-checked (accepted for the dashboard, see TECHNICAL_NOTES "Configuration").
+- 2026-11-23: #24 (`zone_not_found` carries the zones), #16 (entities check `write_users`), #4 (external todo copy by uid, renames and quantities, schema 6) and #5 (order emails: marked after success, one proposal per order, author's choices) done and closed. Home Assistant 2026.11.2 everywhere (minimum, dev, tests); dashboard dev tools updated. The `start_shopping` action is still not permission-checked (accepted for the dashboard).
+- Dev: a Local To-do list "Copia spesa" (`todo.copia_spesa`) is set as the external copy, created to try #4.
 - 2026-11-15/16: undo by voice on Alexa; zone named inside a Telegram photo caption; every stocked product a photo does not show is proposed as "not seen"; a late Alexa reply continues on Telegram (the "sì" typed there takes over the voice conversation); a zone analysis keeps `matched_product_id` only when the reading shares a word with the product. Dev gateway patched for answers streamed only as reasoning.
 - #18 (photos and cameras): first fridge photos with gemma-4-26b on dev; recall on real photos is the open question for the image model (see the issue comments).
 - Alexa timing on dev: gemma-4-26b needs 3–5 s per round, so tool questions get the 5 s acknowledgement and the late reply goes to Telegram (`telegram_notify` on). Dev zone Frigorifero has the alias "frigo".
 - Postponed, still planned: a full review of both repositories (module by module against `docs/SPEC.md`, or `/code-review` against `6a673f8`, plus `security-audit`); start only when the author asks.
-- Next: #4, #5 (`ready-for-agent`); #21 needs triage; field validation #18, #19 and #20 with the author.
+- Next: #21 needs triage (merge duplicate products); field validation #18, #19 and #20 with the author; order emails never tried with a real mailbox.
 
 ## Machine setup
 
