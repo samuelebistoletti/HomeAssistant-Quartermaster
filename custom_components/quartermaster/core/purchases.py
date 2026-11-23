@@ -8,22 +8,34 @@ user confirms, corrects (teaching aliases) or rejects them.
 Order emails come from Home Assistant's IMAP integration: its documented
 `imap_content` event says a message arrived, and the documented `imap.fetch`
 action returns the whole text. Only the chosen IMAP entry and the allowed
-senders are read.
+senders are read. The confirmation, shipping and delivery emails of one
+order give one proposal (author, 2026-11-23): an email belongs to an earlier
+email proposal of the last ORDER_DAYS with the same order number or, when
+either has no number, with the same products or some of them. It replaces
+the rows of that proposal while it is pending, and is dropped once the
+proposal was confirmed (even in part) or rejected.
 """
 
 from __future__ import annotations
 
+from datetime import timedelta
 from email.utils import parseaddr
 import logging
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.util import dt as dt_util
 
 from custom_components.quartermaster.const import DOMAIN
-from custom_components.quartermaster.core.inventory import InventoryError
+from custom_components.quartermaster.core.confirmations import PURCHASE
+from custom_components.quartermaster.core.inventory import InventoryError, normalize
 from custom_components.quartermaster.core.phrases import configured_language
-from custom_components.quartermaster.storage.models import Channel, Proposal
+from custom_components.quartermaster.storage.models import (
+    Channel,
+    Proposal,
+    ProposalStatus,
+)
 from custom_components.quartermaster.vision.analyze import product_lines
 from custom_components.quartermaster.vision.quality import (
     ImageRejectedError,
@@ -43,6 +55,8 @@ SETTING_EMAIL_UIDS = "email_uids"
 EMAIL_UIDS_KEPT = 200
 MAX_EMAIL_CHARS = 20000
 MAX_PRODUCTS_IN_PROMPT = 300
+# Emails of one order within this time give one proposal.
+ORDER_DAYS = timedelta(days=3)
 
 RECEIPT_INSTRUCTIONS = """You are reading a shop receipt to record what was bought.
 List every food or household product on it with the number of packages
@@ -64,6 +78,7 @@ Known products (id: name, aliases, unit):
 {products}
 When an item is one of them, set matched_product_id to its id.
 Write product names in this language: {language}.
+Set order_number to the order number written in the email, if there is one.
 Email subject: {subject}
 Email text:
 {text}"""
@@ -80,6 +95,8 @@ class PurchaseService:
         self.email_entry: str | None = None
         self.email_senders: list[str] = []
         self._unsub: CALLBACK_TYPE | None = None
+        # Uids being read now, so a repeated event does not read one twice.
+        self._reading: set[str] = set()
 
     async def _async_products(self) -> tuple[str, set[int]]:
         products = await self._runtime.inventory.async_list_products()
@@ -124,6 +141,7 @@ class PurchaseService:
             ),
             ids,
             entity_id=self.text_entity,
+            order_number=True,
         )
         return await self._async_propose(
             analysis, channel=Channel.EMAIL, user_id=None, source="email"
@@ -157,10 +175,36 @@ class PurchaseService:
                 }
             )
         proposal: Proposal | None = None
-        if rows:
-            proposal = await proposals.async_propose_purchases(
-                rows, channel=channel, user_id=user_id, source=source
+        earlier = (
+            await self._async_same_order(rows, analysis.order_number)
+            if rows and source == "email"
+            else None
+        )
+        if earlier is not None and earlier.status is not ProposalStatus.PENDING:
+            _LOGGER.info(
+                "Order email skipped: proposal %s of the same order was decided",
+                earlier.id,
             )
+            rows = []
+        elif earlier is not None and earlier.payload.get("confirmed_some"):
+            _LOGGER.info(
+                "Order email skipped: proposal %s of the same order is partly confirmed",
+                earlier.id,
+            )
+            rows = []
+        elif earlier is not None:
+            proposal = await proposals.async_replace_purchases(
+                earlier, rows, analysis.order_number
+            )
+        elif rows:
+            proposal = await proposals.async_propose_purchases(
+                rows,
+                channel=channel,
+                user_id=user_id,
+                source=source,
+                order=analysis.order_number,
+            )
+        if proposal is not None:
             self._hass.bus.async_fire(
                 EVENT_PURCHASES_PROPOSED,
                 {
@@ -178,6 +222,31 @@ class PurchaseService:
         }
 
     # Order emails
+
+    async def _async_same_order(
+        self, rows: list[dict[str, Any]], order: str | None
+    ) -> Proposal | None:
+        """Return the newest email proposal of the same order, if any."""
+        await self._runtime.proposals.async_pending()  # expires the old ones
+        since = dt_util.utcnow() - ORDER_DAYS
+        products = {_identity(row) for row in rows}
+        for proposal in await self._runtime.inventory.backend.async_list_proposals():
+            payload = proposal.payload
+            if (
+                proposal.created < since
+                or proposal.status is ProposalStatus.EXPIRED
+                or payload.get("kind") != PURCHASE
+                or payload.get("source") != "email"
+            ):
+                continue
+            earlier = payload.get("order")
+            if order and earlier:
+                if normalize(order) == normalize(earlier):
+                    return proposal
+                continue
+            if products <= {_identity(row) for row in payload.get("items", [])}:
+                return proposal
+        return None
 
     @callback
     def async_start(self) -> None:
@@ -229,11 +298,24 @@ class PurchaseService:
         uid = str(data.get("uid") or "")
         backend = self._runtime.inventory.backend
         seen = (await backend.async_get_setting(SETTING_EMAIL_UIDS) or "").split(",")
-        if not uid or uid in seen:
+        if not uid or uid in seen or uid in self._reading:
             return
-        await backend.async_set_setting(
-            SETTING_EMAIL_UIDS, ",".join([*seen, uid][-EMAIL_UIDS_KEPT:])
-        )
+        self._reading.add(uid)
+        try:
+            if await self._async_read_email(uid, data):
+                # Marked only once read: an email whose analysis failed is
+                # read again when the IMAP integration announces it again.
+                seen = (
+                    await backend.async_get_setting(SETTING_EMAIL_UIDS) or ""
+                ).split(",")
+                await backend.async_set_setting(
+                    SETTING_EMAIL_UIDS, ",".join([*seen, uid][-EMAIL_UIDS_KEPT:])
+                )
+        finally:
+            self._reading.discard(uid)
+
+    async def _async_read_email(self, uid: str, data: dict[str, Any]) -> bool:
+        """Fetch and analyze one email; True once its purchases are proposed."""
         text = str(data.get("text") or "")
         try:
             response = await self._hass.services.async_call(
@@ -247,10 +329,19 @@ class PurchaseService:
         except HomeAssistantError as err:
             _LOGGER.debug("imap.fetch failed, using the event text: %s", err)
         if not text.strip():
-            return
+            return False
         try:
             await self.async_from_email(
                 str(data.get("subject") or ""), text, sender=str(data.get("sender"))
             )
         except InventoryError as err:
             _LOGGER.warning("Order email not read: %s", err)
+            return False
+        return True
+
+
+def _identity(row: dict[str, Any]) -> str:
+    """Tell products apart across emails: the matched product, or else the name."""
+    if row.get("product_id") is not None:
+        return f"#{row['product_id']}"
+    return normalize(str(row.get("seen_as") or ""))

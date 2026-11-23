@@ -203,6 +203,7 @@ class VisionService:
         *,
         image: bytes | None = None,
         entity_id: str | None = None,
+        order_number: bool = False,
     ) -> ZoneAnalysis:
         """Ask AI Task for a list of products, with an optional image.
 
@@ -217,7 +218,7 @@ class VisionService:
             "task_name": task_name,
             ATTR_ENTITY_ID: entity_id,
             "instructions": instructions,
-            "structure": structure_for(self.structure_mode),
+            "structure": structure_for(self.structure_mode, order_number=order_number),
         }
         path: Path | None = None
         if image is not None:

@@ -313,9 +313,92 @@ async def test_order_email_fetch_fails(hass: HomeAssistant, shop: Any) -> None:
     await hass.async_block_till_done(wait_background_tasks=True)
     assert len(ai.calls) == 1
     assert await entry.runtime_data.proposals.async_pending() == []
+    # A failed analysis leaves the email unread: the same uid is read again
+    # (after a restart the IMAP integration announces it once more) (#5).
+    ai.answer = {"image_usable": True, "overall_confidence": 0.9, "items": []}
+    await purchases._async_email({"uid": "20", "text": "2 x Milk"})
+    assert len(ai.calls) == 2
+    await purchases._async_email({"uid": "20", "text": "2 x Milk"})
+    assert len(ai.calls) == 2
     # Empty texts are not sent to the model.
     await purchases._async_email({"uid": "21", "text": " "})
-    assert len(ai.calls) == 1
+    assert len(ai.calls) == 2
+
+
+def _order(
+    number: str | None, *products: tuple[str, int | None, float]
+) -> dict[str, Any]:
+    answer: dict[str, Any] = {
+        "image_usable": True,
+        "overall_confidence": 0.9,
+        "items": [
+            {
+                "product": name,
+                "matched_product_id": product_id,
+                "quantity": quantity,
+                "confidence": 0.9,
+            }
+            for name, product_id, quantity in products
+        ],
+    }
+    if number is not None:
+        answer["order_number"] = number
+    return answer
+
+
+async def test_emails_of_one_order(
+    hass: HomeAssistant, shop: Any, freezer: FrozenDateTimeFactory
+) -> None:
+    """Confirmation, shipping and delivery of one order give one proposal (#5)."""
+    entry, ai = shop
+    purchases = entry.runtime_data.purchases
+    proposals = entry.runtime_data.proposals
+    milk = (await entry.runtime_data.inventory.async_find_product("milk")).id
+    proposed: list[dict[str, Any]] = []
+    hass.bus.async_listen(EVENT_PURCHASES_PROPOSED, lambda e: proposed.append(e.data))
+
+    async def email(uid: str, answer: dict[str, Any]) -> list[Any]:
+        ai.answer = answer
+        await purchases._async_email({"uid": uid, "subject": "Order", "text": "..."})
+        await hass.async_block_till_done()
+        return await proposals.async_pending()
+
+    # The order number asked for, only in emails.
+    [first] = await email("1", _order("A-1", ("Latte", milk, 2), ("Biscotti", None, 1)))
+    assert "order_number" in ai.calls[-1]["structure"]
+    assert first.payload["order"] == "A-1"
+    # Shipping: the pending proposal takes the newer items, and is sent again.
+    [updated] = await email("2", _order("A-1", ("Latte", milk, 3)))
+    assert updated.id == first.id
+    assert [row["proposed"] for row in updated.payload["items"]] == [3]
+    assert [e["proposal_id"] for e in proposed] == [first.id, first.id]
+    # Delivery after the confirmation: dropped without a message.
+    await proposals.async_confirm(first.id, channel=Channel.SERVICE, user_id=None)
+    assert await email("3", _order("A-1", ("Latte", milk, 3))) == []
+    assert len(proposed) == 2
+
+    # Another number is another order, even with the same items.
+    [other] = await email("4", _order("B-2", ("Latte", milk, 1), ("Biscotti", None, 1)))
+    assert other.id != first.id
+    # Without a number, the same items (or some of them) within 3 days.
+    [same] = await email("5", _order(None, ("latte", milk, 1), ("biscotti", None, 2)))
+    assert same.id == other.id
+    # Partly confirmed: like a confirmed one, a later email is dropped.
+    await proposals.async_confirm(
+        other.id, keys=[0], channel=Channel.SERVICE, user_id=None
+    )
+    [left] = await email("6", _order(None, ("Biscotti", None, 3)))
+    assert left.id == other.id
+    assert [row["proposed"] for row in left.payload["items"]] == [2]
+    # A product the earlier emails did not have is a new order.
+    pending = await email("7", _order(None, ("Biscotti", None, 1), ("Uova", None, 6)))
+    assert len(pending) == 2
+    eggs = next(p for p in pending if p.id != other.id)
+    await proposals.async_confirm(eggs.id, channel=Channel.SERVICE, user_id=None)
+    # Older than 3 days: not the same order any more.
+    freezer.tick(timedelta(days=4))
+    [later] = await email("8", _order(None, ("Uova", None, 6)))
+    assert later.id not in (first.id, other.id, eggs.id)
 
 
 # Forecast

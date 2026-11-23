@@ -83,9 +83,19 @@ TEXT_STRUCTURE: dict[str, Any] = {
 }
 
 
-def structure_for(mode: StructureMode) -> dict[str, Any]:
-    """Return the structure to send for the mode."""
-    return NESTED_STRUCTURE if mode is StructureMode.NESTED else TEXT_STRUCTURE
+ORDER_NUMBER_FIELD: dict[str, Any] = {
+    "description": "The order number written in the email, if any",
+    "selector": {"text": {}},
+}
+MAX_ORDER_NUMBER = 64
+
+
+def structure_for(mode: StructureMode, *, order_number: bool = False) -> dict[str, Any]:
+    """Return the structure to send for the mode, for emails with the order."""
+    structure = NESTED_STRUCTURE if mode is StructureMode.NESTED else TEXT_STRUCTURE
+    if order_number:
+        return {**structure, "order_number": ORDER_NUMBER_FIELD}
+    return structure
 
 
 @dataclass(slots=True)
@@ -110,6 +120,8 @@ class ZoneAnalysis:
     image_issues: list[str] = field(default_factory=list)
     expected_not_seen: list[str] = field(default_factory=list)
     unknown_items: list[str] = field(default_factory=list)
+    # Order emails only: what tells the emails of one order apart.
+    order_number: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         """Return the result as stored in zone snapshots."""
@@ -206,7 +218,15 @@ def parse_result(data: Any, expected_ids: set[int]) -> ZoneAnalysis:
         image_issues=_texts(data.get("image_issues")),
         expected_not_seen=_texts(data.get("expected_not_seen")),
         unknown_items=_texts(data.get("unknown_items")),
+        order_number=_order_number(data.get("order_number")),
     )
+
+
+def _order_number(value: Any) -> str | None:
+    if not isinstance(value, (str, int)) or isinstance(value, bool):
+        return None
+    text = " ".join(str(value).split())[:MAX_ORDER_NUMBER]
+    return text or None
 
 
 def result_from_dict(data: dict[str, Any]) -> ZoneAnalysis:

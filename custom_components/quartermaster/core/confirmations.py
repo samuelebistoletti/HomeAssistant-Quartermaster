@@ -475,6 +475,7 @@ class ProposalService:
         channel: Channel,
         user_id: str | None,
         source: str,
+        order: str | None = None,
     ) -> Proposal:
         """Store purchases read from a receipt or an order email."""
         now = dt_util.utcnow()
@@ -489,10 +490,23 @@ class ProposalService:
                     "source": source,
                     "items": rows,
                     "user_id": user_id,
+                    "order": order,
                 },
                 expires_at=now + PROPOSAL_TTL,
             )
         )
+
+    async def async_replace_purchases(
+        self, proposal: Proposal, rows: list[dict[str, Any]], order: str | None
+    ) -> Proposal:
+        """Give a pending purchase proposal the rows of a newer email."""
+        proposal.payload = {
+            **proposal.payload,
+            "items": rows,
+            "order": order or proposal.payload.get("order"),
+        }
+        await self._backend.async_update_proposal(proposal)
+        return proposal
 
     async def _async_confirm_movement(
         self,
@@ -673,8 +687,14 @@ class ProposalService:
         done = {row["key"] for row in applied}
         remaining = [row for row in proposal.payload["items"] if row["key"] not in done]
         if remaining:
-            # Items not chosen, and unknown ones, stay pending in the proposal.
-            proposal.payload = {**proposal.payload, "items": remaining}
+            # Items not chosen, and unknown ones, stay pending in the proposal;
+            # `confirmed_some` keeps a later email of the order from replacing
+            # them (core/purchases.py).
+            proposal.payload = {
+                **proposal.payload,
+                "items": remaining,
+                "confirmed_some": True,
+            }
         else:
             proposal.status = ProposalStatus.CONFIRMED
         await self._backend.async_update_proposal(proposal)

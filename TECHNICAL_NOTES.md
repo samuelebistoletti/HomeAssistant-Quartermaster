@@ -200,7 +200,7 @@ Contract in `docs/dashboard-api.md`. Reads for every authenticated user; writes 
 
 ### Order emails
 
-IMAP's `imap_content` event (filtered on `entry_id`, `initial`, allowed senders) and `imap.fetch` for the full text. Sender rules: whole address, or domain with subdomains. Processed uids kept in settings. Text goes to the text AI Task (`ai_task_text`, falls back to the image one); the prompt marks the email as data. Always a proposal (author).
+IMAP's `imap_content` event (filtered on `entry_id`, `initial`, allowed senders) and `imap.fetch` for the full text. Sender rules: whole address, or domain with subdomains. Processed uids kept in settings, stored only after a successful analysis (a failed one is read again when IMAP announces the uid again); uids being read are held in memory against repeated events. Text goes to the text AI Task (`ai_task_text`, falls back to the image one); the prompt marks the email as data. Always a proposal (author). One proposal per order (author, 2026-11-23, #5): the email structure adds an optional `order_number`; an email belongs to an email proposal of the last 3 days (newest first, expired ones excluded) with the same normalized number or, when either has none, whose rows hold all its products (matched id, or else the normalized name). A pending one gets the newer rows (`EVENT_PURCHASES_PROPOSED` fires again, so the message is sent again); a confirmed, rejected or partly confirmed one (`confirmed_some`) drops the email with an info log.
 
 ## Notifications
 

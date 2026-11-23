@@ -58,6 +58,7 @@
 - List check (source type `ledger`, also offered in the guided setup) for any zone a photo shows badly (a closed cupboard, the fridge, a freezer): no photo requests and no "zone not updated" suggestion; the check sends the list, oldest first, with "−1", "finished" and "all right" buttons on Telegram, every `check_days` (default 30, 0 = on request), with `/check <zone>` (`/controlla`), the check button or by voice (the tool returns the five oldest products).
 
 ### Fixed
+- Order emails: an email whose reading failed is no longer lost; it is read again when the IMAP integration announces it again. The confirmation, shipping and delivery emails of one order give one proposal (same order number, or the same products within three days): a later email updates the proposal while it waits and is ignored once it was confirmed or rejected.
 - Copy to another todo list: a list that rewrites the text (capitals, as Bring! does) no longer gets a new copy at every sync. The copy is tracked by the uid it gets, and now follows renames and quantities (as the item's description, on lists that have one); an item whose uid cannot be found is copied once and then left alone.
 - The agent's tools and `quartermaster.ask` follow the write permissions: a user who may not write gets `not_allowed` instead of changing the inventory through Assist.
 - A Telegram message or a camera trigger is no longer handled again when its entity comes back with its restored state (restart, reload of the bot).
