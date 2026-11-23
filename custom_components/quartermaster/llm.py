@@ -157,9 +157,18 @@ class QuartermasterTool(llm.Tool):
         try:
             result = await self._async_run(runtime, args, channel, user_id, llm_context)
         except InventoryError as err:
+            extra: dict[str, Any] = {}
+            if err.translation_key == "zone_not_found":
+                # The zones ride along so the agent retries with the right
+                # name instead of spending a round on list_zones (#24).
+                extra["zones"] = [
+                    {"zone": zone.name, "aliases": zone.aliases}
+                    for zone in runtime.coordinator.data.zones.values()
+                ]
             return _error(
                 err.translation_key or "invalid",
                 **(err.translation_placeholders or {}),
+                **extra,
             )
         if self.writes:
             await runtime.coordinator.async_refresh_after_write()

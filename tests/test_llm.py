@@ -262,6 +262,21 @@ async def test_adjust_stock_rules(
     )["error"] == "zone_not_found"
 
 
+async def test_zone_not_found_lists_the_zones(
+    hass: HomeAssistant, kitchen: InventoryService
+) -> None:
+    """An unknown zone returns the zones, so the agent skips list_zones (#24)."""
+    result = await _tool(hass, "get_stock", zone="cantina")
+    assert result == {
+        "error": "zone_not_found",
+        "zone": "cantina",
+        "zones": [
+            {"zone": "Fridge", "aliases": ["frigo"]},
+            {"zone": "Garage", "aliases": ["garage"]},
+        ],
+    }
+
+
 async def test_adjust_stock_zone_ambiguity(
     hass: HomeAssistant, kitchen: InventoryService
 ) -> None:

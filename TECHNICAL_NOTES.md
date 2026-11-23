@@ -106,7 +106,7 @@ Checked against the official docs or, where marked, Home Assistant's source. Rec
 
 | Topic | Decision |
 | --- | --- |
-| Tools | Offered to the Assist API while the entry is loaded: list_zones, get_stock, get_missing, get_suggestions, get_expiring, get_shopping_list, add_to_shopping_list, remove_from_shopping_list, adjust_stock, undo_last, set_essential, create_product, check_zone, arm_show_mode, confirm_pending. Inventory errors become `error` results |
+| Tools | Offered to the Assist API while the entry is loaded: list_zones, get_stock, get_missing, get_suggestions, get_expiring, get_shopping_list, add_to_shopping_list, remove_from_shopping_list, adjust_stock, undo_last, set_essential, create_product, check_zone, arm_show_mode, confirm_pending. Inventory errors become `error` results; `zone_not_found` also carries `zones` (name and aliases) so the agent retries without a `list_zones` round (#24) |
 | Product search | Exact name or alias, then a singular/plural stem, then category; limited to the zone and to stocked products when consuming; best stocked first; at most 3 candidates |
 | Ambiguity | Several candidates: no write, `ambiguous` with candidates; a product in several zones without a zone: `ambiguous_zone`. Within an `ask` session the held-back action, quantity and zone are kept, so "la mozzarella" completes the write |
 | Not found | `not_found`, or `not_in_stock` for a known product at zero; the prompt offers the list and product creation |
