@@ -77,6 +77,7 @@ class QuartermasterShoppingList(QuartermasterEntity, TodoListEntity):
 
     async def async_create_todo_item(self, item: TodoItem) -> None:
         """Add a manual item."""
+        await self.async_check_writer()
         await self.coordinator.shopping.async_add(
             text=item.summary or "", note=item.description
         )
@@ -84,6 +85,7 @@ class QuartermasterShoppingList(QuartermasterEntity, TodoListEntity):
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
         """Rename, check or uncheck an item; checking may record the purchase."""
+        await self.async_check_writer()
         assert item.uid is not None
         current = next(
             (
@@ -114,6 +116,7 @@ class QuartermasterShoppingList(QuartermasterEntity, TodoListEntity):
 
     async def async_delete_todo_items(self, uids: list[str]) -> None:
         """Delete items."""
+        await self.async_check_writer()
         await self.coordinator.shopping.async_delete([int(uid) for uid in uids])
         await self.coordinator.async_refresh()
 
@@ -121,6 +124,7 @@ class QuartermasterShoppingList(QuartermasterEntity, TodoListEntity):
         self, uid: str, previous_uid: str | None = None
     ) -> None:
         """Reorder an item."""
+        await self.async_check_writer()
         await self.coordinator.shopping.async_move(
             int(uid), int(previous_uid) if previous_uid is not None else None
         )

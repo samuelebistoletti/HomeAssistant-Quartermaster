@@ -237,7 +237,7 @@ IMAP's `imap_content` event (filtered on `entry_id`, `initial`, allowed senders)
 | Entry name | The setup suggests "Quartermaster"; entity names are "<entry name> <entity name>" and keep that prefix (author) |
 | Options | Menu of groups (`async_show_menu`), one form each; a submitted group replaces only its keys; `OptionsFlowWithReload` |
 | Language | Option `language` (en, it) for phrases sent without a language, then the system language; entity names follow the user's UI language |
-| Permissions | Writes for administrators and `write_users`. Entities (todo, buttons, select, switch) rely on Home Assistant entity permissions (README states the limit) |
+| Permissions | Writes for administrators and `write_users`. Entities (todo, buttons, select, switch) check the same rule with the user of the context Home Assistant sets on the entity before an entity action (`Entity.async_set_context`, read as `self._context`, used the same way by core integrations); no user means allowed. Error `write_not_allowed` (author, 2026-11-15, #16) |
 | Diagnostics | Options with entity ids, chats and agent redacted; only counts, source types and statuses |
 | Missing AI entities | A repair issue per configured `ai_task_image`, `ai_task_text` or `agent_id` entity that is gone (`health.py`), checked at setup and on entity registry and state changes. Present means known to the entity registry or having a state, so an integration still starting raises nothing; agents given by config entry id are not checked. Unloading clears the issues |
 | Dashboard | Accepted for now (author, 2026-11-08): tile links from the current URL, picker language, upload errors translated by the dashboard, Go shopping not permission-checked, a reload after adding or deleting a zone |

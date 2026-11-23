@@ -69,8 +69,10 @@ class ShowModeSwitch(QuartermasterZoneEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Arm."""
+        await self.async_check_writer()
         self.coordinator.config_entry.runtime_data.show.async_arm(self.zone_id)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Disarm."""
+        await self.async_check_writer()
         self.coordinator.config_entry.runtime_data.show.async_disarm(self.zone_id)

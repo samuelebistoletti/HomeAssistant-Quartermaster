@@ -302,6 +302,9 @@
     "proposal_not_found": {
       "message": "No pending proposal {proposal}."
     },
+    "write_not_allowed": {
+      "message": "You may not change Quartermaster data: ask an administrator to add you under Permissions in the Quartermaster options."
+    },
     "path_not_allowed": {
       "message": "{path} is not in a folder Home Assistant may read (allowlist_external_dirs)."
     },

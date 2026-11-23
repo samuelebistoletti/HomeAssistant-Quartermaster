@@ -302,6 +302,9 @@
     "proposal_not_found": {
       "message": "Nessuna proposta in attesa {proposal}."
     },
+    "write_not_allowed": {
+      "message": "Non puoi modificare i dati di Quartermaster: chiedi a un amministratore di aggiungerti in Permessi nelle opzioni di Quartermaster."
+    },
     "path_not_allowed": {
       "message": "{path} non è in una cartella che Home Assistant può leggere (allowlist_external_dirs)."
     },

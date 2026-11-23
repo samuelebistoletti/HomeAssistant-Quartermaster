@@ -8,7 +8,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.auth.models import User
+from homeassistant.core import Context, HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import issue_registry as ir
 import pytest
@@ -550,7 +551,7 @@ async def test_reload_clears_suspension(hass: HomeAssistant, show: Any) -> None:
     assert registry.async_get_issue(DOMAIN, GARAGE_ISSUE) is None
 
 
-async def test_limits(hass: HomeAssistant, show: Any) -> None:
+async def test_limits(hass: HomeAssistant, show: Any, guest_user: User) -> None:
     """Hours, cooldown and daily limits are respected; disarm works."""
     entry, _, model, passata = show
     manager = entry.runtime_data.show
@@ -573,6 +574,17 @@ async def test_limits(hass: HomeAssistant, show: Any) -> None:
     assert not manager.is_armed("garage")
     with pytest.raises(InventoryError):
         manager.async_arm("yard")
+
+    # A user who may not write cannot arm show mode (#16).
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            "switch",
+            "turn_on",
+            target={"entity_id": "switch.quartermaster_show_mode_garage"},
+            blocking=True,
+            context=Context(user_id=guest_user.id),
+        )
+    assert not manager.is_armed("garage")
 
 
 async def test_single_attachment_fallback_and_trigger(

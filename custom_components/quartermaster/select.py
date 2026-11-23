@@ -47,6 +47,7 @@ class UpdateModeSelect(QuartermasterEntity, SelectEntity):
 
     async def async_select_option(self, option: str) -> None:
         """Store the new mode."""
+        await self.async_check_writer()
         await self.coordinator.inventory.backend.async_set_setting(
             SETTING_UPDATE_MODE, UpdateMode(option).value
         )

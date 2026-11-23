@@ -5,11 +5,13 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 
 from homeassistant.core import callback
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from custom_components.quartermaster.channels.websocket import can_write
 from custom_components.quartermaster.const import DOMAIN
 from custom_components.quartermaster.coordinator import QuartermasterCoordinator
 from custom_components.quartermaster.core.zones import SourceType
@@ -31,6 +33,22 @@ class QuartermasterEntity(CoordinatorEntity[QuartermasterCoordinator]):
             name=entry.title,
             entry_type=DeviceEntryType.SERVICE,
         )
+
+    async def async_check_writer(self) -> None:
+        """Refuse a change from a user who may not write (#16).
+
+        Home Assistant sets the calling context on the entity before an
+        entity action runs; calls without a user (automations) are allowed,
+        as for the integration's own actions.
+        """
+        context = self._context
+        if context is None or context.user_id is None:
+            return
+        user = await self.hass.auth.async_get_user(context.user_id)
+        if not can_write(self.coordinator.config_entry.runtime_data, user):
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="write_not_allowed"
+            )
 
 
 class QuartermasterZoneEntity(QuartermasterEntity):

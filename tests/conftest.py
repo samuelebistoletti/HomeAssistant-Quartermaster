@@ -5,10 +5,12 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+from homeassistant.auth.const import GROUP_ID_USER
+from homeassistant.auth.models import User
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 import pytest
-from pytest_homeassistant.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry, MockUser
 
 from custom_components.quartermaster.const import DOMAIN
 from custom_components.quartermaster.core.inventory import InventoryService
@@ -25,6 +27,14 @@ async def config_dir(hass: HomeAssistant, tmp_path: Path) -> Path:
     hass.config.config_dir = str(tmp_path)
     assert await async_setup_component(hass, "homeassistant", {})
     return tmp_path
+
+
+@pytest.fixture
+async def guest_user(hass: HomeAssistant) -> User:
+    """A non-admin user Home Assistant lets control entities (Users group)."""
+    group = await hass.auth.async_get_group(GROUP_ID_USER)
+    assert group is not None
+    return MockUser(name="Guest", groups=[group]).add_to_hass(hass)
 
 
 @pytest.fixture

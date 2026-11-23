@@ -42,6 +42,7 @@ class StartShoppingButton(QuartermasterEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         """Start shopping."""
+        await self.async_check_writer()
         await self.coordinator.async_start_shopping()
 
 
@@ -54,6 +55,7 @@ class UndoLastButton(QuartermasterEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         """Undo."""
+        await self.async_check_writer()
         await self.coordinator.inventory.async_undo_last(channel=Channel.DASHBOARD)
 
 
@@ -66,6 +68,7 @@ class CheckZoneButton(QuartermasterZoneEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         """Run the zone check in the background."""
+        await self.async_check_writer()
         zones = self.coordinator.config_entry.runtime_data.zones
         self.coordinator.config_entry.async_create_background_task(
             self.hass,

@@ -7,7 +7,7 @@ from typing import Any
 
 from homeassistant.auth.models import User
 from homeassistant.core import Context, HomeAssistant
-from homeassistant.exceptions import Unauthorized
+from homeassistant.exceptions import ServiceValidationError, Unauthorized
 import pytest
 from pytest_homeassistant.common import MockConfigEntry
 
@@ -217,3 +217,53 @@ async def test_subscription_survives_a_reload(
         milk = next(p for p in update["event"]["products"] if p["name"] == "Milk")
         if milk["total"] == 5:
             break
+
+
+async def test_entities_check_write_users(
+    hass: HomeAssistant,
+    init_integration: MockConfigEntry,
+    stocked: InventoryService,
+    guest_user: User,
+) -> None:
+    """Entity changes follow the write permission too (#16)."""
+    guest = Context(user_id=guest_user.id)
+    todo = {"entity_id": "todo.quartermaster_shopping_list"}
+    calls: list[tuple[str, str, dict[str, Any]]] = [
+        ("todo", "add_item", {**todo, "item": "Bread"}),
+        ("todo", "update_item", {**todo, "item": "Milk", "status": "completed"}),
+        ("todo", "remove_item", {**todo, "item": "Milk"}),
+        ("button", "press", {"entity_id": "button.quartermaster_go_shopping"}),
+        (
+            "button",
+            "press",
+            {"entity_id": "button.quartermaster_undo_last_operation"},
+        ),
+        (
+            "select",
+            "select_option",
+            {"entity_id": "select.quartermaster_update_mode", "option": "automatic"},
+        ),
+    ]
+    before = await stocked.backend.async_list_stock()
+    for domain, action, data in calls:
+        with pytest.raises(ServiceValidationError) as err:
+            await hass.services.async_call(
+                domain, action, data, blocking=True, context=guest
+            )
+        assert err.value.translation_key == "write_not_allowed"
+    assert await stocked.backend.async_list_stock() == before
+    assert hass.states.get("select.quartermaster_update_mode").state != "automatic"  # type: ignore[union-attr]
+
+    # Automations (no user) and the users chosen in the options may write.
+    await hass.services.async_call(
+        "todo", "add_item", {**todo, "item": "Bread"}, blocking=True
+    )
+    hass.config_entries.async_update_entry(
+        init_integration,
+        options={**init_integration.options, CONF_WRITE_USERS: [guest_user.id]},
+    )
+    await hass.services.async_call(
+        "todo", "add_item", {**todo, "item": "Eggs"}, blocking=True, context=guest
+    )
+    items = await stocked.backend.async_list_shopping_items()
+    assert {"Bread", "Eggs"} <= {item.text for item in items}
