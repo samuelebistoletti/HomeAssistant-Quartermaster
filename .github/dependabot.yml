@@ -4,6 +4,12 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Pinned to Home Assistant's conversation manifest (requirements_test.txt);
+    # they move with pytest-homeassistant, not with PyPI.
+    ignore:
+      - dependency-name: gazetteer-matcher
+      - dependency-name: hassil
+      - dependency-name: home-assistant-intents
   - package-ecosystem: github-actions
     directory: /
     schedule:
