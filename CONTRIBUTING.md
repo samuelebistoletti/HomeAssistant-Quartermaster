@@ -30,6 +30,8 @@ pip install -r requirements_test.txt
 python -m pytest
 ```
 
+When the system Python has moved past 3.14 (Homebrew installs only the newest by default), build the venv with uv instead: `uv venv --python 3.14 .venv && uv pip install --python .venv/bin/python -r requirements_test.txt`. A venv whose Python was removed fails with `no such file or directory: .venv/bin/python`; delete it and build it again.
+
 ## Local Development Environment
 
 ### Prerequisites
